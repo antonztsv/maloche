@@ -96,9 +96,9 @@ public enum Reports {
         of period: Period, blocks: [Block], activities: [Activity], projects: [Project], customers: [Customer],
         calendar: Calendar
     ) -> PeriodSummary {
-        let activitiesById = byId(activities)
-        let projectsById = byId(projects)
-        let customersById = byId(customers)
+        let activitiesById = activities.byId
+        let projectsById = projects.byId
+        let customersById = customers.byId
         var days: [DaySummary] = []
         var entries: [ReportEntry] = []
         var workByActivity: [Int64: TimeInterval] = [:]
@@ -148,10 +148,6 @@ public enum Reports {
             customers: longestFirst(customerTotals, \.duration) { $0.customer?.name ?? "" }, entries: entries)
     }
 
-    private static func byId<T: Identifiable>(_ items: [T]) -> [Int64: T] where T.ID == Int64? {
-        Dictionary(items.compactMap { item in item.id.map { ($0, item) } }) { first, _ in first }
-    }
-
     private static func sum(_ totals: [ActivityTotal]) -> TimeInterval {
         totals.reduce(0) { $0 + $1.duration }
     }
@@ -167,5 +163,11 @@ extension Activity {
     /// The project's customer when the activity has a project, otherwise its own.
     func customerId(projects: [Int64: Project]) -> Int64? {
         if let projectId, let project = projects[projectId] { project.customerId } else { customerId }
+    }
+}
+
+extension Array where Element: Identifiable, Element.ID == Int64? {
+    var byId: [Int64: Element] {
+        Dictionary(compactMap { item in item.id.map { ($0, item) } }) { first, _ in first }
     }
 }
