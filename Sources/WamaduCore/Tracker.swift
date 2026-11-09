@@ -3,10 +3,15 @@ import Foundation
 public struct TrackerSettings: Codable, Equatable, Sendable {
     public var checkInInterval: TimeInterval
     public var awayThreshold: TimeInterval
+    public var schedule: WorkSchedule
 
-    public init(checkInInterval: TimeInterval = 15 * 60, awayThreshold: TimeInterval = 15 * 60) {
+    public init(
+        checkInInterval: TimeInterval = 15 * 60, awayThreshold: TimeInterval = 15 * 60,
+        schedule: WorkSchedule = .standard
+    ) {
         self.checkInInterval = checkInInterval
         self.awayThreshold = awayThreshold
+        self.schedule = schedule
     }
 }
 
@@ -49,6 +54,15 @@ public enum TrackerEvent: Equatable, Sendable {
     case stillOnBreak
     /// The menu bar icon was clicked during a break.
     case openedDuringBreak
+    case doneForToday
+    /// The button in the "That's it for today" panel.
+    case keepTracking
+    /// Off for the given seconds, or for this session when nil.
+    case turnOff(for: TimeInterval?)
+    case turnOn
+    /// Books the activity without check-ins for the given seconds, or until stopped when nil.
+    case continueWithoutAsking(Int64, for: TimeInterval?)
+    case stopContinuing
 }
 
 public enum TrackerEffect: Equatable, Sendable {
@@ -70,6 +84,8 @@ public struct TrackerState: Codable, Equatable, Sendable {
         case awayReturn(since: Date, backAt: Date)
         case onBreak(idleSeen: Bool)
         case breakReturn(returnAt: Date)
+        case continuing(until: Date?)
+        case off(until: Date?)
     }
 
     var phase = Phase.waiting
@@ -84,6 +100,9 @@ public struct TrackerState: Codable, Equatable, Sendable {
     var lastBookAt = Date.distantPast
     var day: Date?
     var answeredDay: Date?
+    var doneDay: Date?
+    /// Turned on outside the plan, lasts until done, off or the next absence.
+    var override = false
     /// Spans that ran without any activity, booked on the first activity named.
     var unassigned: [DateInterval] = []
 
@@ -112,9 +131,10 @@ public struct Tracker: Sendable {
 
     public var mode: TrackerMode {
         switch state.phase {
-        case .waiting: .off
+        case .waiting, .off: .off
         case .tracking, .away, .awayReturn: .tracking
         case .onBreak, .breakReturn: .onBreak
+        case .continuing: .continuing
         }
     }
 
@@ -133,6 +153,7 @@ public struct Tracker: Sendable {
             state.lastInput = max(state.lastInput, Self.whole(since))
             switch state.phase {
             case .tracking, .awayReturn: goAway(since: state.lastInput)
+            case .continuing: goAway(since: self.now)
             default: break
             }
         case .appLaunched:
@@ -140,6 +161,7 @@ public struct Tracker: Sendable {
                 tickGap()
             }
             state.lastTick = self.now
+            if state.phase == .off(until: nil) { endOff(at: self.now) }
             showPendingPrompt()
         default:
             state.lastInput = max(state.lastInput, self.now)
@@ -160,15 +182,19 @@ public struct Tracker: Sendable {
             effects += parts.map(TrackerEffect.book)
             run(parts[parts.count - 1].activityId, from: parts[parts.count - 1].startedAt, source: .split)
             answered()
-        case (.switchActivity(let id), .tracking):
-            bookRun(until: now)
-            run(id, from: now, source: .manual)
-            answered()
+        case (.switchActivity, .away), (.continueWithoutAsking, .away):
+            break
+        case (.switchActivity(let id), _):
+            begin(id, source: .manual, phase: .tracking)
+        case (.continueWithoutAsking(let id, let duration), _):
+            begin(id, source: .continued, phase: .continuing(until: duration.map { Self.whole(now + $0) }))
+        case (.stopContinuing, .continuing):
+            finishContinuing(at: now)
         case (.awayAnswered(let answer), .awayReturn(let since, let backAt)):
             answerAway(answer, since: since, backAt: backAt)
         case (.awayDismissed, .awayReturn(let since, let backAt)):
             answerAway(.break, since: since, backAt: backAt)
-        case (.startBreak, .tracking), (.startBreak, .awayReturn):
+        case (.startBreak, .tracking), (.startBreak, .awayReturn), (.startBreak, .continuing):
             leave()
             state.phase = .onBreak(idleSeen: false)
             state.runStart = now
@@ -183,6 +209,13 @@ public struct Tracker: Sendable {
             answered()
         case (.stillOnBreak, .breakReturn):
             state.phase = .onBreak(idleSeen: false)
+        case (.doneForToday, _):
+            stop(.waiting)
+            state.doneDay = calendar.startOfDay(for: now)
+        case (.turnOff(let duration), _):
+            stop(.off(until: duration.map { Self.whole(now + $0) }))
+        case (.turnOn, .waiting), (.turnOn, .off), (.keepTracking, .waiting), (.keepTracking, .off):
+            turnOn()
         default:
             break
         }
@@ -200,15 +233,37 @@ public struct Tracker: Sendable {
 
     private mutating func step() {
         let present = now.timeIntervalSince(state.lastInput) < settings.awayThreshold
+        if isRunning, dayOver {
+            endDay()
+            return
+        }
         switch state.phase {
         case .waiting:
-            if present { resume(at: state.lastInput) }
+            guard present, state.doneDay != calendar.startOfDay(for: now),
+                let plan = settings.schedule.interval(on: now, calendar: calendar),
+                state.lastInput >= plan.start, now < plan.end
+            else { break }
+            resume(at: state.lastInput)
+        case .off(let until):
+            guard let until, now >= until else { break }
+            endOff(at: until)
         case .tracking, .awayReturn:
             if present { provisional() } else { goAway(since: state.lastInput) }
         case .away(let since):
+            if dayOver {
+                state.phase = .waiting
+                break
+            }
             // idle is still short right after a lock, so back needs an input after the absence began
             guard present, state.lastInput > since else { break }
             let backAt = state.lastInput
+            let overrideEnds = !insidePlan(backAt) || calendar.startOfDay(for: backAt) != state.day
+            if state.override, overrideEnds {
+                state.override = false
+                state.phase = .waiting
+                break
+            }
+            state.override = false
             state.phase = .awayReturn(since: since, backAt: backAt)
             state.runStart = backAt
             state.runSource = .checkIn
@@ -223,6 +278,8 @@ public struct Tracker: Sendable {
             }
         case .breakReturn:
             provisional()
+        case .continuing(let until):
+            if let until, now >= until { finishContinuing(at: until) } else { provisional() }
         }
     }
 
@@ -230,7 +287,16 @@ public struct Tracker: Sendable {
     private mutating func tickGap() {
         switch state.phase {
         case .tracking, .awayReturn: goAway(since: state.lastInput)
-        case .onBreak: state.phase = .onBreak(idleSeen: true)
+        case .continuing: goAway(since: state.lastTick ?? now)
+        case .onBreak, .breakReturn:
+            if dayOver {
+                endDay()
+            } else if case .onBreak = state.phase {
+                state.phase = .onBreak(idleSeen: true)
+            }
+        case .off(let until?) where until <= now:
+            // the end passed while the app did not run, tracking restarts with the next input
+            state.phase = .waiting
         default: break
         }
     }
@@ -243,6 +309,43 @@ public struct Tracker: Sendable {
         state.runStart = start
         state.runSource = .checkIn
         state.spanStart = start
+        state.lastInput = max(state.lastInput, start)
+    }
+
+    private mutating func turnOn() {
+        resume(at: now)
+        state.override = !insidePlan(now)
+    }
+
+    private mutating func endOff(at start: Date) {
+        if insidePlan(start) { resume(at: start) } else { state.phase = .waiting }
+    }
+
+    /// Starts running `id` now, from a running phase or from off.
+    private mutating func begin(_ id: Int64, source: BlockSource, phase: TrackerState.Phase) {
+        if isRunning { leave() } else { turnOn() }
+        state.phase = phase
+        run(id, from: now, source: source)
+        answered()
+    }
+
+    private mutating func finishContinuing(at end: Date) {
+        bookRun(until: end)
+        resume(at: end)
+    }
+
+    private mutating func stop(_ phase: TrackerState.Phase) {
+        if isRunning { leave() }
+        state.phase = phase
+        state.override = false
+    }
+
+    /// At the plan end the day ends with the last input; a pending away question counts as Break.
+    private mutating func endDay() {
+        settleAway()
+        closePrompt()
+        bookRun(until: min(runEnd, planEnd ?? runEnd))
+        state.phase = .waiting
     }
 
     private mutating func goAway(since: Date) {
@@ -288,6 +391,25 @@ public struct Tracker: Sendable {
         default:
             break
         }
+    }
+
+    private var isRunning: Bool {
+        switch state.phase {
+        case .waiting, .off, .away: false
+        default: true
+        }
+    }
+
+    private var planEnd: Date? {
+        state.day.flatMap { settings.schedule.interval(on: $0, calendar: calendar)?.end }
+    }
+
+    private var dayOver: Bool {
+        !state.override && now >= (planEnd ?? .distantPast)
+    }
+
+    private func insidePlan(_ date: Date) -> Bool {
+        settings.schedule.interval(on: date, calendar: calendar).map { $0.start <= date && date < $0.end } ?? false
     }
 
     // MARK: Answers
@@ -348,7 +470,13 @@ public struct Tracker: Sendable {
 
     private mutating func provisional() {
         guard running != nil, now >= state.lastBookAt + Self.bookingPause else { return }
-        bookRun(until: state.lastInput)
+        bookRun(until: runEnd)
+    }
+
+    /// Continuing counts time without input, every other phase up to the last input.
+    private var runEnd: Date {
+        if case .continuing = state.phase { return now }
+        return state.lastInput
     }
 
     private mutating func bookRun(until end: Date) {
