@@ -28,6 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         presence?.start()
 
         #if DEBUG
+            if let action = UserDefaults.standard.string(forKey: "SpikeLoginItem") {
+                LoginItem.runSpike(action)
+            }
             if UserDefaults.standard.bool(forKey: "SpikeSelfTest") {
                 Task { await panelController.runSelfTest() }
             }
