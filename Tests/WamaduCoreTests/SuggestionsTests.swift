@@ -108,4 +108,9 @@ import Testing
         #expect(Suggestions.exactMatch(for: "old stuff", in: activities) == nil)
         #expect(Suggestions.exactMatch(for: "", in: activities) == nil)
     }
+
+    @Test func exactMatchSkipsBuiltIns() {
+        #expect(Suggestions.exactMatch(for: "break", in: activities) == nil)
+        #expect(Suggestions.exactMatch(for: "Private", in: activities) == nil)
+    }
 }

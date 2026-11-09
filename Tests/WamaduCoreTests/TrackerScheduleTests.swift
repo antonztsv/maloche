@@ -232,7 +232,7 @@ import Testing
         #expect(h.blocks.map(\.source) == [.checkIn, .continued, .checkIn])
     }
 
-    @Test func runningBlockCrossesMidnightAndTheFirstAnswerIsPerDay() {
+    @Test func runningBlockCrossesMidnightAndTheFirstAnswerIsPerTrackingDay() {
         var h = Harness(at: "23:00", settings: Fixture.noCheckIns)
         h.tick()
         h.send(.turnOn)
@@ -241,7 +241,7 @@ import Testing
         h.pass(to: "2026-11-10 00:30")
         #expect(h.timeline == ["Writing 23:00-11-10 00:30"])
         h.send(.checkInAnswered(Fixture.reading))
-        #expect(h.timeline == ["Writing 23:00-23:30", "Reading 23:30-11-10 00:30"])
+        #expect(h.timeline == ["Writing 23:00-11-10 00:00", "Reading 11-10 00:00-11-10 00:30"])
     }
 
     @Test func doneForTodayIsPerCalendarDay() {
@@ -254,6 +254,62 @@ import Testing
         h.lastInput = h.now
         h.tick()
         #expect(h.tracker.mode == .tracking)
+    }
+
+    @Test func doneAfterMidnightEndsTheTrackingDay() {
+        var h = Harness(at: "23:00", settings: Fixture.noCheckIns)
+        h.tick()
+        h.send(.turnOn)
+        h.pass(to: "2026-11-10 00:30")
+        h.send(.doneForToday)
+        h.now = Fixture.at("2026-11-10 08:00")
+        h.lastInput = h.now
+        h.tick()
+        h.pass(to: "2026-11-10 12:00")
+        #expect(h.tracker.mode == .tracking)
+        #expect(h.timeline.last == "Writing 11-10 08:00-11-10 12:00")
+    }
+
+    @Test func turnOnBeforeThePlanEndsWithThePlan() {
+        var h = Harness(at: "07:50", settings: Fixture.noCheckIns)
+        h.tick()
+        h.send(.turnOn)
+        h.pass(to: "19:00")
+        #expect(h.timeline == ["Writing 07:50-18:00"])
+        #expect(h.tracker.mode == .off)
+    }
+
+    @Test func keepTrackingAfterDoneLetsTrackingRestartLaterThatDay() {
+        var h = Harness(at: "14:00", settings: Fixture.noCheckIns)
+        h.tick()
+        h.pass(to: "15:00")
+        h.send(.doneForToday)
+        h.pass(to: "15:10")
+        h.send(.keepTracking)
+        h.pass(to: "15:20")
+        h.send(.turnOff(for: 30 * 60))
+        h.now = Fixture.at("16:30")
+        h.lastInput = h.now
+        h.tick()
+        h.pass(to: "16:40")
+        #expect(h.timeline == ["Writing 14:00-15:00", "Writing 15:10-15:20", "Writing 16:30-16:40"])
+    }
+
+    @Test(arguments: [false, true])
+    func turnOffForTheSessionEndsWithTheCalendarDay(asleep: Bool) {
+        var h = Harness(at: "15:00", settings: Fixture.noCheckIns)
+        h.tick()
+        h.pass(to: "15:10")
+        h.send(.turnOff(for: nil))
+        if asleep {
+            h.now = Fixture.at("2026-11-10 08:04")
+            h.tick()
+        } else {
+            h.pass(to: "2026-11-10 08:04", idle: true)
+        }
+        #expect(h.tracker.mode == .off)
+        h.pass(to: "2026-11-10 08:10")
+        #expect(h.timeline == ["Writing 15:00-15:10", "Writing 11-10 08:05-11-10 08:10"])
     }
 
     @Test func stateSurvivesACodableRoundTrip() throws {

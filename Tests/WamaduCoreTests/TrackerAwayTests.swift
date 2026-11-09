@@ -196,4 +196,119 @@ import Testing
         h.pass(to: "13:10")
         #expect(h.timeline == ["Writing 08:00-12:00", "Break 12:00-13:00", "Writing 13:00-13:10"])
     }
+
+    @Test func lockBeforeAnsweringSettlesThePendingAbsenceAsBreak() {
+        var h = backFromAway()
+        h.pass(to: "10:50")
+        h.record(.systemAway(since: Fixture.at("10:50")))
+        #expect(h.takePrompts() == [awayPrompt, .hidePrompt])
+        #expect(h.timeline == ["Writing 08:00-10:00", "Break 10:00-10:40", "Writing 10:40-10:50"])
+        h.pass(to: "10:59", idle: true)
+        h.pass(to: "11:00")
+        #expect(h.takePrompts() == [.showAwayReturn(span: Fixture.span("10:50", "11:00"), prefill: Fixture.breakId)])
+    }
+
+    /// Back from a break at 12:40, the break return stays unanswered.
+    private func breakReturnPending() -> Harness {
+        var h = working(until: "12:00")
+        h.send(.startBreak)
+        h.pass(to: "12:39", idle: true)
+        h.pass(to: "12:40")
+        return h
+    }
+
+    private let breakReturnPrompt = TrackerEffect.showBreakReturn(
+        span: Fixture.span("12:00", "12:40"), prefill: Fixture.writing)
+
+    @Test func awayDuringAPendingBreakReturnEndsTheBreakAtTheReturn() {
+        var h = breakReturnPending()
+        h.pass(to: "13:00")
+        h.pass(to: "14:59", idle: true)
+        h.pass(to: "15:00")
+        #expect(
+            h.takePrompts() == [
+                breakReturnPrompt, .hidePrompt,
+                .showAwayReturn(span: Fixture.span("13:00", "15:00"), prefill: Fixture.breakId),
+            ])
+        #expect(h.timeline == ["Writing 08:00-12:00", "Break 12:00-12:40", "Writing 12:40-13:00"])
+        h.send(.breakReturnAnswered(Fixture.writing))
+        h.send(.awayAnswered(.break))
+        #expect(
+            h.timeline == ["Writing 08:00-12:00", "Break 12:00-12:40", "Writing 12:40-13:00", "Break 13:00-15:00"])
+    }
+
+    @Test(arguments: [false, true])
+    func lockOrSleepDuringAPendingBreakReturnIsAway(asleep: Bool) {
+        var h = breakReturnPending()
+        h.pass(to: "12:50")
+        if asleep {
+            h.now = Fixture.at("13:10")
+            h.lastInput = h.now
+            h.tick()
+        } else {
+            h.record(.systemAway(since: Fixture.at("12:50")))
+            h.pass(to: "13:09", idle: true)
+            h.pass(to: "13:10")
+        }
+        #expect(
+            h.takePrompts() == [
+                breakReturnPrompt, .hidePrompt,
+                .showAwayReturn(span: Fixture.span("12:50", "13:10"), prefill: Fixture.breakId),
+            ])
+        #expect(h.timeline == ["Writing 08:00-12:00", "Break 12:00-12:40", "Writing 12:40-12:50"])
+    }
+
+    @Test func iconClickDuringAPendingBreakReturnShowsItAgain() {
+        var h = breakReturnPending()
+        h.pass(to: "12:45")
+        h.send(.openedDuringBreak)
+        #expect(h.takePrompts() == [breakReturnPrompt, breakReturnPrompt])
+    }
+
+    /// Escape on the break return sends `stillOnBreak`.
+    @Test func escapeOnTheBreakReturnKeepsTheBreakAndTheNextReturnAsksAgain() {
+        var h = breakReturnPending()
+        h.send(.stillOnBreak)
+        h.pass(to: "12:45")
+        #expect(h.tracker.mode == .onBreak)
+        #expect(h.timeline == ["Writing 08:00-12:00", "Break 12:00-12:45"])
+        h.pass(to: "13:04", idle: true)
+        h.pass(to: "13:05")
+        #expect(
+            h.takePrompts() == [
+                breakReturnPrompt, .showBreakReturn(span: Fixture.span("12:00", "13:05"), prefill: Fixture.writing),
+            ])
+    }
+
+    @Test(arguments: [TrackerEvent.checkInAnswered(Fixture.breakId), .switchActivity(Fixture.breakId)])
+    func choosingBreakStartsABreak(event: TrackerEvent) {
+        var h = working(until: "12:00")
+        h.send(event)
+        #expect(h.tracker.mode == .onBreak)
+        h.pass(to: "12:39", idle: true)
+        h.pass(to: "12:40")
+        #expect(h.takePrompts() == [breakReturnPrompt])
+        #expect(h.timeline == ["Writing 08:00-12:00", "Break 12:00-12:40"])
+    }
+
+    @Test func breakChosenInAReturnPromptIsNotRunAsAnActivity() {
+        var h = breakReturnPending()
+        h.send(.breakReturnAnswered(Fixture.breakId))
+        #expect(h.tracker.mode == .onBreak)
+        var away = backFromAway()
+        away.send(.awayAnswered(.activity(Fixture.breakId)))
+        away.pass(to: "10:50")
+        #expect(away.timeline == ["Writing 08:00-10:00", "Break 10:00-10:40", "Writing 10:40-10:50"])
+    }
+
+    @Test func lockShorterThanTheThresholdEndsTheBreakWithTheNextInput() {
+        var h = working(until: "12:00")
+        h.send(.startBreak)
+        h.pass(to: "12:01")
+        h.record(.systemAway(since: Fixture.at("12:01")))
+        h.pass(to: "12:10", idle: true)
+        #expect(h.prompts.isEmpty)
+        h.pass(to: "12:11")
+        #expect(h.takePrompts() == [.showBreakReturn(span: Fixture.span("12:00", "12:11"), prefill: Fixture.writing)])
+    }
 }

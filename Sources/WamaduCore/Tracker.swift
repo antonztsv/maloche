@@ -57,7 +57,7 @@ public enum TrackerEvent: Equatable, Sendable {
     case doneForToday
     /// The button in the "That's it for today" panel.
     case keepTracking
-    /// Off for the given seconds, or for this session when nil.
+    /// Off for the given seconds, or when nil for this session, which also ends with the calendar day.
     case turnOff(for: TimeInterval?)
     case turnOn
     /// Books the activity without check-ins for the given seconds, or until stopped when nil.
@@ -92,7 +92,8 @@ public struct TrackerState: Codable, Equatable, Sendable {
         case away(since: Date)
         /// Back from away, the answer is pending while the current activity runs from `backAt`.
         case awayReturn(since: Date, backAt: Date)
-        case onBreak(idleSeen: Bool)
+        /// Away during the break since the given last input, the return needs an input after it.
+        case onBreak(awaySince: Date?)
         case breakReturn(returnAt: Date)
         case continuing(until: Date?)
         case off(until: Date?)
@@ -155,8 +156,11 @@ public struct Tracker: Sendable {
         effects = []
         switch event {
         case .tick(let idle):
-            if let lastTick = state.lastTick, self.now.timeIntervalSince(lastTick) > settings.awayThreshold {
-                tickGap()
+            if let lastTick = state.lastTick {
+                if self.now.timeIntervalSince(lastTick) > settings.awayThreshold { tickGap() }
+                if state.phase == .off(until: nil), !calendar.isDate(lastTick, inSameDayAs: self.now) {
+                    state.phase = .waiting
+                }
             }
             state.lastTick = self.now
             state.lastInput = max(state.lastInput, Self.whole(now - max(idle, 0)))
@@ -164,8 +168,9 @@ public struct Tracker: Sendable {
         case .systemAway(let since):
             state.lastInput = max(state.lastInput, min(Self.whole(since), self.now))
             switch state.phase {
-            case .tracking, .awayReturn: goAway(since: state.lastInput)
+            case .tracking, .awayReturn, .breakReturn: goAway(since: state.lastInput)
             case .continuing: goAway(since: self.now)
+            case .onBreak: state.phase = .onBreak(awaySince: state.lastInput)
             default: break
             }
         case .appLaunched:
@@ -184,6 +189,12 @@ public struct Tracker: Sendable {
 
     private mutating func userAction(_ event: TrackerEvent) {
         switch (event, state.phase) {
+        case (.checkInAnswered(builtIns.breakId), .tracking), (.switchActivity(builtIns.breakId), _):
+            userAction(.startBreak)
+        case (.breakReturnAnswered(builtIns.breakId), _):
+            userAction(.stillOnBreak)
+        case (.awayAnswered(.activity(builtIns.breakId)), _):
+            userAction(.awayAnswered(.break))
         case (.checkInAnswered(let id), .tracking):
             answer(id)
         case (.checkInDismissed, .tracking):
@@ -210,11 +221,13 @@ public struct Tracker: Sendable {
             answerAway(.break, since: since, backAt: backAt)
         case (.startBreak, .tracking), (.startBreak, .awayReturn), (.startBreak, .continuing):
             leave()
-            state.phase = .onBreak(idleSeen: false)
+            state.phase = .onBreak(awaySince: nil)
             state.runStart = now
             state.runSource = .manual
         case (.openedDuringBreak, .onBreak):
             returnFromBreak(at: now)
+        case (.openedDuringBreak, .breakReturn):
+            showPendingPrompt()
         case (.breakReturnAnswered(let id), .breakReturn(let returnAt)):
             bookRun(until: returnAt)
             state.phase = .tracking
@@ -222,10 +235,10 @@ public struct Tracker: Sendable {
             bookRun(until: now)
             answered()
         case (.stillOnBreak, .breakReturn):
-            state.phase = .onBreak(idleSeen: false)
+            state.phase = .onBreak(awaySince: nil)
         case (.doneForToday, _):
+            state.doneDay = isRunning ? state.day : calendar.startOfDay(for: now)
             stop(.waiting)
-            state.doneDay = calendar.startOfDay(for: now)
         case (.turnOff(let duration), _):
             stop(.off(until: duration.map { Self.whole(now + $0) }))
         case (.turnOn, .waiting), (.turnOn, .off), (.keepTracking, .waiting), (.keepTracking, .off):
@@ -247,6 +260,10 @@ public struct Tracker: Sendable {
 
     private mutating func step() {
         let present = now.timeIntervalSince(state.lastInput) < settings.awayThreshold
+        if state.override, isRunning, insidePlan(now) {
+            state.override = false
+            state.day = calendar.startOfDay(for: now)
+        }
         if isRunning, dayOver {
             endDay()
             return
@@ -261,7 +278,7 @@ public struct Tracker: Sendable {
         case .off(let until):
             guard let until, now >= until else { break }
             endOff(at: until)
-        case .tracking, .awayReturn:
+        case .tracking, .awayReturn, .breakReturn:
             guard present else {
                 goAway(since: state.lastInput)
                 break
@@ -287,16 +304,14 @@ public struct Tracker: Sendable {
             state.runStart = backAt
             state.runSource = .checkIn
             effects.append(.showAwayReturn(span: DateInterval(start: since, end: backAt), prefill: builtIns.breakId))
-        case .onBreak(let idleSeen):
+        case .onBreak(let awaySince):
             if !present {
-                state.phase = .onBreak(idleSeen: true)
-            } else if idleSeen {
+                if awaySince == nil { state.phase = .onBreak(awaySince: state.lastInput) }
+            } else if let awaySince, state.lastInput > awaySince {
                 returnFromBreak(at: state.lastInput)
             } else {
                 provisional()
             }
-        case .breakReturn:
-            provisional()
         case .continuing(let until):
             if let until, now >= until { finishContinuing(at: until) } else { provisional() }
         }
@@ -305,14 +320,10 @@ public struct Tracker: Sendable {
     /// The app did not tick for longer than the away threshold.
     private mutating func tickGap() {
         switch state.phase {
-        case .tracking, .awayReturn: goAway(since: state.lastInput)
+        case .tracking, .awayReturn, .breakReturn: goAway(since: state.lastInput)
         case .continuing: goAway(since: state.lastTick ?? now)
-        case .onBreak, .breakReturn:
-            if dayOver {
-                endDay()
-            } else if case .onBreak = state.phase {
-                state.phase = .onBreak(idleSeen: true)
-            }
+        case .onBreak where dayOver: endDay()
+        case .onBreak: state.phase = .onBreak(awaySince: state.lastInput)
         case .off(let until?) where until <= now:
             // the end passed while the app did not run, tracking restarts with the next input
             state.phase = .waiting
@@ -336,6 +347,7 @@ public struct Tracker: Sendable {
     private mutating func turnOn() {
         resume(at: now)
         state.override = !insidePlan(now)
+        state.doneDay = nil
     }
 
     private mutating func endOff(at start: Date) {
@@ -369,9 +381,16 @@ public struct Tracker: Sendable {
         state.phase = .waiting
     }
 
+    /// An unanswered break return ends the break at the return, the activity before the break runs until the absence.
     private mutating func goAway(since: Date) {
         settleAway()
         closePrompt()
+        if case .breakReturn(let returnAt) = state.phase {
+            bookRun(until: returnAt)
+            state.phase = .tracking
+            state.runStart = returnAt
+            state.runSource = .checkIn
+        }
         let since = max(since, state.runStart)
         bookRun(until: since)
         state.phase = .away(since: since)
@@ -454,7 +473,7 @@ public struct Tracker: Sendable {
         if id == state.current {
             bookRun(until: now)
         } else {
-            let firstOfDay = state.answeredDay != calendar.startOfDay(for: now) || state.current == nil
+            let firstOfDay = state.answeredDay != state.day || state.current == nil
             let span = state.spanStart
             let cut = firstOfDay ? span : Self.whole(span + now.timeIntervalSince(span) / 2)
             bookRun(until: cut)
@@ -483,7 +502,7 @@ public struct Tracker: Sendable {
         state.spanStart = now
         state.lastPromptAt = now
         state.checkInShown = false
-        state.answeredDay = calendar.startOfDay(for: now)
+        state.answeredDay = state.day
     }
 
     // MARK: Booking

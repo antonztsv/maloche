@@ -41,9 +41,11 @@ public enum Suggestions {
             }
     }
 
-    /// The non-archived activity named like the trimmed query, ignoring case; nil means the UI offers "Create".
+    /// The non-archived regular activity named like the trimmed query, ignoring case; nil means the UI offers "Create".
     public static func exactMatch(for query: String, in activities: [Activity]) -> Activity? {
         let name = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        return activities.first { !$0.archived && $0.name.caseInsensitiveCompare(name) == .orderedSame }
+        return activities.first {
+            !$0.archived && $0.kind == .regular && $0.name.caseInsensitiveCompare(name) == .orderedSame
+        }
     }
 }
