@@ -199,6 +199,30 @@ import Testing
         #expect(stored.map(\.endedAt) == [at(60)])
     }
 
+    @Test func databaseRejectsOverlapsThatBypassTheStore() throws {
+        let database = try AppDatabase.inMemory()
+        let writing = try #require(try database.createActivity(name: "Writing").id)
+        _ = try database.insert(block: block(writing, 0, 60))
+        _ = try database.insert(block: block(writing, 60, 120))
+        let before = try allBlocks(database)
+
+        #expect(throws: DatabaseError.self) {
+            try database.dbQueue.write { db in
+                var overlapping = block(writing, 30, 90)
+                try overlapping.insert(db)
+            }
+        }
+        #expect(throws: DatabaseError.self) {
+            try database.dbQueue.write { db in
+                var stretched = before[0]
+                stretched.endedAt = at(90)
+                try stretched.update(db)
+            }
+        }
+
+        #expect(try allBlocks(database) == before)
+    }
+
     @Test func blocksInIntervalReturnsOverlappingBlocksSortedByStart() throws {
         let database = try AppDatabase.inMemory()
         let writing = try #require(try database.createActivity(name: "Writing").id)

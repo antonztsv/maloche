@@ -61,6 +61,17 @@ public struct AppDatabase: Sendable {
                 t.column("source", .text).notNull()
                 t.check(sql: "endedAt > startedAt")
             }
+            for event in ["INSERT", "UPDATE"] {
+                try db.execute(
+                    sql: """
+                        CREATE TRIGGER block_no_overlap_\(event.lowercased()) BEFORE \(event) ON block
+                        WHEN EXISTS (
+                            SELECT 1 FROM block other
+                            WHERE other.startedAt < NEW.endedAt AND other.endedAt > NEW.startedAt
+                                AND other.id IS NOT NEW.id)
+                        BEGIN SELECT RAISE(ABORT, 'block overlaps another block'); END
+                        """)
+            }
         }
         return migrator
     }
