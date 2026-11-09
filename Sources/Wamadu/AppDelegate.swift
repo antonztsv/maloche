@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private let panelController = CheckInPanelController()
     private var spikeTimer: Timer?
+    private var presence: PresenceMonitor?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -22,6 +23,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelController.statusItem = item
 
         // Spike only: open the panel periodically, e.g. `open "wamadu Dev.app" --args -SpikeCheckInInterval 30`.
+        let idleThreshold = UserDefaults.standard.double(forKey: "SpikeIdleThreshold")
+        presence = PresenceMonitor(threshold: idleThreshold > 0 ? idleThreshold : 120)
+        presence?.start()
+
         #if DEBUG
             if UserDefaults.standard.bool(forKey: "SpikeSelfTest") {
                 Task { await panelController.runSelfTest() }
