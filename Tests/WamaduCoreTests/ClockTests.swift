@@ -6,7 +6,7 @@ import Testing
 @Suite struct ClockTests {
     @Test func systemClockReturnsCurrentTime() {
         let before = Date()
-        let now = SystemClock().now
+        let now = SystemWallClock().now
         #expect(now >= before)
         #expect(now <= Date())
     }

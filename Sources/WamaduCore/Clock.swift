@@ -1,10 +1,10 @@
 import Foundation
 
-public protocol Clock: Sendable {
+public protocol WallClock: Sendable {
     var now: Date { get }
 }
 
-public struct SystemClock: Clock {
+public struct SystemWallClock: WallClock {
     public init() {}
     public var now: Date { Date() }
 }

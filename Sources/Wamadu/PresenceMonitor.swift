@@ -12,12 +12,14 @@ struct SystemIdleSource: IdleSource {
 @MainActor
 final class PresenceMonitor {
     private let idleSource: IdleSource
+    private let clock: WallClock
     private var transitions: IdleTransitions
     private var timer: Timer?
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
 
-    init(idleSource: IdleSource = SystemIdleSource(), threshold: TimeInterval) {
+    init(idleSource: IdleSource = SystemIdleSource(), clock: WallClock = SystemWallClock(), threshold: TimeInterval) {
         self.idleSource = idleSource
+        self.clock = clock
         transitions = IdleTransitions(threshold: threshold)
     }
 
@@ -25,9 +27,12 @@ final class PresenceMonitor {
         spikeLog.notice(
             "presence: start, idle now \(Int(self.idleSource.secondsSinceLastInput))s, threshold \(Int(self.transitions.threshold))s"
         )
-        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { _ in
-            MainActor.assumeIsolated { self.poll() }
+        let timer = Timer(timeInterval: 5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.poll() }
         }
+        // common modes keep polling while a menu is open
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
         let workspace = NSWorkspace.shared.notificationCenter
         let distributed = DistributedNotificationCenter.default()
         let names: [(NotificationCenter, Notification.Name)] = [
@@ -49,8 +54,15 @@ final class PresenceMonitor {
         }
     }
 
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+        for (center, token) in observers { center.removeObserver(token) }
+        observers = []
+    }
+
     private func poll() {
-        if let event = transitions.update(idleSeconds: idleSource.secondsSinceLastInput, now: Date()) {
+        if let event = transitions.update(idleSeconds: idleSource.secondsSinceLastInput, now: clock.now) {
             spikeLog.notice("presence: \(String(describing: event), privacy: .public)")
         }
     }

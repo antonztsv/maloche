@@ -18,7 +18,6 @@ struct CheckInView: View {
             .padding(.horizontal, 4)
             TextField("Activity", text: $activity)
                 .textFieldStyle(.roundedBorder)
-                .controlSize(.large)
                 .focused($fieldFocused)
                 .onSubmit { onLog(activity) }
             HStack {
@@ -28,6 +27,7 @@ struct CheckInView: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
+        .controlSize(.large)
         .padding(12)
         .padding(.top, 4)
         .frame(width: 380)

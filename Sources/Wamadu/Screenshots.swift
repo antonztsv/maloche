@@ -40,10 +40,15 @@
             window.makeKeyAndOrderFront(nil)
             hosting.layoutSubtreeIfNeeded()
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-            guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { return }
+            guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else {
+                throw CocoaError(.fileWriteUnknown, userInfo: [NSFilePathErrorKey: url.path])
+            }
             hosting.cacheDisplay(in: hosting.bounds, to: rep)
             window.orderOut(nil)
-            try rep.representation(using: .png, properties: [:])?.write(to: url)
+            guard let png = rep.representation(using: .png, properties: [:]) else {
+                throw CocoaError(.fileWriteUnknown, userInfo: [NSFilePathErrorKey: url.path])
+            }
+            try png.write(to: url)
         }
     }
 #endif

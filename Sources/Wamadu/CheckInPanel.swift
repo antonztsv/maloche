@@ -58,10 +58,16 @@ final class CheckInPanelController {
     }
 
     func show(reason: String) {
+        // keeps what the user is typing when a timed check-in arrives while the panel is open
+        if panel.isVisible {
+            position()
+            panel.makeKeyAndOrderFront(nil)
+            return
+        }
         // a fresh hosting view per check-in resets the field and its focus
         let view = NSHostingView(
             rootView: CheckInView(onLog: { [weak self] text in
-                spikeLog.info("logged \(text, privacy: .public)")
+                spikeLog.info("logged \(text, privacy: .private)")
                 self?.panel.orderOut(nil)
             }))
         glass.contentView = view
@@ -82,13 +88,14 @@ final class CheckInPanelController {
 
     private func position() {
         let size = hosting?.fittingSize ?? panel.frame.size
-        let screen = Self.screenWithFrontmostWindow() ?? NSScreen.main ?? NSScreen.screens[0]
+        guard let screen = Self.screenWithFrontmostWindow() ?? NSScreen.main ?? NSScreen.screens.first else { return }
         var anchorOffset: CGFloat = 200
         if let button = statusItem?.button, let window = button.window, let buttonScreen = window.screen {
             anchorOffset = buttonScreen.frame.maxX - window.frame.midX
         }
         let frame = PanelPlacement.panelFrame(
-            size: size, anchorOffsetFromRight: anchorOffset, visibleFrame: screen.visibleFrame, margin: 6)
+            size: size, anchorOffsetFromRight: anchorOffset, screenFrame: screen.frame,
+            visibleFrame: screen.visibleFrame, margin: 6)
         panel.setFrame(frame, display: true)
     }
 

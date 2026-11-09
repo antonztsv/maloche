@@ -16,10 +16,11 @@ public enum PanelPlacement {
         CGRect(x: rect.minX, y: primaryScreenHeight - rect.maxY, width: rect.width, height: rect.height)
     }
 
+    /// The anchor is the status item's distance from the right edge of the full screen frame.
     public static func panelFrame(
-        size: CGSize, anchorOffsetFromRight: CGFloat, visibleFrame: CGRect, margin: CGFloat
+        size: CGSize, anchorOffsetFromRight: CGFloat, screenFrame: CGRect, visibleFrame: CGRect, margin: CGFloat
     ) -> CGRect {
-        let centeredX = visibleFrame.maxX - anchorOffsetFromRight - size.width / 2
+        let centeredX = screenFrame.maxX - anchorOffsetFromRight - size.width / 2
         let x = min(max(centeredX, visibleFrame.minX + margin), visibleFrame.maxX - margin - size.width)
         return CGRect(x: x, y: visibleFrame.maxY - margin - size.height, width: size.width, height: size.height)
     }

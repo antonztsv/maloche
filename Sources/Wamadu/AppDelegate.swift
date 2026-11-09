@@ -13,7 +13,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
             if let directory = Screenshots.outputDirectory {
-                do { try Screenshots.renderAll(to: directory) } catch { print("screenshots failed: \(error)") }
+                do {
+                    try Screenshots.renderAll(to: directory)
+                } catch {
+                    FileHandle.standardError.write(Data("screenshots failed: \(error)\n".utf8))
+                    exit(1)
+                }
                 NSApp.terminate(nil)
                 return
             }
@@ -44,9 +49,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
         let interval = UserDefaults.standard.double(forKey: "SpikeCheckInInterval")
         if interval > 0 {
-            spikeTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
-                MainActor.assumeIsolated { self.panelController.show(reason: "timer") }
+            let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.panelController.show(reason: "timer") }
             }
+            RunLoop.main.add(timer, forMode: .common)
+            spikeTimer = timer
         }
     }
 

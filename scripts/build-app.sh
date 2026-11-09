@@ -8,11 +8,11 @@ BASE_ID="io.github.antonztsv.wamadu"
 VERSION="0.1.0"
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 
-if [[ "${1:-}" == "--release" ]]; then
-  CONFIG=release; BUNDLE_ID="$BASE_ID"; NAME="wamadu"
-else
-  CONFIG=debug; BUNDLE_ID="$BASE_ID.dev"; NAME="wamadu Dev"
-fi
+case "${1:-}" in
+  --release) CONFIG=release; BUNDLE_ID="$BASE_ID"; NAME="wamadu" ;;
+  "") CONFIG=debug; BUNDLE_ID="$BASE_ID.dev"; NAME="wamadu Dev" ;;
+  *) echo "Usage: scripts/build-app.sh [--release]" >&2; exit 2 ;;
+esac
 
 swift build -c "$CONFIG" --product Wamadu
 BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
@@ -48,9 +48,9 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 
 IDENTITY="${WAMADU_SIGNING_IDENTITY:-wamadu Local Signing}"
-if ! security find-certificate -c "$IDENTITY" >/dev/null 2>&1; then
+if ! security find-identity -p codesigning | grep -qF "\"$IDENTITY\""; then
   echo "Signing identity \"$IDENTITY\" not found. Run scripts/make-signing-cert.sh once." >&2
   exit 1
 fi
-codesign --force --sign "$IDENTITY" --options runtime "$APP"
+codesign --force --sign "$IDENTITY" --options runtime --timestamp=none "$APP"
 echo "$APP"

@@ -28,14 +28,25 @@ import Testing
     @Test func panelHangsCenteredUnderAnchor() {
         let visible = CGRect(x: 0, y: 0, width: 1728, height: 1080)
         let frame = PanelPlacement.panelFrame(
-            size: CGSize(width: 380, height: 200), anchorOffsetFromRight: 400, visibleFrame: visible, margin: 6)
+            size: CGSize(width: 380, height: 200), anchorOffsetFromRight: 400, screenFrame: visible,
+            visibleFrame: visible, margin: 6)
         #expect(frame == CGRect(x: 1138, y: 874, width: 380, height: 200))
+    }
+
+    @Test func anchorIsMeasuredFromScreenEdgeNotFromDock() {
+        let screen = CGRect(x: 0, y: 0, width: 1728, height: 1117)
+        let visible = CGRect(x: 0, y: 0, width: 1650, height: 1080)
+        let frame = PanelPlacement.panelFrame(
+            size: CGSize(width: 380, height: 200), anchorOffsetFromRight: 400, screenFrame: screen,
+            visibleFrame: visible, margin: 6)
+        #expect(frame.midX == 1328)
     }
 
     @Test func panelStaysInsideScreenNearRightEdge() {
         let visible = CGRect(x: -1920, y: 0, width: 1920, height: 1050)
         let frame = PanelPlacement.panelFrame(
-            size: CGSize(width: 380, height: 200), anchorOffsetFromRight: 20, visibleFrame: visible, margin: 6)
+            size: CGSize(width: 380, height: 200), anchorOffsetFromRight: 20, screenFrame: visible,
+            visibleFrame: visible, margin: 6)
         #expect(frame.maxX == -6)
         #expect(frame.maxY == 1044)
     }
@@ -43,7 +54,8 @@ import Testing
     @Test func panelStaysInsideScreenNearLeftEdge() {
         let visible = CGRect(x: 0, y: 0, width: 800, height: 600)
         let frame = PanelPlacement.panelFrame(
-            size: CGSize(width: 380, height: 200), anchorOffsetFromRight: 790, visibleFrame: visible, margin: 6)
+            size: CGSize(width: 380, height: 200), anchorOffsetFromRight: 790, screenFrame: visible,
+            visibleFrame: visible, margin: 6)
         #expect(frame.minX == 6)
     }
 }
