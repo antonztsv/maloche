@@ -65,9 +65,19 @@ public enum TrackerEvent: Equatable, Sendable {
     case stopContinuing
 }
 
+public struct CheckInPrompt: Equatable, Sendable {
+    /// Since the last answer.
+    public var span: DateInterval
+    public var prefill: Int64?
+    /// The span is longer than one interval.
+    public var canSplit: Bool
+}
+
 public enum TrackerEffect: Equatable, Sendable {
     /// Insert the block. Re-booking a span is idempotent because a new block wins over the blocks it overlaps.
     case book(Block)
+    /// Show the check-in, or update the visible one and keep what the user typed.
+    case showCheckIn(CheckInPrompt)
     case showAwayReturn(span: DateInterval, prefill: Int64)
     case showBreakReturn(span: DateInterval, prefill: Int64?)
     /// Close the visible prompt. Sent only when the tracker ends a prompt the user did not answer.
@@ -95,6 +105,8 @@ public struct TrackerState: Codable, Equatable, Sendable {
     var runSource = BlockSource.checkIn
     /// Start of the span since the last answer.
     var spanStart = Date.distantPast
+    var lastPromptAt = Date.distantPast
+    var checkInShown = false
     var lastInput = Date.distantPast
     var lastTick: Date?
     var lastBookAt = Date.distantPast
@@ -147,10 +159,10 @@ public struct Tracker: Sendable {
                 tickGap()
             }
             state.lastTick = self.now
-            state.lastInput = max(state.lastInput, Self.whole(now - idle))
+            state.lastInput = max(state.lastInput, Self.whole(now - max(idle, 0)))
             advance()
         case .systemAway(let since):
-            state.lastInput = max(state.lastInput, Self.whole(since))
+            state.lastInput = max(state.lastInput, min(Self.whole(since), self.now))
             switch state.phase {
             case .tracking, .awayReturn: goAway(since: state.lastInput)
             case .continuing: goAway(since: self.now)
@@ -174,6 +186,8 @@ public struct Tracker: Sendable {
         switch (event, state.phase) {
         case (.checkInAnswered(let id), .tracking):
             answer(id)
+        case (.checkInDismissed, .tracking):
+            state.checkInShown = false
         case (.checkInSplit(let dividers, let activities), .tracking):
             let span = DateInterval(start: state.spanStart, end: now)
             guard let parts = try? SpanSplit.blocks(span: span, dividers: dividers, activities: activities)
@@ -248,7 +262,12 @@ public struct Tracker: Sendable {
             guard let until, now >= until else { break }
             endOff(at: until)
         case .tracking, .awayReturn:
-            if present { provisional() } else { goAway(since: state.lastInput) }
+            guard present else {
+                goAway(since: state.lastInput)
+                break
+            }
+            provisional()
+            if state.phase == .tracking { checkInIfDue() }
         case .away(let since):
             if dayOver {
                 state.phase = .waiting
@@ -309,6 +328,8 @@ public struct Tracker: Sendable {
         state.runStart = start
         state.runSource = .checkIn
         state.spanStart = start
+        state.lastPromptAt = start
+        state.checkInShown = false
         state.lastInput = max(state.lastInput, start)
     }
 
@@ -377,12 +398,27 @@ public struct Tracker: Sendable {
     private mutating func closePrompt() {
         switch state.phase {
         case .awayReturn, .breakReturn: effects.append(.hidePrompt)
-        default: break
+        default: if state.checkInShown { effects.append(.hidePrompt) }
         }
+        state.checkInShown = false
+    }
+
+    private mutating func checkInIfDue() {
+        guard now >= state.lastPromptAt + settings.checkInInterval else { return }
+        state.lastPromptAt = now
+        state.checkInShown = true
+        effects.append(.showCheckIn(checkInPrompt))
+    }
+
+    private var checkInPrompt: CheckInPrompt {
+        let span = DateInterval(start: state.spanStart, end: now)
+        return CheckInPrompt(span: span, prefill: state.current, canSplit: span.duration > settings.checkInInterval)
     }
 
     private mutating func showPendingPrompt() {
         switch state.phase {
+        case .tracking where state.checkInShown:
+            effects.append(.showCheckIn(checkInPrompt))
         case .awayReturn(let since, let backAt):
             effects.append(.showAwayReturn(span: DateInterval(start: since, end: backAt), prefill: builtIns.breakId))
         case .breakReturn(let returnAt):
@@ -445,6 +481,8 @@ public struct Tracker: Sendable {
 
     private mutating func answered() {
         state.spanStart = now
+        state.lastPromptAt = now
+        state.checkInShown = false
         state.answeredDay = calendar.startOfDay(for: now)
     }
 

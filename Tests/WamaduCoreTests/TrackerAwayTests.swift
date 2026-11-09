@@ -6,7 +6,7 @@ import Testing
 @Suite struct TrackerAwayTests {
     /// The day started at 08:00 with Writing, the user works until `time`.
     private func working(until time: String = "10:00", current: Int64? = Fixture.writing) -> Harness {
-        var h = Harness(current: current)
+        var h = Harness(current: current, settings: Fixture.noCheckIns)
         h.tick()
         h.pass(to: time)
         return h
@@ -72,6 +72,13 @@ import Testing
         #expect(h.prompts.isEmpty)
         h.pass(to: "10:10")
         #expect(h.takePrompts() == [.showAwayReturn(span: Fixture.span("10:00", "10:10"), prefill: Fixture.breakId)])
+        #expect(h.timeline == ["Writing 08:00-10:00"])
+    }
+
+    @Test func systemTimesInTheFutureAreNotBooked() {
+        var h = working()
+        h.record(.tick(idleSeconds: -60))
+        h.record(.systemAway(since: Fixture.at("10:30")))
         #expect(h.timeline == ["Writing 08:00-10:00"])
     }
 

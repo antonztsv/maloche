@@ -11,6 +11,8 @@ enum Fixture {
     static let privateId: Int64 = 101
     static let names: [Int64: String] = [1: "Writing", 2: "Reading", 3: "Meeting", 100: "Break", 101: "Private"]
     static let builtIns = BuiltInActivities(breakId: breakId, privateId: privateId)
+    /// For tests of other rules, check-ins never come due.
+    static let noCheckIns = TrackerSettings(checkInInterval: 7 * 24 * 3600)
 
     static let berlin: Calendar = {
         var calendar = Calendar(identifier: .gregorian)

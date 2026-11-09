@@ -4,7 +4,9 @@ import Testing
 @testable import WamaduCore
 
 @Suite struct TrackerScheduleTests {
-    private let sundayPlan = TrackerSettings(schedule: WorkSchedule(plans: [1: .init(start: 8 * 60, end: 18 * 60)]))
+    private let sundayPlan = TrackerSettings(
+        checkInInterval: Fixture.noCheckIns.checkInInterval,
+        schedule: WorkSchedule(plans: [1: .init(start: 8 * 60, end: 18 * 60)]))
 
     private func utc(_ text: String) -> Date {
         ISO8601DateFormatter().date(from: text)!
@@ -40,7 +42,7 @@ import Testing
     }
 
     @Test func dayStartsWithTheFirstInputInsideThePlan() {
-        var h = Harness(at: "07:30")
+        var h = Harness(at: "07:30", settings: Fixture.noCheckIns)
         h.tick()
         h.pass(to: "07:55")
         h.pass(to: "08:05", idle: true)
@@ -52,7 +54,7 @@ import Testing
     }
 
     @Test func planEndBooksUpToTheEndAndStops() {
-        var h = Harness(at: "17:00")
+        var h = Harness(at: "17:00", settings: Fixture.noCheckIns)
         h.tick()
         h.pass(to: "18:30")
         #expect(h.timeline == ["Writing 17:00-18:00"])
@@ -60,7 +62,7 @@ import Testing
     }
 
     @Test func planEndBooksUpToTheLastInputWhenIdle() {
-        var h = Harness(at: "17:00")
+        var h = Harness(at: "17:00", settings: Fixture.noCheckIns)
         h.tick()
         h.pass(to: "17:50")
         h.pass(to: "18:30", idle: true)
@@ -70,7 +72,7 @@ import Testing
     }
 
     @Test func awayAcrossThePlanEndEndsTheDayAtTheStartOfTheAbsence() {
-        var h = Harness(at: "17:00")
+        var h = Harness(at: "17:00", settings: Fixture.noCheckIns)
         h.tick()
         h.pass(to: "17:30")
         h.pass(to: "18:30", idle: true)
@@ -85,7 +87,7 @@ import Testing
     }
 
     @Test func sleepAcrossThePlanEndDoesNotAskTheNextMorning() {
-        var h = Harness(at: "17:00")
+        var h = Harness(at: "17:00", settings: Fixture.noCheckIns)
         h.tick()
         h.pass(to: "17:30")
         h.record(.systemAway(since: Fixture.at("17:30")))
@@ -98,7 +100,7 @@ import Testing
     }
 
     @Test func breakAcrossThePlanEndEndsTheDayAtTheLastInput() {
-        var h = Harness(at: "17:00")
+        var h = Harness(at: "17:00", settings: Fixture.noCheckIns)
         h.tick()
         h.pass(to: "17:30")
         h.send(.startBreak)
@@ -112,7 +114,7 @@ import Testing
     }
 
     @Test func doneForTodayStopsUntilTheNextDay() {
-        var h = Harness(at: "14:00")
+        var h = Harness(at: "14:00", settings: Fixture.noCheckIns)
         h.tick()
         h.pass(to: "15:00")
         h.send(.doneForToday)
@@ -127,7 +129,7 @@ import Testing
     }
 
     @Test func keepTrackingResumesAfterDone() {
-        var h = Harness(at: "14:00")
+        var h = Harness(at: "14:00", settings: Fixture.noCheckIns)
         h.tick()
         h.pass(to: "15:00")
         h.send(.doneForToday)
@@ -138,7 +140,7 @@ import Testing
     }
 
     @Test func turnOffForThirtyMinutesResumesWithThePreviousActivity() {
-        var h = Harness(at: "10:00")
+        var h = Harness(at: "10:00", settings: Fixture.noCheckIns)
         h.tick()
         h.pass(to: "10:20")
         h.send(.turnOff(for: 30 * 60))
@@ -151,7 +153,7 @@ import Testing
     }
 
     @Test func turnOffForTheSessionLastsUntilTurnOnOrRelaunch() throws {
-        var h = Harness(at: "10:00")
+        var h = Harness(at: "10:00", settings: Fixture.noCheckIns)
         h.tick()
         h.pass(to: "10:20")
         h.send(.turnOff(for: nil))
@@ -167,7 +169,7 @@ import Testing
     }
 
     @Test func turnOnOutsideThePlanTracksUntilTheNextAbsence() {
-        var h = Harness(at: "19:00")
+        var h = Harness(at: "19:00", settings: Fixture.noCheckIns)
         h.tick()
         #expect(h.tracker.mode == .off)
         h.send(.turnOn)
@@ -180,7 +182,7 @@ import Testing
     }
 
     @Test func turnOnBeforeThePlanAsksAfterAnAbsenceThatEndsInsideThePlan() {
-        var h = Harness(at: "07:00")
+        var h = Harness(at: "07:00", settings: Fixture.noCheckIns)
         h.tick()
         h.send(.turnOn)
         h.pass(to: "07:30")
@@ -190,7 +192,7 @@ import Testing
     }
 
     @Test func continueWithoutAskingIgnoresIdleUntilTheDurationEnds() {
-        var h = Harness(at: "10:00")
+        var h = Harness(at: "10:00", settings: Fixture.noCheckIns)
         h.tick()
         h.pass(to: "10:15")
         h.send(.continueWithoutAsking(Fixture.meeting, for: 60 * 60))
@@ -205,7 +207,7 @@ import Testing
     }
 
     @Test func lockDuringContinueMakesTheUserAwayFromTheLock() {
-        var h = Harness(at: "10:00")
+        var h = Harness(at: "10:00", settings: Fixture.noCheckIns)
         h.tick()
         h.pass(to: "10:15")
         h.send(.continueWithoutAsking(Fixture.meeting, for: nil))
@@ -219,7 +221,7 @@ import Testing
     }
 
     @Test func stopContinuingResumesNormalTracking() {
-        var h = Harness(at: "10:00")
+        var h = Harness(at: "10:00", settings: Fixture.noCheckIns)
         h.tick()
         h.pass(to: "10:15")
         h.send(.continueWithoutAsking(Fixture.meeting, for: nil))
@@ -231,7 +233,7 @@ import Testing
     }
 
     @Test func runningBlockCrossesMidnightAndTheFirstAnswerIsPerDay() {
-        var h = Harness(at: "23:00")
+        var h = Harness(at: "23:00", settings: Fixture.noCheckIns)
         h.tick()
         h.send(.turnOn)
         h.pass(to: "23:30")
@@ -243,7 +245,7 @@ import Testing
     }
 
     @Test func doneForTodayIsPerCalendarDay() {
-        var h = Harness(at: "23:00")
+        var h = Harness(at: "23:00", settings: Fixture.noCheckIns)
         h.tick()
         h.send(.turnOn)
         h.pass(to: "23:30")
@@ -255,7 +257,7 @@ import Testing
     }
 
     @Test func stateSurvivesACodableRoundTrip() throws {
-        var h = Harness(at: "19:00")
+        var h = Harness(at: "19:00", settings: Fixture.noCheckIns)
         h.tick()
         h.send(.turnOn)
         h.pass(to: "19:10")
