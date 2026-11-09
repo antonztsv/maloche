@@ -93,6 +93,14 @@ struct Harness {
         }
     }
 
+    /// Restarts the app from the persisted state.
+    mutating func relaunch() throws {
+        let state = try JSONDecoder().decode(TrackerState.self, from: JSONEncoder().encode(tracker.state))
+        tracker = Tracker(
+            settings: tracker.settings, calendar: Fixture.berlin, builtIns: Fixture.builtIns, state: state)
+        record(.appLaunched)
+    }
+
     mutating func takePrompts() -> [TrackerEffect] {
         defer { prompts = [] }
         return prompts
