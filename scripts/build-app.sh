@@ -15,12 +15,17 @@ else
 fi
 
 swift build -c "$CONFIG" --product Wamadu
-BIN="$(swift build -c "$CONFIG" --show-bin-path)/Wamadu"
+BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
 
 APP="build/$NAME.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/Wamadu"
+cp "$BIN_DIR/Wamadu" "$APP/Contents/MacOS/Wamadu"
+# compiled String Catalog goes into the main bundle, Bundle.module would need the resource bundle in the app root
+RESOURCES="$BIN_DIR/Wamadu_Wamadu.bundle/Contents/Resources"
+if [[ -d "$RESOURCES" ]]; then
+  cp -R "$RESOURCES/" "$APP/Contents/Resources/"
+fi
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
