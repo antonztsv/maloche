@@ -178,6 +178,15 @@ import Testing
         #expect(try allBlocks(database).isEmpty)
     }
 
+    @Test func bookingMovesLastUseOfTheActivityForwardOnly() throws {
+        let database = try AppDatabase.inMemory()
+        let writing = try #require(try database.createActivity(name: "Writing").id)
+        try database.insert(block: block(writing, 60, 120))
+        try database.insert(block: block(writing, 0, 30))
+        let activity = try database.activities().first { $0.id == writing }
+        #expect(activity?.lastUsedAt == at(120))
+    }
+
     @Test func invalidBlockLeavesStoredBlocksUntouched() throws {
         let database = try AppDatabase.inMemory()
         let writing = try #require(try database.createActivity(name: "Writing").id)

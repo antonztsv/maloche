@@ -77,6 +77,9 @@ extension AppDatabase {
             for updated in changes.updated { try updated.update(db) }
             var inserted = changes.inserted
             for index in inserted.indices { try inserted[index].insert(db) }
+            try db.execute(
+                sql: "UPDATE activity SET lastUsedAt = ? WHERE id = ? AND (lastUsedAt IS NULL OR lastUsedAt < ?)",
+                arguments: [block.endedAt, block.activityId, block.endedAt])
             return inserted[0]
         }
     }
