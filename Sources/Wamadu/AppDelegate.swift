@@ -11,6 +11,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var presence: PresenceMonitor?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        #if DEBUG
+            if let directory = Screenshots.outputDirectory {
+                do { try Screenshots.renderAll(to: directory) } catch { print("screenshots failed: \(error)") }
+                NSApp.terminate(nil)
+                return
+            }
+        #endif
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = item.button {
             button.image = NSImage(systemSymbolName: "clock", accessibilityDescription: "wamadu")
