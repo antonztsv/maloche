@@ -95,6 +95,15 @@ import Testing
         #expect(results == [0, 30 * 60, 15 * 60])
     }
 
+    @Test func touchingBlocksOfOneActivityAreRoundedAsOneEntry() {
+        let split = [
+            Block(activityId: 2, startedAt: local(9, 10, 20), endedAt: local(9, 10, 30), source: .split),
+            Block(activityId: 2, startedAt: local(9, 10), endedAt: local(9, 10, 20), source: .checkIn),
+        ]
+        let totals = RoundingSettings(stepMinutes: 15, mode: .up, level: .entry).apply(to: entries(split))
+        #expect(totals.byActivity == [2: 30 * 60])
+    }
+
     @Test func inputsStayUnchanged() {
         let input = blocks
         let blocksCopy = input

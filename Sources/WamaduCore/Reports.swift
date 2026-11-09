@@ -51,7 +51,7 @@ public struct DaySummary: Equatable, Sendable {
     public var workByCustomer: [Int64?: TimeInterval] = [:]
 }
 
-/// A work or break block clipped to one local day, the unit that rounding works on.
+/// Touching work or break blocks of one activity clipped to one local day, the unit that rounding works on.
 public struct ReportEntry: Equatable, Sendable {
     public var day: Date
     public var activityId: Int64
@@ -102,15 +102,22 @@ public enum Reports {
         var days: [DaySummary] = []
         var entries: [ReportEntry] = []
         var workByActivity: [Int64: TimeInterval] = [:]
+        let blocks = blocks.sorted { $0.startedAt < $1.startedAt }
         for interval in period.days(calendar: calendar) {
             var day = DaySummary(interval: interval)
+            var lastEnd: Date?
             for block in blocks {
                 guard let activity = activitiesById[block.activityId], activity.kind != .private else { continue }
                 let start = max(block.startedAt, interval.start)
                 let end = min(block.endedAt, interval.end)
                 guard start < end else { continue }
                 let duration = end.timeIntervalSince(start)
-                entries.append(ReportEntry(day: interval.start, activityId: block.activityId, duration: duration))
+                if lastEnd == start, entries.last?.activityId == block.activityId {
+                    entries[entries.count - 1].duration += duration
+                } else {
+                    entries.append(ReportEntry(day: interval.start, activityId: block.activityId, duration: duration))
+                }
+                lastEnd = end
                 day.start = min(day.start ?? start, start)
                 day.end = max(day.end ?? end, end)
                 if activity.kind == .break {
