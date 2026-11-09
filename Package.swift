@@ -8,9 +8,15 @@ let package = Package(
     products: [
         .executable(name: "Wamadu", targets: ["Wamadu"])
     ],
+    dependencies: [
+        .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.12.0")
+    ],
     targets: [
-        .target(name: "WamaduCore"),
+        .target(name: "WamaduCore", dependencies: [.product(name: "GRDB", package: "GRDB.swift")]),
         .executableTarget(name: "Wamadu", dependencies: ["WamaduCore"], resources: [.process("Resources")]),
-        .testTarget(name: "WamaduCoreTests", dependencies: ["WamaduCore"]),
+        .testTarget(
+            name: "WamaduCoreTests",
+            dependencies: ["WamaduCore", .product(name: "GRDB", package: "GRDB.swift")]
+        ),
     ]
 )
