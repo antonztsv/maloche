@@ -42,5 +42,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-codesign --force --sign - --options runtime "$APP"
+IDENTITY="${WAMADU_SIGNING_IDENTITY:-wamadu Local Signing}"
+if ! security find-certificate -c "$IDENTITY" >/dev/null 2>&1; then
+  echo "Signing identity \"$IDENTITY\" not found. Run scripts/make-signing-cert.sh once." >&2
+  exit 1
+fi
+codesign --force --sign "$IDENTITY" --options runtime "$APP"
 echo "$APP"
