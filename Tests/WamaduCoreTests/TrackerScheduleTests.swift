@@ -296,7 +296,7 @@ import Testing
     }
 
     @Test(arguments: [false, true])
-    func turnOffForTheSessionEndsWithTheCalendarDay(asleep: Bool) {
+    func turnOffForTheSessionSurvivesMidnightAndEndsWithARelaunch(asleep: Bool) throws {
         var h = Harness(at: "15:00", settings: Fixture.noCheckIns)
         h.tick()
         h.pass(to: "15:10")
@@ -307,9 +307,13 @@ import Testing
         } else {
             h.pass(to: "2026-11-10 08:04", idle: true)
         }
-        #expect(h.tracker.mode == .off)
         h.pass(to: "2026-11-10 08:10")
-        #expect(h.timeline == ["Writing 15:00-15:10", "Writing 11-10 08:05-11-10 08:10"])
+        #expect(h.tracker.mode == .off)
+        #expect(h.timeline == ["Writing 15:00-15:10"])
+        try h.relaunch()
+        h.pass(to: "2026-11-10 08:20")
+        #expect(h.tracker.mode == .tracking)
+        #expect(h.timeline == ["Writing 15:00-15:10", "Writing 11-10 08:10-11-10 08:20"])
     }
 
     @Test func stateSurvivesACodableRoundTrip() throws {

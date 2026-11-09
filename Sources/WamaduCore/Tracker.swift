@@ -57,7 +57,7 @@ public enum TrackerEvent: Equatable, Sendable {
     case doneForToday
     /// The button in the "That's it for today" panel.
     case keepTracking
-    /// Off for the given seconds, or when nil for this session, which also ends with the calendar day.
+    /// Off for the given seconds, or when nil until the app restarts.
     case turnOff(for: TimeInterval?)
     case turnOn
     /// Books the activity without check-ins for the given seconds, or until stopped when nil.
@@ -156,11 +156,8 @@ public struct Tracker: Sendable {
         effects = []
         switch event {
         case .tick(let idle):
-            if let lastTick = state.lastTick {
-                if self.now.timeIntervalSince(lastTick) > settings.awayThreshold { tickGap() }
-                if state.phase == .off(until: nil), !calendar.isDate(lastTick, inSameDayAs: self.now) {
-                    state.phase = .waiting
-                }
+            if let lastTick = state.lastTick, self.now.timeIntervalSince(lastTick) > settings.awayThreshold {
+                tickGap()
             }
             state.lastTick = self.now
             state.lastInput = max(state.lastInput, Self.whole(now - max(idle, 0)))
