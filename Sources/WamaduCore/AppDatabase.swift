@@ -29,18 +29,37 @@ public struct AppDatabase: Sendable {
     static var migrator: DatabaseMigrator {
         var migrator = DatabaseMigrator()
         migrator.registerMigration("v1") { db in
+            try db.create(table: "customer") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("name", .text).notNull().unique().collate(.nocase)
+                t.column("colorIndex", .integer).notNull()
+            }
+            try db.create(table: "project") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("name", .text).notNull()
+                t.belongsTo("customer", onDelete: .restrict)
+            }
             try db.create(table: "activity") { t in
                 t.autoIncrementedPrimaryKey("id")
                 t.column("name", .text).notNull()
+                t.belongsTo("project", onDelete: .restrict)
+                t.belongsTo("customer", onDelete: .restrict)
+                t.column("kind", .text).notNull().defaults(to: ActivityKind.regular.rawValue)
                 t.column("archived", .boolean).notNull().defaults(to: false)
                 t.column("lastUsedAt", .datetime)
+                t.check(sql: "projectId IS NULL OR customerId IS NULL")
             }
+            try db.create(
+                indexOn: "activity", columns: ["kind"], options: .unique, condition: Column("kind") != "regular")
+            try db.execute(
+                sql: "INSERT INTO activity (name, kind) VALUES ('Break', 'break'), ('Private', 'private')")
             try db.create(table: "block") { t in
                 t.autoIncrementedPrimaryKey("id")
                 t.belongsTo("activity", onDelete: .restrict).notNull()
-                t.column("start", .datetime).notNull()
-                t.column("end", .datetime).notNull()
+                t.column("startedAt", .datetime).notNull().indexed()
+                t.column("endedAt", .datetime).notNull()
                 t.column("source", .text).notNull()
+                t.check(sql: "endedAt > startedAt")
             }
         }
         return migrator

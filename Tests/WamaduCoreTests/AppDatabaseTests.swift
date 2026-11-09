@@ -32,12 +32,15 @@ import Testing
         try database.dbQueue.write { db in
             let activityId = try insertActivity(db, name: "Writing")
             try db.execute(
-                sql: #"INSERT INTO block (activityId, start, "end", source) VALUES (?, ?, ?, ?)"#,
+                sql: "INSERT INTO block (activityId, startedAt, endedAt, source) VALUES (?, ?, ?, ?)",
                 arguments: [activityId, start, end, "checkIn"])
         }
 
         let (activityRow, blockRow) = try database.dbQueue.read { db in
-            (try Row.fetchOne(db, sql: "SELECT * FROM activity"), try Row.fetchOne(db, sql: "SELECT * FROM block"))
+            (
+                try Row.fetchOne(db, sql: "SELECT * FROM activity WHERE kind = 'regular'"),
+                try Row.fetchOne(db, sql: "SELECT * FROM block")
+            )
         }
         let activity = try #require(activityRow)
         #expect(activity["name"] == "Writing")
@@ -46,8 +49,8 @@ import Testing
 
         let block = try #require(blockRow)
         #expect(block["activityId"] == (activity["id"] as Int64))
-        #expect(block["start"] == start)
-        #expect(block["end"] == end)
+        #expect(block["startedAt"] == start)
+        #expect(block["endedAt"] == end)
         #expect(block["source"] == "checkIn")
     }
 
@@ -57,7 +60,7 @@ import Testing
             let activityId = try insertActivity(db, name: "Writing")
             let start = Date(timeIntervalSince1970: 1_700_000_000)
             try db.execute(
-                sql: #"INSERT INTO block (activityId, start, "end", source) VALUES (?, ?, ?, ?)"#,
+                sql: "INSERT INTO block (activityId, startedAt, endedAt, source) VALUES (?, ?, ?, ?)",
                 arguments: [activityId, start, start.addingTimeInterval(60), "checkIn"])
 
             #expect(throws: DatabaseError.self) {
@@ -78,7 +81,9 @@ import Testing
 
         let reopened = try AppDatabase.open(at: url)
         let applied = try reopened.dbQueue.read { db in try AppDatabase.migrator.appliedMigrations(db) }
-        let names = try reopened.dbQueue.read { db in try String.fetchAll(db, sql: "SELECT name FROM activity") }
+        let names = try reopened.dbQueue.read { db in
+            try String.fetchAll(db, sql: "SELECT name FROM activity WHERE kind = 'regular'")
+        }
         #expect(applied == ["v1"])
         #expect(names == ["Writing"])
     }
