@@ -29,6 +29,8 @@ public enum TrackerEvent: Equatable, Sendable {
     /// Sent every few seconds; idle is the time since the last keyboard or mouse input.
     case tick(idleSeconds: TimeInterval)
     case checkInAnswered(Int64)
+    /// The span since the last answer split at n-1 dividers into n activities.
+    case checkInSplit(dividers: [Date], activities: [Int64])
     case checkInDismissed
     /// The panel was opened by hand to change the activity.
     case switchActivity(Int64)
@@ -98,6 +100,15 @@ public struct Tracker: Sendable {
         case .checkInAnswered(let id):
             guard state.phase == .tracking else { break }
             answer(id)
+        case .checkInSplit(let dividers, let activities):
+            let span = DateInterval(start: state.spanStart, end: self.now)
+            guard state.phase == .tracking,
+                let parts = try? SpanSplit.blocks(span: span, dividers: dividers, activities: activities)
+            else { break }
+            bookRun(until: span.start)
+            effects += parts.map(TrackerEffect.book)
+            run(parts[parts.count - 1].activityId, from: parts[parts.count - 1].startedAt, source: .split)
+            answered()
         case .checkInDismissed:
             break
         case .switchActivity(let id):
