@@ -24,7 +24,7 @@ struct MoreActionsMenu: View {
                 .disabled(model.activityToContinue == nil)
             }
             if model.mode == .off {
-                Button("Turn on tracking", action: model.keepTracking)
+                Button("Turn on tracking", action: model.turnOn)
             } else {
                 Menu("Turn off tracking") {
                     Button("For this session") { model.turnOff(for: nil) }

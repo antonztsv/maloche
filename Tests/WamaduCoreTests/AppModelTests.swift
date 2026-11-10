@@ -402,37 +402,41 @@ final class TestClock: WallClock, @unchecked Sendable {
 
     // MARK: More menu
 
-    @Test func doneForTodayShowsThatsItWithTheDayAndKeepTrackingResumes() throws {
+    @Test func doneForTodayClosesThePanelAndTheIconShowsThatsItUntilKeepTracking() throws {
         let model = try makeModel()
         let writing = try writingFrom0900(model)
         clock.now = Fixture.at("17:00")
         model.shortcut(.openCheckIn)
 
         model.doneForToday()
-        let blocks = try model.database.blocks(in: today.interval)
-        #expect(model.panel == .doneForToday(DashboardDay(period: today, blocks: blocks)))
-        #expect(presenter.isVisible)
+        #expect(model.panel == nil)
+        #expect(presenter.calls.last == "hide")
         #expect(model.tracker.mode == .off)
         #expect(try timeline(model) == ["Writing 09:00-17:00"])
 
         clock.now = Fixture.at("17:05")
+        model.statusItemClicked()
+        let blocks = try model.database.blocks(in: today.interval)
+        #expect(model.panel == .doneForToday(DashboardDay(period: today, blocks: blocks)))
         model.keepTracking()
         #expect(model.panel == nil)
         #expect(presenter.calls.last == "hide")
         #expect(model.tracker.mode == .tracking)
         #expect(model.nowRow == .activity(id: writing))
+
+        model.statusItemClicked()
+        #expect(shownDay(model)?.period == today)
     }
 
-    @Test func laterThatDayTheDashboardSaysTrackingIsOffAndKeepTrackingTurnsItOn() throws {
+    @Test func afterTurnOffTheDashboardSaysTrackingIsOffAndKeepTrackingKeepsIt() throws {
         let model = try makeModel()
         let writing = try writingFrom0900(model)
         clock.now = Fixture.at("12:00")
-        model.statusItemClicked()
-        model.doneForToday()
-        model.close()
+        model.turnOff(for: nil)
 
         tick(model, at: "13:00")
         model.statusItemClicked()
+        #expect(shownDay(model) != nil)
         #expect(model.nowRow == .off)
         model.keepTracking()
         #expect(shownDay(model) != nil)
@@ -447,12 +451,16 @@ final class TestClock: WallClock, @unchecked Sendable {
         model.turnOff(for: 30 * 60)
         #expect(model.tracker.state.phase == .off(until: Fixture.at("09:40")))
         #expect(model.tracker.mode == .off)
-        model.keepTracking()
+        model.turnOn()
         #expect(model.tracker.mode == .tracking)
 
         model.turnOff(for: nil)
         #expect(model.tracker.state.phase == .off(until: nil))
-        model.keepTracking()
+        model.turnOn()
+        #expect(model.tracker.mode == .tracking)
+
+        model.doneForToday()
+        model.turnOn()
         #expect(model.tracker.mode == .tracking)
     }
 
@@ -475,22 +483,52 @@ final class TestClock: WallClock, @unchecked Sendable {
         #expect(model.activityToContinue == nil)
     }
 
-    @Test func aMenuActionKeepsTheDashboardAndAnswersACheckIn() throws {
+    @Test func everyMenuActionClosesTheDashboard() throws {
         let model = try makeModel()
         _ = try writingFrom0900(model)
-        model.statusItemClicked()
-        model.turnOff(for: nil)
-        #expect(shownDay(model) != nil)
-        #expect(model.nowRow == .off)
-        model.keepTracking()
-        model.close()
+        let actions: [(name: String, run: () -> Void, mode: TrackerMode)] = [
+            ("turn off", { model.turnOff(for: nil) }, .off),
+            ("turn on", { model.turnOn() }, .tracking),
+            ("continue", { model.continueWithoutAsking(for: 3600) }, .continuing),
+            ("stop continuing", { model.stopContinuing() }, .tracking),
+            ("done for today", { model.doneForToday() }, .off),
+        ]
+        for action in actions {
+            model.statusItemClicked()
+            #expect(shownDay(model) != nil, "\(action.name)")
+            action.run()
+            #expect(model.panel == nil, "\(action.name)")
+            #expect(!presenter.isVisible, "\(action.name)")
+            #expect(model.tracker.mode == action.mode, "\(action.name)")
+        }
+    }
 
+    @Test func aMenuActionOnATimedCheckInOverTheDashboardClosesThePanelWithoutLosingTime() throws {
+        let model = try makeModel()
+        _ = try writingFrom0900(model)
+        clock.now = Fixture.at("09:10")
+        model.statusItemClicked()
         tick(model, at: "09:15")
         #expect(model.panel?.isPrompt == true)
+
         model.continueWithoutAsking(for: 3600)
         #expect(model.panel == nil)
         #expect(presenter.calls.last == "hide")
         #expect(!model.tracker.state.checkInShown)
+        clock.now = Fixture.at("09:30")
+        model.stopContinuing()
+        #expect(try timeline(model) == ["Writing 09:00-09:30"])
+    }
+
+    @Test func aMenuActionOnTheAwayReturnCountsItAsDismissed() throws {
+        let model = try makeModel()
+        _ = try backFromAway(model)
+        model.continueWithoutAsking(for: nil)
+        #expect(model.panel == nil)
+        #expect(presenter.calls.last == "hide")
+        clock.now = Fixture.at("09:52")
+        model.stopContinuing()
+        #expect(try timeline(model) == ["Writing 09:00-09:05", "Break 09:05-09:50", "Writing 09:50-09:52"])
     }
 
     // MARK: Shortcuts
@@ -575,8 +613,10 @@ final class TestClock: WallClock, @unchecked Sendable {
         model.log(.existing(writing))
 
         clock.now = Fixture.at("12:00")
-        model.statusItemClicked()
         model.doneForToday()
+        model.shortcut(.openDashboard)
+        if case .doneForToday = model.panel {} else { Issue.record("expected That's it for today") }
+        #expect(presenter.calls.last == "show(focus: true)")
         model.shortcut(.openDashboard)
         #expect(shownDay(model)?.period == today)
         #expect(presenter.calls.last == "focus")

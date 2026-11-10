@@ -180,7 +180,7 @@ public final class AppModel {
             closedByClickOutside = nil
             return
         }
-        reveal(.statusItem) { showDashboard(today) }
+        reveal(.statusItem) { showToday() }
     }
 
     /// A click outside closes what the user opened (dashboard, done panel, check-in by hand) without booking;
@@ -212,7 +212,7 @@ public final class AppModel {
         case .openDashboard:
             // a visible prompt stays, closing it would answer it
             if presenter.isVisible, case .doneForToday = panel { showDashboard(today) }
-            reveal(.shortcut) { showDashboard(today) }
+            reveal(.shortcut) { showToday() }
         }
     }
 
@@ -228,39 +228,54 @@ public final class AppModel {
         }
     }
 
+    /// Today's dashboard, after Done for today "That's it for today" until tracking resumes.
+    private func showToday() {
+        guard tracker.state.phase == .waiting, tracker.state.doneDay == calendar.startOfDay(for: now),
+            let day = day(today)
+        else { return showDashboard(today) }
+        panel = .doneForToday(day)
+        returnTo = nil
+    }
+
     /// Paging through the days.
     public func showDashboard(_ period: Period) {
         if let day = day(period) { panel = .dashboard(day) }
         returnTo = nil
     }
 
-    // MARK: More menu
+    // MARK: More menu, every action closes the panel and an open prompt counts as dismissed
 
     public func doneForToday() {
-        // without a prompt in the panel, the one the tracker ends does not close it
-        panel = nil
-        send(.doneForToday)
-        if let day = day(today) { panel = .doneForToday(day) } else { hidePanel() }
-        returnTo = nil
+        fromMenu(.doneForToday)
     }
 
     public func continueWithoutAsking(for duration: TimeInterval?) {
         guard let id = activityToContinue else { return }
-        act(.continueWithoutAsking(id, for: duration))
+        fromMenu(.continueWithoutAsking(id, for: duration))
     }
 
     public func stopContinuing() {
-        act(.stopContinuing)
+        fromMenu(.stopContinuing)
     }
 
     /// For the given seconds, or until the app restarts when nil.
     public func turnOff(for duration: TimeInterval?) {
-        act(.turnOff(for: duration))
+        fromMenu(.turnOff(for: duration))
     }
 
-    /// After Done for today, after Turn off or outside the plan.
+    public func turnOn() {
+        fromMenu(tracker.state.phase == .waiting ? .keepTracking : .turnOn)
+    }
+
+    /// The Keep tracking button after Done for today, after Turn off or outside the plan.
     public func keepTracking() {
         act(tracker.state.phase == .waiting ? .keepTracking : .turnOn)
+    }
+
+    private func fromMenu(_ event: TrackerEvent) {
+        dismiss()
+        send(event)
+        hidePanel()
     }
 
     public func startBreak() {
