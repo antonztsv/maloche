@@ -88,14 +88,25 @@ final class TemporaryFolder: @unchecked Sendable {
                     "wamadu 2026-11-09 11.00.sqlite",
                 ]).sorted())
 
-        // after the clock went back, the backup just written stays
+        // after the clock went back, the backups dated after the new one stay
         _ = try backUp(at: "07:00", keep: 3)
         #expect(
             try folder.names
                 == (foreign + [
-                    "wamadu 2026-11-09 07.00.sqlite", "wamadu 2026-11-09 10.00.sqlite",
-                    "wamadu 2026-11-09 11.00.sqlite",
+                    "wamadu 2026-11-09 07.00.sqlite", "wamadu 2026-11-09 09.00.sqlite",
+                    "wamadu 2026-11-09 10.00.sqlite", "wamadu 2026-11-09 11.00.sqlite",
                 ]).sorted())
+    }
+
+    @Test func backupsDatedAheadAreLeftAloneAndDoNotCount() throws {
+        for time in ["2030-01-01 00:00", "2030-01-02 00:00", "08:00", "09:00", "10:00", "11:00"] {
+            _ = try backUp(at: time, keep: 3)
+        }
+        #expect(
+            try folder.names == [
+                "wamadu 2026-11-09 09.00.sqlite", "wamadu 2026-11-09 10.00.sqlite", "wamadu 2026-11-09 11.00.sqlite",
+                "wamadu 2030-01-01 00.00.sqlite", "wamadu 2030-01-02 00.00.sqlite",
+            ])
     }
 
     @Test func aMissingFolderIsCreatedOnlyInsideAnExistingOne() throws {

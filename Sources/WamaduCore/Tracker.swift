@@ -165,6 +165,18 @@ public struct Tracker: Sendable {
         if let current = state.current, ids.contains(current) { state.current = target }
     }
 
+    /// After a restore: the running span, its unbooked time and a pending prompt are dropped; Done for today, Off and
+    /// the override stay, the current activity too while the restored data has it.
+    public mutating func restored(activities: Set<Int64>) {
+        switch state.phase {
+        case .waiting, .off: break
+        default: state.phase = .waiting
+        }
+        state.checkInShown = false
+        state.unassigned = []
+        if let current = state.current, !activities.contains(current) { state.current = nil }
+    }
+
     /// Since when the current activity or the break runs, nil while off or away.
     public var runningSince: Date? { isRunning ? state.runStart : nil }
 

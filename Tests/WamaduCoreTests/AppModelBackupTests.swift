@@ -173,6 +173,57 @@ import Testing
             })
     }
 
+    /// Writing, in the backup made at launch, answered by hand at 10:00.
+    private func writingAfterTheBackup() throws -> (AppModel, Int64, RestorableBackup) {
+        let model = try makeModel()
+        let writing = try model.database.createActivity(name: "Writing").id!
+        model.send(.appLaunched)
+        let saved = try #require(Backup.all(in: folder.url, calendar: Fixture.berlin).first)
+        tick(model, at: "10:00")
+        model.shortcut(.openCheckIn)
+        model.log(.existing(writing))
+        return (model, writing, try AppDatabase.readBackup(at: saved.url, calendar: Fixture.berlin))
+    }
+
+    @Test func doneForTodayStaysAfterARestore() throws {
+        let (model, writing, backup) = try writingAfterTheBackup()
+        model.doneForToday()
+
+        try model.restore(backup)
+        tick(model, at: "10:05")
+
+        #expect(model.mode == .off)
+        #expect(model.nowRow == .doneForToday)
+        #expect(model.currentActivity == writing)
+    }
+
+    @Test func aTimedOffStaysAfterARestore() throws {
+        let (model, writing, backup) = try writingAfterTheBackup()
+        model.turnOff(for: 30 * 60)
+
+        try model.restore(backup)
+        tick(model, at: "10:10")
+        #expect(model.mode == .off)
+
+        tick(model, at: "10:30")
+        #expect(model.mode == .tracking)
+        #expect(model.currentActivity == writing)
+    }
+
+    @Test func aRunningActivityInTheBackupStaysCurrentWithoutItsRunningSpan() throws {
+        let (model, writing, backup) = try writingAfterTheBackup()
+        tick(model, at: "10:20")
+
+        try model.restore(backup)
+        #expect(model.tracker.runningSince == nil)
+        #expect(model.currentActivity == writing)
+        #expect(try model.database.blocks(in: Fixture.span("00:00", "23:59")).isEmpty)
+
+        tick(model, at: "10:25")
+        #expect(model.nowRow == .activity(id: writing))
+        #expect(model.tracker.runningSince == Fixture.at("10:25"))
+    }
+
     @Test func aRestoreWithoutTheSafetyBackupChangesNothing() throws {
         defer { try? setWritable(true) }
         let model = try makeModel()

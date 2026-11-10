@@ -440,14 +440,15 @@ public final class AppModel {
         try? backUp()
     }
 
-    /// Backs up the current data first, then replaces it with the backup; the tracker starts fresh as after a launch.
+    /// Backs up the current data first, then replaces it with the backup; tracking continues from the next input.
     public func restore(_ backup: RestorableBackup) throws {
         try backUp()
         try database.restore(backup)
         hidePanel()
-        tracker = Tracker(settings: tracker.settings, calendar: calendar, builtIns: builtIns, state: TrackerState())
         reloadCatalog()
-        send(.appLaunched)
+        tracker.restored(activities: Set(catalog.activities.compactMap(\.id)))
+        publish()
+        saveState()
     }
 
     /// Once a day; a backup that did not go through is tried again after an hour.

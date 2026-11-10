@@ -40,7 +40,8 @@ public struct RestorableBackup: Sendable {
 }
 
 extension AppDatabase {
-    /// Writes a consistent copy into the folder, then deletes the oldest backups beyond `keep`, never the new one.
+    /// Writes a consistent copy into the folder, then deletes the oldest backups beyond `keep` among those dated up to
+    /// the new one, never the new one.
     @discardableResult
     public func backUp(to folder: URL, at date: Date, keep: Int, calendar: Calendar) throws -> Backup {
         let files = FileManager.default
@@ -57,10 +58,11 @@ extension AppDatabase {
         try copy.close()
         if files.fileExists(atPath: url.path(percentEncoded: false)) { try files.removeItem(at: url) }
         try files.moveItem(at: partial, to: url)
-        let others = Backup.all(in: folder, calendar: calendar).filter {
-            $0.url.lastPathComponent != url.lastPathComponent
+        // backups dated after this one, e.g. while the clock was ahead, are left alone
+        let older = Backup.all(in: folder, calendar: calendar).filter {
+            $0.url.lastPathComponent != url.lastPathComponent && $0.date <= date
         }
-        for old in others.dropLast(max(keep - 1, 0)) {
+        for old in older.dropLast(max(keep - 1, 0)) {
             // one that cannot be deleted now goes with the next backup
             try? files.removeItem(at: old.url)
         }
