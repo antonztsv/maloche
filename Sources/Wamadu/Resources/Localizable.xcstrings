@@ -276,7 +276,13 @@
     "End of part %lld" : {
 
     },
+    "End of work day" : {
+
+    },
     "End on %@" : {
+
+    },
+    "Every now and then, wamadu asks what you are working on. One answer, and your day fills itself." : {
 
     },
     "For %@" : {
@@ -298,6 +304,9 @@
 
     },
     "For this session" : {
+
+    },
+    "From" : {
 
     },
     "General" : {
@@ -529,10 +538,16 @@
     "Split" : {
 
     },
+    "Start" : {
+
+    },
     "Start break" : {
 
     },
     "Start of part %lld" : {
+
+    },
+    "Start of work day" : {
 
     },
     "Start on %@" : {
@@ -601,6 +616,9 @@
     "Welcome back" : {
 
     },
+    "Welcome to wamadu" : {
+
+    },
     "What are you working on now?" : {
 
     },
@@ -613,16 +631,25 @@
     "What were you working on?" : {
 
     },
+    "When do you work?" : {
+
+    },
     "When you come back, wamadu asks what you did." : {
 
     },
     "Work" : {
 
     },
+    "Work days" : {
+
+    },
     "Work per day" : {
 
     },
     "Workday" : {
+
+    },
+    "You can change all of this later in Settings." : {
 
     },
     "Your day shows up here as soon as you answer the first check-in." : {

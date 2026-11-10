@@ -8,6 +8,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var rounding = RoundingSettings()
     /// An action without an entry has no shortcut.
     public var shortcuts = ShortcutAction.defaultShortcuts
+    /// Set once the welcome window was started or closed.
+    public var welcomeDone = false
 
     public init() {}
 
@@ -22,6 +24,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         schedule = value(.schedule, schedule)
         rounding = value(.rounding, rounding)
         shortcuts = value(.shortcuts, shortcuts)
+        // settings stored before the welcome existed belong to someone already using the app
+        welcomeDone = value(.welcomeDone, true)
     }
 
     public var tracker: TrackerSettings {

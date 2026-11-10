@@ -23,6 +23,11 @@ public struct WorkSchedule: Codable, Equatable, Sendable {
     public static let standard = WorkSchedule(
         plans: Dictionary(uniqueKeysWithValues: (2...6).map { ($0, Plan(start: 8 * 60, end: 18 * 60)) }))
 
+    /// The plan of the first planned day in the week of `calendar`, 8:00 to 18:00 when no day is planned.
+    public func firstPlan(calendar: Calendar) -> Plan {
+        calendar.orderedWeekdays.lazy.compactMap { plans[$0] }.first ?? Plan(start: 8 * 60, end: 18 * 60)
+    }
+
     /// The plan on the local day of `date`, resolved through the calendar so DST days keep their wall-clock times.
     public func interval(on date: Date, calendar: Calendar) -> DateInterval? {
         guard let plan = plans[calendar.component(.weekday, from: date)] else { return nil }

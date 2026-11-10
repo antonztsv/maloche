@@ -57,6 +57,7 @@ final class TestDefaults: @unchecked Sendable {
         store.defaults.set(Data(json.utf8), forKey: AppSettings.defaultsKey)
         var expected = AppSettings()
         expected.checkInInterval = 1800
+        expected.welcomeDone = true
         #expect(AppSettings.load(from: store.defaults) == expected)
     }
 }

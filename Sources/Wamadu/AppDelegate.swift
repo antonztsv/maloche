@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var shortcuts: GlobalShortcuts?
     private var settingsWindow: SettingsWindowController?
     private var manageWindow: ManageActivitiesWindowController?
+    private var welcomeWindow: WelcomeWindowController?
     private var iconMode: TrackerMode?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -61,6 +62,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let manageWindow = ManageActivitiesWindowController(model: model)
         controller.onShowManageActivities = { manageWindow.show() }
         self.manageWindow = manageWindow
+
+        // launches with debug arguments are for manual testing and skip the welcome
+        if !model.settings.welcomeDone && !CommandLine.arguments.contains(where: { $0.hasPrefix("-Debug") }) {
+            let welcomeWindow = WelcomeWindowController(model: model)
+            self.welcomeWindow = welcomeWindow
+            welcomeWindow.show()
+        }
     }
 
     /// The hotkeys follow the settings.

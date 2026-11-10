@@ -217,6 +217,11 @@ extension Period {
 }
 
 extension Calendar {
+    /// Weekdays from the first weekday on, 1 is Sunday.
+    public var orderedWeekdays: [Int] {
+        (0..<7).map { (firstWeekday - 1 + $0) % 7 + 1 }
+    }
+
     /// Short weekday names from the first weekday on.
     public var orderedShortWeekdaySymbols: [String] {
         let symbols = shortStandaloneWeekdaySymbols

@@ -142,6 +142,7 @@
                     "settings-rounding",
                     AnyView(RoundingSettingsView(model: try settings { $0.rounding.stepMinutes = 15 }))
                 ),
+                ("welcome", AnyView(WelcomeView(model: try settings(), openAtLogin: true) { _, _ in })),
                 (
                     "manage-activities",
                     AnyView(
