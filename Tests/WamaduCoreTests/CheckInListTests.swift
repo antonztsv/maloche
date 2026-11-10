@@ -97,13 +97,20 @@ import Testing
         #expect(list.choice == .create(name: "Kickoff", projectId: 10))
     }
 
-    @Test func anExactNameIgnoringCaseSelectsThatActivityOnTopWithoutCreate() {
+    @Test func anExactNameIgnoringCaseSelectsThatActivityOnTopAndOffersCreateLast() {
         var list = CheckInList(catalog: catalog, prefill: 1)
         list.setText("planning")
         #expect(names(list).first == "Planning")
+        #expect(names(list).last == "+planning")
         #expect(!list.isCreating)
         #expect(list.choice == .existing(4))
         #expect(list.fieldMatch?.activity.id == 4)
+
+        list.moveSelection(by: list.rows.count)
+        #expect(list.isCreating)
+        #expect(list.choice == .create(name: "planning", projectId: nil))
+        list.projectId = 10
+        #expect(list.choice == .create(name: "planning", projectId: 10))
     }
 
     @Test func typingBreakChoosesTheBuiltInBreak() {
@@ -228,7 +235,7 @@ import Testing
         var list = CheckInList(catalog: catalog, prefill: 1)
         list.setText("old stuff")
         #expect(names(list).first == "Old Stuff")
-        #expect(!names(list).contains("+old stuff"))
+        #expect(names(list).last == "+old stuff")
         #expect(list.choice == .existing(5))
         list.setText("old")
         #expect(names(list) == ["+old"])
@@ -256,6 +263,7 @@ import Testing
             return [suggestion.projectName, suggestion.customerName].compactMap { $0 }.joined(separator: ", ")
         }
         #expect(places == ["Northwind", "Relaunch, Acme"])
+        #expect(names(list).last == "+MEETING")
     }
 
     @Test func todaysUseComesBeforeAnEarlierLastUse() {

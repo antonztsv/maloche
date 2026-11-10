@@ -74,7 +74,7 @@ public struct CheckInList: Equatable, Sendable {
     }
 
     /// Ranked suggestions for the query with `top` moved to the first row, which is selected; an empty field selects nothing.
-    /// Without `top` a query also offers Create: last below the first name it starts words of, else selected on top.
+    /// A query also offers Create: last below an exact name or the first name it starts words of, else selected on top.
     private mutating func fill(top: Activity?, query: String) {
         let usedToday = Set(catalog.usedToday)
         var ranked = catalog.suggestions(for: query, includingBuiltIns: includingBuiltIns).filter {
@@ -88,9 +88,15 @@ public struct CheckInList: Equatable, Sendable {
         let row = { (suggestion: Suggestion) in
             Row.activity(suggestion, today: usedToday.contains(suggestion.activity.id ?? 0))
         }
-        guard !query.isEmpty, top == nil else {
+        guard !query.isEmpty else {
             rows = suggestions.prefix(Self.maxRows).map(row)
             selection = rows.isEmpty || top == nil ? nil : 0
+            return
+        }
+        // the same name may be created for another project or customer
+        if top != nil {
+            rows = suggestions.prefix(Self.maxRows - 1).map(row) + [.create(name: query)]
+            selection = 0
             return
         }
         guard var best = suggestions.firstIndex(where: { Suggestions.startsWords(of: $0.activity.name, query: query) })
