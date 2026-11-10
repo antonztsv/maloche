@@ -5,10 +5,11 @@
     @MainActor
     enum SpikeSelfTest {
         static func run(_ controller: CheckInPanelController, panel: NSPanel) async {
-            func key(_ chars: String, _ code: UInt16) {
+            func key(_ chars: String, _ code: UInt16, _ modifiers: NSEvent.ModifierFlags = []) {
                 for type in [NSEvent.EventType.keyDown, .keyUp] {
                     let event = NSEvent.keyEvent(
-                        with: type, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                        with: type, location: .zero, modifierFlags: modifiers,
+                        timestamp: ProcessInfo.processInfo.systemUptime,
                         windowNumber: panel.windowNumber, context: nil, characters: chars,
                         charactersIgnoringModifiers: chars, isARepeat: false, keyCode: code)
                     if let event { NSApp.sendEvent(event) }
@@ -27,6 +28,11 @@
             key("x", 7)
             spikeLog.info(
                 "self-test field text: \((panel.firstResponder as? NSTextView)?.string ?? "-", privacy: .public)")
+            key("a", 0, .command)
+            let editor = panel.firstResponder as? NSTextView
+            spikeLog.info(
+                "self-test cmd-a: selection=\(editor.map { NSStringFromRange($0.selectedRange()) } ?? "-", privacy: .public)"
+            )
             key("\r", 36)
             await pause()
             spikeLog.info("self-test typed x and return: visible=\(panel.isVisible)")

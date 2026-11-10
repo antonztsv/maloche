@@ -7,13 +7,34 @@
     "Break" : {
 
     },
+    "Copy" : {
+
+    },
+    "Cut" : {
+
+    },
+    "Edit" : {
+
+    },
     "Log" : {
+
+    },
+    "Paste" : {
 
     },
     "Quit wamadu" : {
 
     },
+    "Redo" : {
+
+    },
+    "Select All" : {
+
+    },
     "Since 10:15, 15 minutes" : {
+
+    },
+    "Undo" : {
 
     },
     "What are you working on?" : {
