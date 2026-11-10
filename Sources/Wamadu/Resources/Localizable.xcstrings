@@ -145,6 +145,12 @@
         }
       }
     },
+    "Back Up Now" : {
+
+    },
+    "Back up automatically" : {
+
+    },
     "Backup" : {
 
     },
@@ -192,13 +198,25 @@
     "Check in every" : {
 
     },
+    "Choose" : {
+
+    },
+    "Choose a wamadu backup to restore." : {
+
+    },
     "Choose an Activity" : {
+
+    },
+    "Choose the folder for your backups." : {
 
     },
     "Choose the folder from the Daily export with activities.json and timesheet.json." : {
 
     },
     "Choose the folder with activities.json and timesheet.json, or both files." : {
+
+    },
+    "Choose…" : {
 
     },
     "Click and press the new keys. Escape cancels, Delete clears the shortcut." : {
@@ -309,6 +327,9 @@
     "Every now and then, wamadu asks what you are working on. One answer, and your day fills itself." : {
 
     },
+    "Folder" : {
+
+    },
     "For %@" : {
 
     },
@@ -386,6 +407,9 @@
     "Into" : {
 
     },
+    "Keep" : {
+
+    },
     "Keep logging %@" : {
 
     },
@@ -399,6 +423,9 @@
 
     },
     "Keyboard shortcuts" : {
+
+    },
+    "Last backup %@" : {
 
     },
     "Last used" : {
@@ -477,6 +504,9 @@
 
     },
     "Next week" : {
+
+    },
+    "No backups in this folder yet" : {
 
     },
     "No customer" : {
@@ -569,6 +599,18 @@
     "Rename…" : {
 
     },
+    "Restore" : {
+
+    },
+    "Restore Backup" : {
+
+    },
+    "Restore the backup from %@?" : {
+
+    },
+    "Restore…" : {
+
+    },
     "Round to" : {
 
     },
@@ -648,10 +690,16 @@
     "The import did not go through, nothing changed." : {
 
     },
+    "The latest backup could not be saved in this folder." : {
+
+    },
     "The merge did not go through, nothing changed." : {
 
     },
     "The name was not saved, try again." : {
+
+    },
+    "The restore did not go through, your data stays as it is." : {
 
     },
     "This month" : {
@@ -732,10 +780,19 @@
     "You can change all of this later in Settings." : {
 
     },
+    "Your current data is replaced with the backup. wamadu backs up your current data first." : {
+
+    },
     "Your day shows up here as soon as you answer the first check-in." : {
 
     },
     "^[%lld activity](inflect: true)" : {
+
+    },
+    "^[%lld backup](inflect: true)" : {
+
+    },
+    "iCloud Drive" : {
 
     },
     "to" : {
@@ -763,6 +820,9 @@
 
     },
     "“%@” is already in use, choose another name." : {
+
+    },
+    "“%@” is not a wamadu backup. Your data stays as it is." : {
 
     },
     "−15" : {

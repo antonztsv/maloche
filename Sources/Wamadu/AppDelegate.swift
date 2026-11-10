@@ -110,6 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return try AppModel(
             database: .open(at: url), stateURL: url.deletingLastPathComponent().appending(path: "tracker-state.json"),
             settingsStore: .standard,
+            backups: url.deletingLastPathComponent().appending(path: "Backups", directoryHint: .isDirectory),
             adjustTracker: { settings in
                 #if DEBUG
                     // manual testing, e.g. `open "wamadu Dev.app" --args -DebugCheckInInterval 60 -DebugIdleThreshold 120`

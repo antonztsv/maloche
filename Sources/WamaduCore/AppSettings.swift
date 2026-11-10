@@ -10,6 +10,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var shortcuts = ShortcutAction.defaultShortcuts
     /// Set once the welcome window was started or closed.
     public var welcomeDone = false
+    public var backup = BackupSettings()
 
     public init() {}
 
@@ -24,6 +25,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         schedule = value(.schedule, schedule)
         rounding = value(.rounding, rounding)
         shortcuts = value(.shortcuts, shortcuts)
+        backup = value(.backup, backup)
         // settings stored before the welcome existed belong to someone already using the app
         welcomeDone = value(.welcomeDone, true)
     }
@@ -43,5 +45,19 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public func save(to defaults: UserDefaults) {
         guard let data = try? JSONEncoder().encode(self) else { return }
         defaults.set(data, forKey: Self.defaultsKey)
+    }
+}
+
+/// S14: daily backups into a folder, a fixed number of them kept.
+public struct BackupSettings: Codable, Equatable, Sendable {
+    public var automatic = true
+    /// A chosen folder's path, nil for the Backups folder next to the database.
+    public var folder: String?
+    public var keep = 30
+
+    public init(automatic: Bool = true, folder: String? = nil, keep: Int = 30) {
+        self.automatic = automatic
+        self.folder = folder
+        self.keep = keep
     }
 }

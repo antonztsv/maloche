@@ -17,6 +17,9 @@
         }
 
         static func renderAll(to directory: URL) throws {
+            let backupRoot = FileManager.default.temporaryDirectory.appending(
+                path: "wamadu-screenshots-\(UUID().uuidString)", directoryHint: .isDirectory)
+            defer { try? FileManager.default.removeItem(at: backupRoot) }
             let sample = try Sample()
             let model = sample.model
             let timed = CheckIn(
@@ -142,7 +145,7 @@
                     "settings-rounding",
                     AnyView(RoundingSettingsView(model: try settings { $0.rounding.stepMinutes = 15 }))
                 ),
-                ("settings-backup", AnyView(BackupSettingsView(model: try settings()))),
+                ("settings-backup", AnyView(BackupSettingsView(model: try Sample.backedUp(in: backupRoot)))),
                 ("import-preview", AnyView(DailyImportView(preview: try Sample.dailyImport()) { _ in })),
                 ("welcome", AnyView(WelcomeView(model: try settings(), openAtLogin: true) { _, _ in })),
                 (
@@ -267,6 +270,17 @@
                 try database.setArchived(true, activities: [old])
                 let model = try AppModel(database: database, stateURL: nil, clock: FixedClock(now: at(17, 30)))
                 return (model, nordlicht.id!, abstimmung, review)
+            }
+
+            /// Backed up today at 9:00 into a temporary folder laid out like one in iCloud Drive.
+            static func backedUp(in root: URL) throws -> AppModel {
+                let folder = root.appending(
+                    path: "Library/Mobile Documents/com~apple~CloudDocs/Backups/wamadu", directoryHint: .isDirectory)
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                let model = try AppModel(
+                    database: .inMemory(), stateURL: nil, backups: folder, clock: FixedClock(now: at(9, 0)))
+                model.backUpNow()
+                return model
             }
 
             /// Prefixes and counts like the board, 556 activities and 70 days from September 1, an empty database.

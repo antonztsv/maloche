@@ -99,6 +99,10 @@ public final class AppModel {
     public private(set) var panel: PanelContent?
     /// As stored and shown in the settings window.
     public private(set) var settings: AppSettings
+    /// The newest backup in the backup folder.
+    public private(set) var lastBackup: Date?
+    /// Set while the latest backup did not go through.
+    public private(set) var backupFailedAt: Date?
     @ObservationIgnored public weak var presenter: (any PanelPresenter)?
     public let calendar: Calendar
     @ObservationIgnored private let clock: any WallClock
@@ -108,10 +112,12 @@ public final class AppModel {
     @ObservationIgnored private var closedByClickOutside: Date?
     @ObservationIgnored private let settingsStore: UserDefaults?
     @ObservationIgnored private let adjustTracker: (inout TrackerSettings) -> Void
+    @ObservationIgnored private let defaultBackupFolder: URL?
 
     /// Settings come from the store, `adjustTracker` overrides them for the tracker only and is never stored.
+    /// `backups` is the backup folder unless the settings name one; without either nothing is backed up.
     public init(
-        database: AppDatabase, stateURL: URL?, settingsStore: UserDefaults? = nil,
+        database: AppDatabase, stateURL: URL?, settingsStore: UserDefaults? = nil, backups: URL? = nil,
         adjustTracker: @escaping (inout TrackerSettings) -> Void = { _ in },
         clock: any WallClock = SystemWallClock(), calendar: Calendar = .autoupdatingCurrent
     ) throws {
@@ -121,6 +127,7 @@ public final class AppModel {
         self.calendar = calendar
         self.settingsStore = settingsStore
         self.adjustTracker = adjustTracker
+        defaultBackupFolder = backups
         let settings = settingsStore.map(AppSettings.load) ?? AppSettings()
         self.settings = settings
         builtIns = BuiltInActivities(
@@ -131,6 +138,7 @@ public final class AppModel {
             settings: trackerSettings, calendar: calendar, builtIns: builtIns, state: Self.loadState(from: stateURL))
         reloadCatalog()
         publish()
+        lastBackup = backupFolder.flatMap { Backup.all(in: $0, calendar: calendar).last?.date }
     }
 
     public var now: Date { clock.now }
@@ -139,6 +147,10 @@ public final class AppModel {
         apply(tracker.handle(event, now: clock.now))
         publish()
         saveState()
+        switch event {
+        case .tick, .appLaunched: backUpIfDue()
+        default: break
+        }
     }
 
     private func publish() {
@@ -295,7 +307,12 @@ public final class AppModel {
     /// Stores the settings and applies them from the next tick, the running span stays.
     public func update(_ settings: AppSettings) {
         guard settings != self.settings else { return }
+        let folderChanged = settings.backup.folder != self.settings.backup.folder
         self.settings = settings
+        if folderChanged {
+            lastBackup = backupFolder.flatMap { Backup.all(in: $0, calendar: calendar).last?.date }
+            backupFailedAt = nil
+        }
         var trackerSettings = settings.tracker
         adjustTracker(&trackerSettings)
         tracker.settings = trackerSettings
@@ -409,6 +426,48 @@ public final class AppModel {
         } catch {
             logger.error("editing an entry failed: \(String(describing: error), privacy: .public)")
             presenter?.signalFailure()
+        }
+    }
+
+    // MARK: Backup
+
+    public var backupFolder: URL? {
+        settings.backup.folder.map { URL(filePath: $0, directoryHint: .isDirectory) } ?? defaultBackupFolder
+    }
+
+    /// From "Back Up Now", a failure shows in the settings.
+    public func backUpNow() {
+        try? backUp()
+    }
+
+    /// Backs up the current data first, then replaces it with the backup; the tracker starts fresh as after a launch.
+    public func restore(_ backup: RestorableBackup) throws {
+        try backUp()
+        try database.restore(backup)
+        hidePanel()
+        tracker = Tracker(settings: tracker.settings, calendar: calendar, builtIns: builtIns, state: TrackerState())
+        reloadCatalog()
+        send(.appLaunched)
+    }
+
+    /// Once a day; a backup that did not go through is tried again after an hour.
+    private func backUpIfDue() {
+        guard settings.backup.automatic, backupFolder != nil else { return }
+        // a backup dated ahead, e.g. after a clock change, does not hold back the next one
+        if let last = lastBackup, (0..<24 * 3600).contains(now.timeIntervalSince(last)) { return }
+        if let failed = backupFailedAt, now.timeIntervalSince(failed) < 3600 { return }
+        try? backUp()
+    }
+
+    private func backUp() throws {
+        do {
+            guard let folder = backupFolder else { throw CocoaError(.fileNoSuchFile) }
+            lastBackup = try database.backUp(to: folder, at: now, keep: settings.backup.keep, calendar: calendar).date
+            backupFailedAt = nil
+        } catch {
+            logger.error("backup failed: \(String(describing: error), privacy: .public)")
+            backupFailedAt = now
+            throw error
         }
     }
 

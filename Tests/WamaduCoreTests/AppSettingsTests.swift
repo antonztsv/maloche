@@ -25,6 +25,9 @@ final class TestDefaults: @unchecked Sendable {
         #expect(settings.shortcuts.count == 3)
         #expect(ShortcutAction.allCases.allSatisfy { settings.shortcuts[$0] == $0.defaultShortcut })
         #expect(settings.tracker == TrackerSettings())
+        #expect(settings.backup.automatic)
+        #expect(settings.backup.keep == 30)
+        #expect(settings.backup.folder == nil)
     }
 
     @Test func roundTripThroughTheStore() {
@@ -36,6 +39,7 @@ final class TestDefaults: @unchecked Sendable {
         settings.rounding = RoundingSettings(stepMinutes: 6, mode: .up, level: .period)
         settings.shortcuts[.toggleBreak] = nil
         settings.shortcuts[.openDashboard] = Shortcut(keyCode: 0x7A, modifiers: [.control, .shift])
+        settings.backup = BackupSettings(automatic: false, folder: "/Volumes/Archive/wamadu", keep: 7)
         settings.save(to: store.defaults)
         #expect(AppSettings.load(from: store.defaults) == settings)
         #expect(AppSettings.load(from: store.defaults).shortcuts[.toggleBreak] == nil)

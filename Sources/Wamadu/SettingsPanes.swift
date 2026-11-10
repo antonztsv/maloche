@@ -202,13 +202,52 @@ struct RoundingSettingsView: View {
     }
 }
 
-/// The import from Daily.
+/// Automatic backups into a folder, restoring one, and the import from Daily.
 struct BackupSettingsView: View {
     let model: AppModel
     @State private var importFlow = DailyImportFlow()
+    @State private var restoreFlow = RestoreFlow()
+
+    private static let keepChoices = [7, 14, 30, 60, 90]
 
     var body: some View {
+        let folder = model.backupFolder?.path(percentEncoded: false) ?? ""
         Form {
+            Section {
+                Toggle("Back up automatically", isOn: model.setting(\.backup.automatic))
+                LabeledContent {
+                    Button("Choose…", action: chooseFolder)
+                } label: {
+                    Text("Folder")
+                    Text(verbatim: Self.folderName(folder))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .help(folder)
+                Picker("Keep", selection: model.setting(\.backup.keep)) {
+                    ForEach(Set(Self.keepChoices + [model.settings.backup.keep]).sorted(), id: \.self) { count in
+                        Text("^[\(count) backup](inflect: true)").tag(count)
+                    }
+                }
+                LabeledContent {
+                    HStack(spacing: 8) {
+                        Button("Restore…") { restoreFlow.choose(model: model) }
+                        Button("Back Up Now", action: model.backUpNow)
+                    }
+                } label: {
+                    Group {
+                        if let last = model.lastBackup {
+                            Text("Last backup \(Self.when(last))")
+                        } else {
+                            Text("No backups in this folder yet")
+                        }
+                    }
+                    .foregroundStyle(.secondary)
+                    if model.backupFailedAt != nil {
+                        Text("The latest backup could not be saved in this folder.")
+                    }
+                }
+            }
             Section("Import") {
                 LabeledContent {
                     Button("Import…") { importFlow.choose(model: model) }
@@ -223,5 +262,47 @@ struct BackupSettingsView: View {
         .frame(width: SettingsWindowController.width)
         .fixedSize(horizontal: false, vertical: true)
         .dailyImport(importFlow, model: model)
+        .restore(restoreFlow, model: model)
+    }
+
+    /// "today at 9:00", "Nov 5, 2026 at 9:00", for the middle of a sentence.
+    static func when(_ date: Date) -> String {
+        relative.string(from: date)
+    }
+
+    private static let relative: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        formatter.doesRelativeDateFormatting = true
+        formatter.formattingContext = .middleOfSentence
+        return formatter
+    }()
+
+    /// "iCloud Drive / Backups / wamadu"; inside the home folder relative to it, on another volume from its name.
+    static func folderName(_ path: String, home: String = NSHomeDirectory()) -> String {
+        var parts = URL(filePath: path).pathComponents.filter { $0 != "/" }
+        let homeParts = URL(filePath: home).pathComponents.filter { $0 != "/" }
+        if let drive = parts.firstIndex(of: "com~apple~CloudDocs"), drive > 0, parts[drive - 1] == "Mobile Documents" {
+            parts = [String(localized: "iCloud Drive")] + parts[(drive + 1)...]
+        } else if parts.starts(with: homeParts) {
+            parts.removeFirst(homeParts.count)
+        } else if parts.first == "Volumes" {
+            parts.removeFirst()
+        }
+        return parts.joined(separator: " / ")
+    }
+
+    /// From a click only, the open panel is modal.
+    private func chooseFolder() {
+        let panel = NSOpenPanel()
+        panel.message = String(localized: "Choose the folder for your backups.")
+        panel.prompt = String(localized: "Choose")
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.directoryURL = model.backupFolder
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        model.setting(\.backup.folder).wrappedValue = url.path(percentEncoded: false)
     }
 }

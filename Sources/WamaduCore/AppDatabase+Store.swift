@@ -9,6 +9,7 @@ public enum WamaduError: Error, Equatable {
     case builtInActivity
     case blockNotFound
     case duplicateName
+    case notABackup
 }
 
 extension AppDatabase {
