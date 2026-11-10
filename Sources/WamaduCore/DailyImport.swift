@@ -22,6 +22,7 @@ public struct DailyImport: Sendable {
 
     public struct PlannedBlock: Equatable, Sendable {
         public var activity: String
+        public var customer: String? = nil
         public var start: Date
         public var end: Date
     }
@@ -32,7 +33,7 @@ public struct DailyImport: Sendable {
         public var blocks: [PlannedBlock]
     }
 
-    /// Names are matched ignoring case when written.
+    /// Names are matched ignoring case within their customer when written.
     public struct Plan: Equatable, Sendable {
         public var activities: [PlannedActivity]
         public var days: [PlannedDay]
@@ -55,12 +56,11 @@ public struct DailyImport: Sendable {
     public let skippedDays: Int
     private let imported: [Imported]
     private let days: [PlannedDay]
-    /// The customer of each existing activity, by lowercased names.
-    private let existing: [String: String?]
+    /// Break and Private by lowercased name, no short name takes them.
+    private let reserved: Set<String>
 
     public init(
-        export: DailyExport, activities: [Activity], projects: [Project], customers: [Customer], blocks: [Block],
-        calendar: Calendar
+        export: DailyExport, activities: [Activity], customers: [Customer], blocks: [Block], calendar: Calendar
     ) {
         var imported: [Imported] = []
         var index: [String: Int] = [:]
@@ -118,11 +118,7 @@ public struct DailyImport: Sendable {
                     }))
         }
 
-        let projects = projects.byId
-        let customerNames = customers.byId.mapValues { $0.name.lowercased() }
-        existing = Dictionary(
-            activities.map { ($0.name.lowercased(), $0.customerId(projects: projects).flatMap { customerNames[$0] }) }
-        ) { first, _ in first }
+        reserved = Set(activities.filter { $0.kind != .regular }.map { $0.name.lowercased() })
         var found: [String: (text: String, count: Int)] = [:]
         for name in imported.compactMap({ Self.split($0.name)?.prefix }) {
             found[name.lowercased(), default: (name, 0)].count += 1
@@ -147,7 +143,7 @@ public struct DailyImport: Sendable {
 
     public var activityCount: Int { imported.count }
 
-    /// Names with a checked prefix that keep it, the short name is used by another activity or customer.
+    /// Names with a checked prefix that keep it, the short name is reserved or another of the customer's has it.
     public var keepingFullName: [String] {
         guard removesPrefix else { return [] }
         return resolved.filter { $0.customer != nil && $0.name == $0.imported.name }.map(\.name)
@@ -156,7 +152,7 @@ public struct DailyImport: Sendable {
 
     public var plan: Plan {
         let resolved = resolved
-        let names = Dictionary(uniqueKeysWithValues: resolved.map { ($0.imported.name, $0.name) })
+        let placed = Dictionary(uniqueKeysWithValues: resolved.map { ($0.imported.name, ($0.name, $0.customer)) })
         return Plan(
             activities: resolved.map {
                 PlannedActivity(
@@ -165,7 +161,9 @@ public struct DailyImport: Sendable {
             },
             days: days.map { day in
                 var day = day
-                for index in day.blocks.indices { day.blocks[index].activity = names[day.blocks[index].activity]! }
+                for index in day.blocks.indices {
+                    (day.blocks[index].activity, day.blocks[index].customer) = placed[day.blocks[index].activity]!
+                }
                 return day
             })
     }
@@ -189,11 +187,11 @@ public struct DailyImport: Sendable {
         var changed = true
         while changed {
             changed = false
-            let counts = Dictionary(result.map { ($0.name.lowercased(), 1) }, uniquingKeysWith: +)
+            let counts = Dictionary(
+                result.map { ([$0.customer?.lowercased(), $0.name.lowercased()], 1) }, uniquingKeysWith: +)
             for index in result.indices where result[index].name != result[index].imported.name {
-                let key = result[index].name.lowercased()
-                let otherCustomer = existing[key].map { $0 != result[index].customer?.lowercased() } ?? false
-                if counts[key, default: 0] > 1 || otherCustomer {
+                let name = result[index].name.lowercased()
+                if counts[[result[index].customer?.lowercased(), name], default: 0] > 1 || reserved.contains(name) {
                     result[index].name = result[index].imported.name
                     changed = true
                 }

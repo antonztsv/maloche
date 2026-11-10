@@ -60,7 +60,7 @@ public enum Suggestions {
     }
 
     /// The regular activity named like the trimmed query ignoring case, archived ones included so a name comes back
-    /// instead of a duplicate; nil means the UI offers "Create".
+    /// instead of a duplicate.
     public static func exactMatch(for query: String, in activities: [Activity]) -> Activity? {
         let name = query.trimmingCharacters(in: .whitespacesAndNewlines)
         return activities.first { $0.kind == .regular && $0.name.caseInsensitiveCompare(name) == .orderedSame }

@@ -499,7 +499,12 @@ struct MergeSheet: View {
     }
 
     private var targetName: String? {
-        targets.first { $0.id == target }?.activity.name
+        targets.first { $0.id == target }.map(label)
+    }
+
+    private func label(_ row: ActivityOverview.Row) -> String {
+        CheckInView.distinct(
+            row.activity.name, in: row.projectName ?? row.customerName, among: targets.map(\.activity.name) + names)
     }
 
     var body: some View {
@@ -513,7 +518,7 @@ struct MergeSheet: View {
                 Text("Choose an Activity").tag(Int64?.none)
                 Divider()
                 ForEach(targets) { row in
-                    Text(row.activity.name).tag(Int64?.some(row.id))
+                    Text(label(row)).tag(Int64?.some(row.id))
                 }
             }
             Group {

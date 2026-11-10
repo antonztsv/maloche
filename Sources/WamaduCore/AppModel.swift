@@ -504,9 +504,10 @@ public final class AppModel {
         return ActivityOverview(catalog: catalog, thisMonth: summary.activities)
     }
 
-    /// Uses the customer of that name or creates it; an empty customer name means none.
+    /// Uses the customer of that name or creates it, an empty customer name means none; the same for its project.
     public func createProject(name: String, customerName: String) throws -> Project {
-        guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw WamaduError.emptyName }
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { throw WamaduError.emptyName }
         let customerName = customerName.trimmingCharacters(in: .whitespacesAndNewlines)
         var customerId: Int64?
         if !customerName.isEmpty {
@@ -515,13 +516,16 @@ public final class AppModel {
             }
             customerId = try (existing ?? database.createCustomer(name: customerName)).id
         }
-        let project = try database.createProject(name: name, customerId: customerId)
+        let existing = try database.projects().first {
+            $0.customerId == customerId && $0.name.caseInsensitiveCompare(name) == .orderedSame
+        }
+        let project = try existing ?? database.createProject(name: name, customerId: customerId)
         reloadCatalog()
         return project
     }
 
-    /// A new name creates the activity unless one has it, e.g. after an earlier part of a split; an archived activity
-    /// comes back, one merged away since the prompt showed is refused.
+    /// A new name creates the activity in its project or at the top level unless one there has it, e.g. after an earlier
+    /// part of a split; an archived activity comes back, one merged away since the prompt showed is refused.
     private func resolve(_ choice: CheckInList.Choice) -> Int64? {
         do {
             let activities = try database.activities()
@@ -529,7 +533,8 @@ public final class AppModel {
                 switch choice {
                 case .existing(let id): activities.first { $0.id == id }
                 case .create(let name, let projectId):
-                    try Suggestions.exactMatch(for: name, in: activities)
+                    try Suggestions.exactMatch(
+                        for: name, in: activities.filter { ($0.projectId, $0.customerId) == (projectId, nil) })
                         ?? database.createActivity(name: name, projectId: projectId)
                 }
             guard let activity, let id = activity.id else {

@@ -90,10 +90,16 @@ struct EntryEditorView: View {
         let activities = model.catalog.activities.filter { $0.id != nil && (!$0.archived || $0.id == activityId) }
         let regular = activities.filter { $0.kind == .regular }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        let names = regular.map(\.name)
         return Picker("Activity", selection: Binding(get: { activityId }, set: move)) {
             ForEach(regular) { activity in
                 Label {
-                    Text(activity.name)
+                    Text(
+                        CheckInView.distinct(
+                            activity.name,
+                            in: model.catalog.project(activity.projectId)?.name
+                                ?? model.catalog.customer(of: activity)?.name,
+                            among: names))
                 } icon: {
                     Image(
                         nsImage: NSImage.swatch(CustomerColor.nsColor(for: model.catalog.customer(of: activity)))

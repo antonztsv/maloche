@@ -250,6 +250,7 @@
                 let backups = try activity("Backups prüfen", maintenance)
                 let update = try activity("Server-Update", maintenance)
                 _ = try activity("Checkout", shop)
+                _ = try activity("Code Review", shop)
                 let weekly = try activity("Weekly", customer: hafenwerk)
                 let writing = try activity("Writing")
                 let old = try activity("Old Stuff", relaunch)

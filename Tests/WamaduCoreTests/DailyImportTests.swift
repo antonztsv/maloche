@@ -40,16 +40,19 @@ enum DailyFixture {
 /// S13: reading the Daily export and previewing what the import adds.
 @Suite struct DailyImportTests {
     private func preview(
-        _ export: DailyExport, activities: [Activity] = [], projects: [Project] = [], customers: [Customer] = [],
-        blocks: [Block] = []
+        _ export: DailyExport, activities: [Activity] = [], customers: [Customer] = [], blocks: [Block] = []
     ) -> DailyImport {
         DailyImport(
-            export: export, activities: activities, projects: projects, customers: customers, blocks: blocks,
-            calendar: Fixture.berlin)
+            export: export, activities: activities, customers: customers, blocks: blocks, calendar: Fixture.berlin)
     }
 
     private func planned(_ preview: DailyImport) -> [String: String?] {
         Dictionary(uniqueKeysWithValues: preview.plan.activities.map { ($0.name, $0.customer) })
+    }
+
+    /// Customer and name of each planned activity.
+    private func placed(_ preview: DailyImport) -> Set<[String?]> {
+        Set(preview.plan.activities.map { [$0.customer, $0.name] })
     }
 
     @Test func bothFilesAreReadWithTheirOffsets() throws {
@@ -150,31 +153,51 @@ enum DailyFixture {
         #expect(planned(preview)["nordlicht - Code Review"] == "nordlicht")
     }
 
-    @Test func aShortNameAlreadyInUseKeepsTheFullName() throws {
+    @Test func twoCustomersKeepTheSameShortNameAndTheirBlocksFollow() throws {
+        let export = try DailyFixture.export(
+            DailyFixture.names(["nordlicht - Meeting", "hafenwerk - meeting", "Meeting", "nordlicht - Writing"]),
+            [
+                (
+                    "2026-11-06", "2026-11-06T08:00:00+01:00",
+                    [("nordlicht - Meeting", 600), ("hafenwerk - meeting", 300), ("Meeting", 60)]
+                )
+            ])
+        var preview = preview(
+            export, activities: [Activity(id: 1, name: "Writing"), Activity(id: 2, name: "MEETING", customerId: 20)],
+            customers: [Customer(id: 20, name: "Nordlicht", colorIndex: 0)])
+        for index in preview.prefixes.indices { preview.prefixes[index].isOn = true }
+
+        #expect(
+            placed(preview) == [
+                ["Nordlicht", "Meeting"], ["Hafenwerk", "meeting"], [nil, "Meeting"], ["Nordlicht", "Writing"],
+            ])
+        #expect(preview.keepingFullName.isEmpty)
+        #expect(
+            preview.plan.days[0].blocks.map { [$0.customer, $0.activity] } == [
+                ["Nordlicht", "Meeting"], ["Hafenwerk", "meeting"], [nil, "Meeting"],
+            ])
+    }
+
+    @Test func shortNamesThatMeetWithinACustomerOrAreReservedKeepTheFullName() throws {
         let export = try DailyFixture.export(
             DailyFixture.names([
-                "nordlicht - Writing", "Writing", "nordlicht - Kickoff", "nordlicht - Abstimmung",
-                "nordlicht - Review", "hafenwerk - review",
+                "nordlicht - review", "nordlicht - Break", "nordlicht - Kickoff", "nl - Review", "Kickoff",
             ]))
         var preview = preview(
             export,
             activities: [
-                Activity(id: 1, name: "Kickoff"), Activity(id: 2, name: "Abstimmung", projectId: 10),
-                Activity(id: 3, name: "Break", kind: .break),
+                Activity(id: 1, name: "kickoff", customerId: 20), Activity(id: 3, name: "Break", kind: .break),
             ],
-            projects: [Project(id: 10, name: "Relaunch", customerId: 20)],
             customers: [Customer(id: 20, name: "Nordlicht", colorIndex: 0)])
         preview.prefixes[1].isOn = true
+        preview.prefixes[1].customerName = "NORDLICHT"
 
         #expect(
-            planned(preview) == [
-                "nordlicht - Writing": "Nordlicht", "Writing": nil, "nordlicht - Kickoff": "Nordlicht",
-                "Abstimmung": "Nordlicht", "nordlicht - Review": "Nordlicht", "hafenwerk - review": "Hafenwerk",
+            placed(preview) == [
+                ["Nordlicht", "nordlicht - review"], ["Nordlicht", "nordlicht - Break"], ["Nordlicht", "Kickoff"],
+                ["NORDLICHT", "nl - Review"], [nil, "Kickoff"],
             ])
-        #expect(
-            preview.keepingFullName == [
-                "hafenwerk - review", "nordlicht - Kickoff", "nordlicht - Review", "nordlicht - Writing",
-            ])
+        #expect(preview.keepingFullName == ["nl - Review", "nordlicht - Break", "nordlicht - review"])
         preview.removesPrefix = false
         #expect(preview.keepingFullName.isEmpty)
     }

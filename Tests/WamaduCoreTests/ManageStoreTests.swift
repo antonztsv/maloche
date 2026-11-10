@@ -40,15 +40,78 @@ import Testing
             block: Block(activityId: id, startedAt: Fixture.at(from), endedAt: Fixture.at(to), source: .checkIn))
     }
 
-    @Test func activityNamesAreUniqueIgnoringCaseIncludingArchivedAndBuiltIns() throws {
-        try database.setArchived(true, activities: [writing])
-        #expect(throws: WamaduError.duplicateName) { try database.renameActivity(id: review, to: " writing ") }
-        #expect(throws: WamaduError.duplicateName) { try database.renameActivity(id: review, to: "break") }
-        #expect(throws: WamaduError.duplicateName) { try database.createActivity(name: "WEEKLY") }
+    @Test func activityNamesAreUniqueWithinTheirParentIgnoringCaseIncludingArchived() throws {
+        try database.setArchived(true, activities: [writing, review])
+        #expect(throws: WamaduError.duplicateName) { try database.createActivity(name: " WRITING ") }
+        #expect(throws: WamaduError.duplicateName) {
+            try database.createActivity(name: "code review", projectId: relaunch.id)
+        }
+        #expect(throws: WamaduError.duplicateName) {
+            try database.createActivity(name: "weekly", customerId: northwind.id)
+        }
+
+        let elsewhere = [
+            try database.createActivity(name: "Code Review", projectId: shop.id),
+            try database.createActivity(name: "Weekly", customerId: acme.id),
+            try database.createActivity(name: "Weekly"),
+            try database.createActivity(name: "Writing", customerId: acme.id),
+        ]
+        #expect(elsewhere.map(\.name) == ["Code Review", "Weekly", "Weekly", "Writing"])
+    }
+
+    @Test func breakAndPrivateAreReservedUnderEveryParent() throws {
+        #expect(throws: WamaduError.duplicateName) { try database.createActivity(name: "break") }
+        #expect(throws: WamaduError.duplicateName) { try database.createActivity(name: "Break", projectId: shop.id) }
+        #expect(throws: WamaduError.duplicateName) { try database.createActivity(name: "PRIVATE", customerId: acme.id) }
+        #expect(throws: WamaduError.duplicateName) { try database.renameActivity(id: review, to: "private") }
+    }
+
+    @Test func renamingChecksTheParentOfTheActivity() throws {
+        let planning = try database.createActivity(name: "Planning", projectId: relaunch.id).id!
+        #expect(throws: WamaduError.duplicateName) { try database.renameActivity(id: review, to: " planning ") }
         #expect(throws: WamaduError.emptyName) { try database.renameActivity(id: review, to: " ") }
 
+        try database.renameActivity(id: writing, to: "planning")
+        try database.renameActivity(id: weekly, to: "Code Review")
         try database.renameActivity(id: review, to: "code review")
-        #expect(try activity(review)?.name == "code review")
+        #expect(
+            try [writing, weekly, review, planning].map { try activity($0)?.name } == [
+                "planning", "Code Review", "code review", "Planning",
+            ])
+    }
+
+    @Test func movingChecksTheTargetParentAndChangesNothingWhenRefused() throws {
+        let relaunchWeekly = try database.createActivity(name: "WEEKLY", projectId: relaunch.id).id!
+        #expect(throws: WamaduError.duplicateName) {
+            try database.moveActivities([relaunchWeekly], projectId: nil, customerId: northwind.id)
+        }
+        #expect(throws: WamaduError.duplicateName) {
+            try database.moveActivities([writing, weekly, relaunchWeekly], projectId: shop.id, customerId: nil)
+        }
+        #expect(try placement(writing) == [nil, nil])
+        #expect(try placement(weekly) == [nil, northwind.id])
+        #expect(try placement(relaunchWeekly) == [relaunch.id, nil])
+
+        try database.moveActivities([weekly], projectId: nil, customerId: northwind.id)
+        try database.moveActivities([relaunchWeekly, writing], projectId: shop.id, customerId: nil)
+        #expect(try placement(relaunchWeekly) == [shop.id, nil])
+    }
+
+    @Test func projectNamesAreUniquePerCustomer() throws {
+        #expect(throws: WamaduError.duplicateName) {
+            try database.createProject(name: " relaunch ", customerId: acme.id)
+        }
+        let northwindRelaunch = try database.createProject(name: "Relaunch", customerId: northwind.id)
+        let tools = try database.createProject(name: "Tools", customerId: nil)
+        #expect(throws: WamaduError.duplicateName) { try database.createProject(name: "TOOLS", customerId: nil) }
+        _ = try database.createProject(name: "Tools", customerId: acme.id)
+
+        #expect(throws: WamaduError.duplicateName) { try database.renameProject(id: shop.id!, to: "relaunch") }
+        #expect(throws: WamaduError.duplicateName) { try database.renameProject(id: relaunch.id!, to: "tools") }
+        try database.renameProject(id: northwindRelaunch.id!, to: "RELAUNCH")
+        try database.renameProject(id: tools.id!, to: "Shop")
+        let names = Dictionary(uniqueKeysWithValues: try database.projects().map { ($0.id!, $0.name) })
+        #expect([names[northwindRelaunch.id!], names[tools.id!]] == ["RELAUNCH", "Shop"])
     }
 
     @Test func projectsAndCustomersAreRenamedTrimmed() throws {

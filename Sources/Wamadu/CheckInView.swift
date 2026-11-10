@@ -227,6 +227,14 @@ struct CheckInView: View {
         case (nil, nil): ""
         }
     }
+
+    /// The name with its project or customer when another of the names is the same ignoring case.
+    static func distinct(_ name: String, in place: String?, among names: [String]) -> String {
+        guard let place, names.count(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) > 1 else {
+            return name
+        }
+        return String(localized: "\(name) (\(place))")
+    }
 }
 
 /// The activity field: arrows move the selected suggestion, Tab opens the project menu of a new activity.

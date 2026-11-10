@@ -70,8 +70,7 @@ import Testing
 
     @Test func existingActivitiesAndCustomersAreReusedAndKeepTheirPlace() throws {
         let nordlicht = try database.createCustomer(name: "NORDLICHT")
-        let relaunch = try database.createProject(name: "Relaunch", customerId: nordlicht.id)
-        let review = try database.createActivity(name: "code review", projectId: relaunch.id)
+        _ = try database.createActivity(name: "code review", customerId: nordlicht.id)
         let writing = try database.createActivity(name: "writing")
         try database.setArchived(true, activities: [writing.id!])
         try database.insert(
@@ -84,11 +83,40 @@ import Testing
         #expect(try database.customers().map(\.id) == [nordlicht.id])
         let activities = try database.activities().filter { $0.kind == .regular }
         #expect(activities.map(\.name).sorted() == ["Abstimmung", "code review", "writing"])
-        #expect(try activity("code review")?.projectId == relaunch.id)
+        #expect(try activity("code review")?.customerId == nordlicht.id)
         #expect(try activity("writing")?.archived == true)
         #expect(try activity("writing")?.lastUsedAt == Fixture.at("2026-11-08 10:00"), "the later one stays")
         #expect(try activity("code review")?.lastUsedAt == Fixture.at("2026-11-06 17:00"))
         #expect(try everything.filter { $0.source == .imported }.count == 5)
+    }
+
+    @Test func eachNameIsMatchedUnderItsCustomerOrAtTheTopLevel() throws {
+        let nordlicht = try database.createCustomer(name: "Nordlicht")
+        let hafenwerk = try database.createCustomer(name: "Hafenwerk")
+        let shop = try database.createProject(name: "Shop", customerId: hafenwerk.id)
+        let nordlichtMeeting = try database.createActivity(name: "meeting", customerId: nordlicht.id).id!
+        let shopMeeting = try database.createActivity(name: "Meeting", projectId: shop.id).id!
+        let export = try DailyFixture.export(
+            DailyFixture.names(["nordlicht - Meeting", "hafenwerk - Meeting", "Meeting"]),
+            [
+                (
+                    "2026-11-06", "2026-11-06T08:00:00+01:00",
+                    [("nordlicht - Meeting", 600), ("hafenwerk - Meeting", 300), ("Meeting", 60)]
+                )
+            ])
+        var preview = try database.dailyImport(export, calendar: Fixture.berlin)
+        for index in preview.prefixes.indices { preview.prefixes[index].isOn = true }
+
+        try database.importDaily(preview.plan)
+
+        let meetings = try database.activities().filter { $0.name.caseInsensitiveCompare("meeting") == .orderedSame }
+        #expect(meetings.count == 4)
+        let hafenwerkMeeting = try #require(meetings.first { $0.customerId == hafenwerk.id })
+        let topMeeting = try #require(meetings.first { $0.customerId == nil && $0.projectId == nil })
+        #expect(hafenwerkMeeting.projectId == nil)
+        #expect(
+            try everything.map(\.activityId) == [nordlichtMeeting, hafenwerkMeeting.id!, topMeeting.id!])
+        #expect(try database.blocks(ofActivities: [shopMeeting]).isEmpty)
     }
 
     @Test func uncheckedPrefixesKeepTheNameWithoutACustomer() throws {

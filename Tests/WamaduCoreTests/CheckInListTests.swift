@@ -234,6 +234,49 @@ import Testing
         #expect(names(list) == ["+old"])
     }
 
+    // MARK: Same names under different parents
+
+    private let meetings = Catalog(
+        activities: [
+            Activity(id: 1, name: "Meeting", projectId: 10, lastUsedAt: Fixture.at("2026-11-05 12:00")),
+            Activity(id: 2, name: "meeting", customerId: 2, lastUsedAt: Fixture.at("2026-11-06 12:00")),
+            Activity(id: 3, name: "Meeting", archived: true, lastUsedAt: Fixture.at("2026-11-07 12:00")),
+            Activity(id: 4, name: "Meeting", projectId: 11, archived: true, lastUsedAt: Fixture.at("2026-11-04 12:00")),
+        ],
+        projects: [Project(id: 10, name: "Relaunch", customerId: 1), Project(id: 11, name: "Shop", customerId: 2)],
+        customers: [Customer(id: 1, name: "Acme", colorIndex: 0), Customer(id: 2, name: "Northwind", colorIndex: 1)])
+
+    @Test func theMostRecentlyUsedOfSameNamedActivitiesIsSelectedAndTheOthersFollowWithTheirPlace() {
+        var list = CheckInList(catalog: meetings, prefill: nil)
+        list.setText("MEETING")
+        #expect(list.choice == .existing(2))
+        #expect(!list.isCreating)
+        let places = list.rows.compactMap { row -> String? in
+            guard case .activity(let suggestion, _) = row else { return nil }
+            return [suggestion.projectName, suggestion.customerName].compactMap { $0 }.joined(separator: ", ")
+        }
+        #expect(places == ["Northwind", "Relaunch, Acme"])
+    }
+
+    @Test func todaysUseComesBeforeAnEarlierLastUse() {
+        var catalog = meetings
+        catalog.activities[0].lastUsedAt = Fixture.at("10:00")
+        catalog.activities[1].lastUsedAt = Fixture.at("09:00")
+        catalog.todayBlocks = [Self.block(2, "08:00", "09:00")]
+        var list = CheckInList(catalog: catalog, prefill: nil)
+        list.setText("meeting")
+        #expect(list.choice == .existing(2))
+    }
+
+    @Test func archivedActivitiesOfTheNameAreChosenOnlyWithoutAnActiveOne() {
+        var catalog = meetings
+        catalog.activities.removeFirst(2)
+        catalog.activities[1].lastUsedAt = Fixture.at("2026-11-08 12:00")
+        var list = CheckInList(catalog: catalog, prefill: nil)
+        list.setText("meeting")
+        #expect(list.choice == .existing(4))
+    }
+
     @Test func anArchivedPrefillStaysSelectable() {
         let list = CheckInList(catalog: catalog, prefill: 5)
         #expect(names(list).first == "Old Stuff")

@@ -908,6 +908,46 @@ final class TestClock: WallClock, @unchecked Sendable {
         #expect(model.catalog.projects.map(\.name) == ["Relaunch"])
     }
 
+    @Test func createReusesTheNameInTheChosenProjectOrAtTheTopLevelOnly() throws {
+        let model = try makeModel()
+        let relaunch = try model.createProject(name: "Relaunch", customerName: "Acme")
+        let shop = try model.createProject(name: "Shop", customerName: "Northwind")
+        let relaunchMeeting = try model.database.createActivity(name: "Meeting", projectId: relaunch.id).id!
+        let topMeeting = try model.database.createActivity(name: "Meeting").id!
+        try model.manage { try $0.setArchived(true, activities: [relaunchMeeting, topMeeting]) }
+        tick(model, at: "09:00")
+        model.shortcut(.openCheckIn)
+
+        model.log(.create(name: "meeting", projectId: relaunch.id))
+        #expect(model.currentActivity == relaunchMeeting)
+        tick(model, at: "09:10")
+        model.shortcut(.openCheckIn)
+        model.log(.create(name: "Meeting", projectId: shop.id))
+        let shopMeeting = try #require(model.catalog.activities.first { $0.projectId == shop.id })
+        #expect(model.currentActivity == shopMeeting.id)
+        #expect(shopMeeting.name == "Meeting")
+
+        let archived = { (id: Int64) in model.catalog.activity(id)?.archived }
+        #expect([archived(relaunchMeeting), archived(topMeeting)] == [false, true])
+        tick(model, at: "09:20")
+        model.shortcut(.openCheckIn)
+        model.log(.create(name: "MEETING", projectId: nil))
+        #expect(model.currentActivity == topMeeting)
+        #expect(archived(topMeeting) == false)
+        #expect(model.catalog.activities.count { $0.name.caseInsensitiveCompare("meeting") == .orderedSame } == 3)
+        #expect(presenter.failures == 0)
+    }
+
+    @Test func aNewProjectWithTheNameOfOneOfTheCustomerIsThatProject() throws {
+        let model = try makeModel()
+        let relaunch = try model.createProject(name: "Relaunch", customerName: "Acme")
+        #expect(try model.createProject(name: " relaunch ", customerName: "ACME").id == relaunch.id)
+        let other = try model.createProject(name: "Relaunch", customerName: "Northwind")
+        #expect(other.id != relaunch.id)
+        #expect(try model.createProject(name: "Relaunch", customerName: "").customerId == nil)
+        #expect(model.catalog.projects.count == 3)
+    }
+
     @Test func aNewProjectTakesANewCustomerOrNone() throws {
         let model = try makeModel()
         let shop = try model.createProject(name: "Shop", customerName: "Northwind")

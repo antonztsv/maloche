@@ -24,9 +24,13 @@ extension AppDatabase {
         }
     }
 
+    /// Project names are unique per customer ignoring case, those without customer among themselves.
     public func createProject(name: String, customerId: Int64?) throws -> Project {
         var project = Project(name: try Self.validName(name), customerId: customerId)
-        try dbQueue.write { db in try project.insert(db) }
+        try dbQueue.write { db in
+            try Self.checkUnique(project, db)
+            try project.insert(db)
+        }
         return project
     }
 
@@ -34,7 +38,7 @@ extension AppDatabase {
         guard projectId == nil || customerId == nil else { throw WamaduError.projectAndCustomer }
         var activity = Activity(name: try Self.validName(name), projectId: projectId, customerId: customerId)
         try dbQueue.write { db in
-            try Self.checkUnique(activity.name, among: Activity.fetchAll(db).map(\.name))
+            try Self.checkUnique(activity, db)
             try activity.insert(db)
         }
         return activity
@@ -58,20 +62,24 @@ extension AppDatabase {
         return activity
     }
 
-    /// Activity names are unique ignoring case, archived activities, Break and Private included.
     public func renameActivity(id: Int64, to name: String) throws {
         let name = try Self.validName(name)
         try dbQueue.write { db in
             var activity = try Self.regularActivity(db, id: id)
-            try Self.checkUnique(name, among: Activity.filter(Column("id") != id).fetchAll(db).map(\.name))
             activity.name = name
+            try Self.checkUnique(activity, db)
             try activity.update(db)
         }
     }
 
     public func renameProject(id: Int64, to name: String) throws {
         let name = try Self.validName(name)
-        _ = try dbQueue.write { db in try Project.filter(id: id).updateAll(db, Column("name").set(to: name)) }
+        try dbQueue.write { db in
+            guard var project = try Project.fetchOne(db, id: id) else { return }
+            project.name = name
+            try Self.checkUnique(project, db)
+            try project.update(db)
+        }
     }
 
     public func renameCustomer(id: Int64, to name: String) throws {
@@ -100,9 +108,12 @@ extension AppDatabase {
     public func moveActivities(_ ids: [Int64], projectId: Int64?, customerId: Int64?) throws {
         guard projectId == nil || customerId == nil else { throw WamaduError.projectAndCustomer }
         try dbQueue.write { db in
-            for id in ids { _ = try Self.regularActivity(db, id: id) }
-            _ = try Activity.filter(ids: ids).updateAll(
-                db, Column("projectId").set(to: projectId), Column("customerId").set(to: customerId))
+            for id in ids {
+                var activity = try Self.regularActivity(db, id: id)
+                (activity.projectId, activity.customerId) = (projectId, customerId)
+                try Self.checkUnique(activity, db)
+                try activity.update(db)
+            }
         }
     }
 
@@ -193,13 +204,13 @@ extension AppDatabase {
     public func dailyImport(_ export: DailyExport, calendar: Calendar) throws -> DailyImport {
         try dbQueue.read { db in
             DailyImport(
-                export: export, activities: try Activity.fetchAll(db), projects: try Project.fetchAll(db),
-                customers: try Customer.fetchAll(db), blocks: try Block.fetchAll(db), calendar: calendar)
+                export: export, activities: try Activity.fetchAll(db), customers: try Customer.fetchAll(db),
+                blocks: try Block.fetchAll(db), calendar: calendar)
         }
     }
 
-    /// In one transaction: customers and activities by name ignoring case, existing ones keep their place, and the
-    /// blocks of each day that still has no time.
+    /// In one transaction: customers by name and activities by name directly under their customer or at the top level,
+    /// ignoring case, and the blocks of each day that still has no time.
     public func importDaily(_ plan: DailyImport.Plan) throws {
         try dbQueue.write { db in
             var customers = try Customer.fetchAll(db)
@@ -214,25 +225,30 @@ extension AppDatabase {
                 return customer.id
             }
             let activities = try Activity.fetchAll(db)
-            var ids: [String: Int64] = [:]
+            var ids: [[String?]: Int64] = [:]
             for planned in plan.activities {
+                let owner = try planned.customer.flatMap(customerId)
+                let key = [planned.customer?.lowercased(), planned.name.lowercased()]
                 if let existing = activities.first(where: {
-                    $0.name.caseInsensitiveCompare(planned.name) == .orderedSame
+                    ($0.projectId, $0.customerId) == (nil, owner)
+                        && $0.name.caseInsensitiveCompare(planned.name) == .orderedSame
                 }), let id = existing.id {
                     if let date = planned.lastUsedAt { try Self.markUsed(id, at: date, db) }
-                    ids[planned.name.lowercased()] = id
+                    ids[key] = id
                 } else {
                     var activity = Activity(
-                        name: planned.name, customerId: try planned.customer.flatMap(customerId),
-                        archived: planned.archived, lastUsedAt: planned.lastUsedAt)
+                        name: planned.name, customerId: owner, archived: planned.archived,
+                        lastUsedAt: planned.lastUsedAt)
                     try activity.insert(db)
-                    ids[planned.name.lowercased()] = activity.id
+                    ids[key] = activity.id
                 }
             }
             for day in plan.days {
                 guard try Self.overlapping(day.interval.start, day.interval.end).isEmpty(db) else { continue }
                 for planned in day.blocks {
-                    guard let id = ids[planned.activity.lowercased()] else { throw WamaduError.activityNotFound }
+                    guard let id = ids[[planned.customer?.lowercased(), planned.activity.lowercased()]] else {
+                        throw WamaduError.activityNotFound
+                    }
                     var block = Block(activityId: id, startedAt: planned.start, endedAt: planned.end, source: .imported)
                     try block.insert(db)
                 }
@@ -281,6 +297,20 @@ extension AppDatabase {
         if names.contains(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) {
             throw WamaduError.duplicateName
         }
+    }
+
+    /// Within its project, else its customer, else the top level; archived ones count, Break and Private everywhere.
+    private static func checkUnique(_ activity: Activity, _ db: Database) throws {
+        let others = try Activity.fetchAll(db).filter {
+            $0.id != activity.id
+                && ($0.kind != .regular || ($0.projectId, $0.customerId) == (activity.projectId, activity.customerId))
+        }
+        try checkUnique(activity.name, among: others.map(\.name))
+    }
+
+    private static func checkUnique(_ project: Project, _ db: Database) throws {
+        let others = try Project.fetchAll(db).filter { $0.id != project.id && $0.customerId == project.customerId }
+        try checkUnique(project.name, among: others.map(\.name))
     }
 
     private static func regularActivity(_ db: Database, id: Int64) throws -> Activity {
