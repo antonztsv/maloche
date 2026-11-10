@@ -145,6 +145,35 @@ import WamaduCore
         view.layoutSubtreeIfNeeded()
     }
 
+    /// The text field being edited, through the field editor's delegate.
+    private func editedField(in window: NSWindow) -> NSTextField? {
+        (window.firstResponder as? NSTextView)?.delegate as? NSTextField
+    }
+
+    @Test func theFirstStartTimeHasTheFocusWhenTheEditorOpens() throws {
+        let (_, _, window, hosting) = try makeEditor()
+        settle(hosting)
+
+        #expect(editedField(in: window)?.stringValue == time(10, 0))
+    }
+
+    /// Other stops in between come from keyboard navigation in System Settings, the time fields keep their order.
+    @Test func tabGoesThroughTheTimesInReadingOrder() throws {
+        let (_, _, window, hosting) = try makeEditor()
+        settle(hosting)
+        var visited: [String] = editedField(in: window).map { [$0.stringValue] } ?? []
+
+        for _ in 0..<12 {
+            press("\t", keyCode: 48, in: window)
+            settle(hosting)
+            if let field = editedField(in: window), field.stringValue != visited.last {
+                visited.append(field.stringValue)
+            }
+        }
+
+        #expect(visited.prefix(4) == [time(10, 0), time(12, 15), time(16, 0), time(17, 0)], "\(visited)")
+    }
+
     @Test func returnInATimeFieldBooksTheTypedTimeAndCloses() throws {
         let (model, writing, window, hosting) = try makeEditor()
         let end = try #require(textField(in: hosting, value: time(12, 15)))
@@ -229,6 +258,24 @@ import WamaduCore
         #expect(textField(in: hosting, value: time(12, 15)) != nil)
         #expect(spans(model, writing)?.count == 2)
         #expect(closed.count == 0)
+    }
+
+    /// Escape reaches no cancelOperation without a text field, it is a key equivalent like Cancel in a dialog.
+    @Test func escapeLeavesTheConfirmationThenClosesTheEditor() throws {
+        let (model, writing, window, hosting) = try makeEditor()
+        try #require(deleteButton(in: hosting)).performClick(nil)
+        settle(hosting)
+
+        shortcut("\u{1b}", keyCode: 53, in: window)
+        settle(hosting)
+        #expect(textField(in: hosting, value: time(12, 15)) != nil)
+        #expect(closed.count == 0)
+
+        window.makeFirstResponder(nil)
+        shortcut("\u{1b}", keyCode: 53, in: window)
+        settle(hosting)
+        #expect(closed.focusDashboard == [true])
+        #expect(spans(model, writing)?.count == 2)
     }
 
     @Test func commandDeleteInATimeFieldNeverAsksOrDeletes() throws {

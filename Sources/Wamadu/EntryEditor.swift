@@ -56,6 +56,10 @@ struct EntryEditorView: View {
         .onChange(of: focus) { left, _ in
             if let left { commit(left) }
         }
+        .task { focus = Field(span: 0, end: false) }
+        .keyCommand(.escape, modifiers: []) {
+            if confirmingDelete { confirmingDelete = false } else { cancel() }
+        }
     }
 
     @ViewBuilder private func editor(_ entry: DayEntry) -> some View {

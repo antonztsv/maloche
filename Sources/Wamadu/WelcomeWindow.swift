@@ -45,7 +45,7 @@ final class WelcomeWindowController: NSObject, NSWindowDelegate {
 
     private func makeWindow() -> NSWindow {
         let view = WelcomeView(model: model, openAtLogin: true) { [weak self] in self?.start($0, openAtLogin: $1) }
-        let window = WelcomeWindow(contentViewController: NSHostingController(rootView: view))
+        let window = NSWindow(contentViewController: NSHostingController(rootView: view))
         window.title = String(localized: "Welcome to wamadu")
         window.styleMask = [.titled, .closable, .fullSizeContentView]
         window.titleVisibility = .hidden
@@ -57,13 +57,6 @@ final class WelcomeWindowController: NSObject, NSWindowDelegate {
     }
 }
 
-/// Escape closes the window like its close button.
-private final class WelcomeWindow: NSWindow {
-    override func cancelOperation(_ sender: Any?) {
-        performClose(sender)
-    }
-}
-
 /// The principle, work days and hours, check-in interval and login item; Start applies them.
 struct WelcomeView: View {
     let model: AppModel
@@ -71,6 +64,7 @@ struct WelcomeView: View {
     @State private var welcome: Welcome
     @State private var openAtLogin: Bool
     @State private var importFlow = DailyImportFlow()
+    @Environment(\.dismiss) private var dismiss
 
     private var calendar: Calendar { model.calendar }
 
@@ -149,6 +143,7 @@ struct WelcomeView: View {
         // the header sits under the transparent title bar
         .ignoresSafeArea(edges: .top)
         .dailyImport(importFlow, model: model)
+        .keyCommand(.escape, modifiers: []) { dismiss() }
     }
 
     private func day(_ weekday: Int) -> some View {

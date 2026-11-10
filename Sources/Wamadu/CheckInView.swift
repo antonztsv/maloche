@@ -154,6 +154,7 @@ struct CheckInView: View {
                 .disabled(list.choice == nil)
         }
         .controlSize(.large)
+        .keyCommand(.escape, modifiers: [], action: model.close)
     }
 
     private var hint: String? {

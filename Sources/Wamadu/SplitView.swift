@@ -44,6 +44,7 @@ struct SplitView: View {
             }
             .padding(.leading, 4)
             .controlSize(.large)
+            .keyCommand(.escape, modifiers: [], action: onBack)
         }
         .task { focusedPart = split.parts.count - 1 }
     }

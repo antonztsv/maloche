@@ -58,10 +58,10 @@ struct DashboardView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             let paging = pagingLabels
-            iconButton("chevron.left", paging.previous) {
+            iconButton("chevron.left", paging.previous, key: .leftArrow) {
                 onShowPeriod(data.period.previous(calendar: data.calendar))
             }
-            iconButton("chevron.right", paging.next, enabled: !data.isCurrent) {
+            iconButton("chevron.right", paging.next, key: .rightArrow, enabled: !data.isCurrent) {
                 onShowPeriod(data.period.next(calendar: data.calendar))
             }
             moreActions
@@ -97,7 +97,7 @@ struct DashboardView: View {
     }
 
     private func iconButton(
-        _ symbol: String, _ label: Text, enabled: Bool = true, action: @escaping () -> Void
+        _ symbol: String, _ label: Text, key: KeyEquivalent, enabled: Bool = true, action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
@@ -105,6 +105,7 @@ struct DashboardView: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.borderless)
+        .keyboardShortcut(key, modifiers: .command)
         .foregroundStyle(enabled ? .secondary : .tertiary)
         .disabled(!enabled)
         .help(label)
@@ -132,6 +133,7 @@ struct DashboardView: View {
                 .foregroundStyle(.secondary)
             Spacer()
             Button("Keep tracking", action: onKeepTracking)
+                .keyboardRow(onKeepTracking)
         }
         .padding(.leading, 10)
         .padding(.trailing, 4)
@@ -167,17 +169,14 @@ struct DashboardView: View {
             .contentShape(.rect(cornerRadius: 8))
         }
         .buttonStyle(.plain)
+        .keyboardRow(onCheckIn)
         .accessibilityHint(Text("Change activity"))
     }
 
     private var periodPicker: some View {
         Picker(
             "Period",
-            selection: Binding(
-                get: { data.period.kind },
-                set: { kind in
-                    onShowPeriod(data.period.switched(to: kind, now: data.now, calendar: data.calendar))
-                })
+            selection: Binding(get: { data.period.kind }, set: showPeriod)
         ) {
             Text("Day").tag(PeriodKind.day)
             Text("Week").tag(PeriodKind.week)
@@ -186,6 +185,13 @@ struct DashboardView: View {
         .pickerStyle(.segmented)
         .labelsHidden()
         .buttonSizing(.flexible)
+        .keyCommand("1") { showPeriod(.day) }
+        .keyCommand("2") { showPeriod(.week) }
+        .keyCommand("3") { showPeriod(.month) }
+    }
+
+    private func showPeriod(_ kind: PeriodKind) {
+        onShowPeriod(data.period.switched(to: kind, now: data.now, calendar: data.calendar))
     }
 
     private func totals(_ day: DaySummary) -> some View {
@@ -454,6 +460,7 @@ private struct EditableRow<Label: View>: View {
             label.contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .keyboardRow { onEdit(frame) }
         .onGeometryChange(for: CGRect.self) {
             $0.frame(in: .global)
         } action: {

@@ -27,6 +27,46 @@ import WamaduCore
         #expect(NSApplication.shared.keyWindow == nil)
     }
 
+    /// Control-Tab and Control-Shift-Tab of the hidden menu, as the Window menu of other apps has them.
+    @Test func showNextAndPreviousTabSwitchThePanesAround() throws {
+        let model = try AppModel(database: .inMemory(), stateURL: nil)
+        let window = SettingsWindowController(model: model) { _ in }.window
+        let tabs = try #require(window.contentViewController as? NSTabViewController)
+        let menu = MainMenu.make()
+        let next = try #require(menu.item(withKey: "\t", modifiers: .control))
+        let previous = try #require(menu.item(withKey: "\t", modifiers: [.control, .shift]))
+        #expect(window.validateMenuItem(next) && window.validateMenuItem(previous))
+
+        window.perform(next.action, with: next)
+        #expect(tabs.selectedTabViewItemIndex == 1)
+        window.perform(previous.action, with: previous)
+        window.perform(previous.action, with: previous)
+        #expect(tabs.selectedTabViewItemIndex == tabs.tabViewItems.count - 1)
+        window.perform(next.action, with: next)
+        #expect(tabs.selectedTabViewItemIndex == 0)
+        #expect(!window.isVisible)
+    }
+
+    /// Other windows have no tabs, the keys reach their controls.
+    @Test func showNextTabIsOffInOtherWindows() throws {
+        let window = NSWindow(contentRect: .zero, styleMask: .titled, backing: .buffered, defer: true)
+        let next = try #require(MainMenu.make().item(withKey: "\t", modifiers: .control))
+        #expect(!window.validateMenuItem(next))
+    }
+
+    @Test func theHiddenMenuClosesWindowsAndEditsText() {
+        let menu = MainMenu.make()
+        let expected: [(String, NSEvent.ModifierFlags, Selector)] = [
+            ("w", .command, #selector(NSWindow.performClose(_:))),
+            ("a", .command, #selector(NSText.selectAll(_:))), ("c", .command, #selector(NSText.copy(_:))),
+            ("v", .command, #selector(NSText.paste(_:))), ("x", .command, #selector(NSText.cut(_:))),
+            ("z", .command, Selector(("undo:"))), ("z", [.command, .shift], Selector(("redo:"))),
+        ]
+        for (key, modifiers, action) in expected {
+            #expect(menu.item(withKey: key, modifiers: modifiers)?.action == action, "\(key)")
+        }
+    }
+
     @Test func theBreakShortcutSaysItStartsAndEndsTheBreak() {
         #expect(ShortcutAction.toggleBreak.title == "Start or end break")
     }
@@ -34,5 +74,16 @@ import WamaduCore
     @Test func recordedModifiersKeepOnlyTheFourShortcutKeys() {
         #expect(Shortcut.Modifiers([.command, .option, .capsLock, .function]) == [.command, .option])
         #expect(Shortcut.Modifiers([.control, .shift, .numericPad]) == [.control, .shift])
+    }
+}
+
+extension NSMenu {
+    /// The item anywhere in the menu with this key equivalent.
+    func item(withKey key: String, modifiers: NSEvent.ModifierFlags) -> NSMenuItem? {
+        for item in items {
+            if item.keyEquivalent == key, item.keyEquivalentModifierMask == modifiers { return item }
+            if let found = item.submenu?.item(withKey: key, modifiers: modifiers) { return found }
+        }
+        return nil
     }
 }

@@ -665,6 +665,12 @@
     "Settings…" : {
 
     },
+    "Show Next Tab" : {
+
+    },
+    "Show Previous Tab" : {
+
+    },
     "Since %@" : {
 
     },
@@ -793,6 +799,9 @@
 
     },
     "When you come back, wamadu asks what you did." : {
+
+    },
+    "Window" : {
 
     },
     "Work" : {

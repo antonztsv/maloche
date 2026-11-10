@@ -78,7 +78,7 @@ struct PanelView: View {
                 CheckInView(model: model, content: .awayReturn(span: span, prefill: prefill))
             case .breakReturn(let span, let prefill):
                 CheckInView(model: model, content: .breakReturn(span: span, prefill: prefill))
-            case .dashboard(let day): dashboard(day)
+            case .dashboard(let day): dashboard(day).keyCommand(.escape, modifiers: [], action: model.close)
             case nil: EmptyView()
             }
         }

@@ -50,6 +50,7 @@ struct MoreActionsMenu: View {
         .foregroundStyle(.secondary)
         .fixedSize()
         .help(Text("More actions"))
+        .keyCommand(",", action: model.openSettings)
     }
 
     @ViewBuilder private func durations(_ action: @escaping (TimeInterval) -> Void) -> some View {

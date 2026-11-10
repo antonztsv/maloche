@@ -61,6 +61,7 @@ struct ManageActivitiesView: View {
     @State private var query = ""
     @State private var overview = ActivityOverview(catalog: Catalog(), thisMonth: [])
     @State private var sheet: Sheet?
+    @FocusState private var searching: Bool
 
     init(model: AppModel, filter: Filter = .all, selection: Set<Int64> = []) {
         self.model = model
@@ -146,6 +147,14 @@ struct ManageActivitiesView: View {
             }
         }
         .listStyle(.sidebar)
+        .onKeyPress(.return) {
+            switch filter {
+            case .customer(let id): sheet = .name(.customer(id))
+            case .project(let id): sheet = .name(.project(id))
+            default: return .ignored
+            }
+            return .handled
+        }
     }
 
     private func projects(_ projects: [Project], customer: Customer?) -> some View {
@@ -216,6 +225,7 @@ struct ManageActivitiesView: View {
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
             SearchField(text: $query)
+                .focused($searching)
                 .frame(width: 200)
             Menu {
                 Button("New Activity…") { sheet = .name(.newActivity) }
@@ -229,6 +239,8 @@ struct ManageActivitiesView: View {
             .fixedSize()
             .help(Text("Add"))
             .accessibilityLabel(Text("Add"))
+            .keyCommand("n") { if filter != .archived { sheet = .name(.newActivity) } }
+            .keyCommand("f") { searching = true }
         }
         .padding(.leading, 16)
         .padding(.trailing, 12)
@@ -536,7 +548,7 @@ struct MergeSheet: View {
         }
         .padding(20)
         .frame(width: 360)
-        .onExitCommand { dismiss() }
+        .keyCommand(.escape, modifiers: []) { dismiss() }
     }
 
     private func message(_ time: String) -> Text {

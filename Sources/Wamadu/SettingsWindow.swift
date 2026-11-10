@@ -45,7 +45,7 @@ final class SettingsWindowController {
             item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
             tabs.addTabViewItem(item)
         }
-        let window = NSWindow(contentViewController: tabs)
+        let window = SettingsWindow(contentViewController: tabs)
         window.identifier = Self.identifier
         window.styleMask = [.titled, .closable]
         window.toolbarStyle = .preference
@@ -53,6 +53,26 @@ final class SettingsWindowController {
         tabs.fit(window)
         window.center()
         return window
+    }
+}
+
+/// Show Next Tab and Show Previous Tab of the hidden menu step through the panes.
+private final class SettingsWindow: NSWindow {
+    override func selectNextTab(_ sender: Any?) { step(by: 1) }
+
+    override func selectPreviousTab(_ sender: Any?) { step(by: -1) }
+
+    override func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        switch item.action {
+        case #selector(selectNextTab(_:)), #selector(selectPreviousTab(_:)): true
+        default: super.validateMenuItem(item)
+        }
+    }
+
+    private func step(by offset: Int) {
+        guard let tabs = contentViewController as? NSTabViewController, !tabs.tabViewItems.isEmpty else { return }
+        let count = tabs.tabViewItems.count
+        tabs.selectedTabViewItemIndex = (tabs.selectedTabViewItemIndex + offset + count) % count
     }
 }
 

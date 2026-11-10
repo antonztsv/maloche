@@ -79,6 +79,31 @@ import WamaduCore
         return started
     }
 
+    /// Counts the closes Escape asks for, instead of closing.
+    private final class Closing: NSWindow {
+        var closes = 0
+        override func close() { closes += 1 }
+    }
+
+    /// Without a focused field Escape reaches no cancelOperation, a key equivalent always closes.
+    @Test func escapeClosesTheWelcome() throws {
+        let (_, model) = try makeController()
+        let window = Closing(
+            contentRect: NSRect(x: 0, y: 0, width: WelcomeWindowController.width, height: 600), styleMask: .borderless,
+            backing: .buffered, defer: false)
+        let hosting = NSHostingView(rootView: WelcomeView(model: model, openAtLogin: false) { _, _ in })
+        window.contentView = hosting
+        hosting.layoutSubtreeIfNeeded()
+        let escape = NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
+            context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53)!
+
+        #expect(window.performKeyEquivalent(with: escape))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+
+        #expect(window.closes == 1)
+    }
+
     @Test func startNeedsAWorkDay() throws {
         let (_, model) = try makeController()
         #expect(pressReturn(model))
