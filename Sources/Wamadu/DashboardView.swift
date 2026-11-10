@@ -174,19 +174,19 @@ struct DashboardView: View {
         HStack(alignment: .firstTextBaseline, spacing: 16) {
             stat(Text("Work"), alignment: .leading) {
                 Text(DashboardData.duration(day.work))
-                    .font(.largeTitle.bold())
+                    .font(.title2.weight(.semibold))
             }
             if day.breaks > 0 {
                 stat(Text("Break"), alignment: .leading) {
                     Text(DashboardData.duration(day.breaks))
-                        .font(.title3.weight(.semibold))
+                        .font(.title2.weight(.semibold))
                 }
             }
             Spacer(minLength: 0)
             if let start = day.start, let end = day.end {
                 stat(Text("Workday"), alignment: .trailing) {
                     Text("\(start, format: DashboardData.time) to \(end, format: DashboardData.time)")
-                        .font(.title3.weight(.semibold))
+                        .font(.title2.weight(.semibold))
                 }
             }
         }
