@@ -113,6 +113,21 @@ import Testing
         #expect(!list.isCreating)
     }
 
+    @Test func withBuiltInsBreakLeadsAndPrivateClosesTheList() {
+        let list = CheckInList(catalog: catalog, prefill: 100, includingBuiltIns: true)
+        #expect(list.text == "Break")
+        #expect(names(list) == ["Break", "Code Review", "Weekly", "Writing", "Planning", "Private"])
+        #expect(list.choice == .existing(100))
+    }
+
+    @Test func withBuiltInsTypingFindsPrivate() {
+        var list = CheckInList(catalog: catalog, prefill: 100, includingBuiltIns: true)
+        list.setText("priv")
+        #expect(names(list).contains("Private"))
+        list.setText("private")
+        #expect(list.choice == .existing(101))
+    }
+
     @Test func clearingTheFieldListsEverythingInSections() {
         var list = CheckInList(catalog: catalog, prefill: 2)
         list.setText("")

@@ -29,28 +29,48 @@
                 return list
             }
             let screens: [(name: String, view: AnyView)] = [
-                ("checkin", AnyView(CheckInView(model: model, checkIn: timed))),
+                ("checkin", AnyView(CheckInView(model: model, content: .checkIn(timed)))),
                 (
                     "checkin-manual",
                     AnyView(
                         CheckInView(
                             model: model,
-                            checkIn: CheckIn(
-                                mode: .manual, span: DateInterval(start: Sample.at(8, 30), end: Sample.at(10, 30)),
-                                prefill: sample.writing)))
+                            content: .checkIn(
+                                CheckIn(
+                                    mode: .manual, span: DateInterval(start: Sample.at(8, 30), end: Sample.at(10, 30)),
+                                    prefill: sample.writing))))
                 ),
-                ("newactivity", AnyView(CheckInView(model: model, checkIn: timed, list: typed("Kickoff")))),
+                ("newactivity", AnyView(CheckInView(model: model, content: .checkIn(timed), list: typed("Kickoff")))),
                 (
                     "newactivity-project",
                     AnyView(
-                        CheckInView(model: model, checkIn: timed, list: typed("Kickoff", projectId: sample.relaunch)))
+                        CheckInView(
+                            model: model, content: .checkIn(timed), list: typed("Kickoff", projectId: sample.relaunch)))
                 ),
                 (
                     "newproject",
                     AnyView(
                         CheckInView(
-                            model: model, checkIn: timed, list: typed("Kickoff"),
+                            model: model, content: .checkIn(timed), list: typed("Kickoff"),
                             draft: ProjectDraft(name: "Relaunch 2027", customer: "Acme")))
+                ),
+                (
+                    "away-return",
+                    AnyView(
+                        CheckInView(
+                            model: model,
+                            content: .awayReturn(
+                                span: DateInterval(start: Sample.at(10, 20), end: Sample.at(11, 5)),
+                                prefill: model.builtIns.breakId)))
+                ),
+                (
+                    "break-return",
+                    AnyView(
+                        CheckInView(
+                            model: model,
+                            content: .breakReturn(
+                                span: DateInterval(start: Sample.at(12, 15), end: Sample.at(13, 0)),
+                                prefill: sample.review)))
                 ),
                 ("dashboard-day", AnyView(DashboardView.sample(.activity(id: DashboardView.sampleCodeReviewId)))),
                 ("dashboard-break", AnyView(DashboardView.sample(.onBreak))),

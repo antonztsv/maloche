@@ -2,18 +2,26 @@ import AppKit
 import SwiftUI
 import WamaduCore
 
+/// The check-in and the returns after being away and after a break: a field with suggestions and Log.
 struct CheckInView: View {
     let model: AppModel
-    let checkIn: CheckIn
+    let content: PanelContent
     @State private var list: CheckInList
     @State private var draft: ProjectDraft?
     @State private var projectMenuRequest = 0
     @FocusState private var fieldFocused: Bool
 
-    init(model: AppModel, checkIn: CheckIn, list: CheckInList? = nil, draft: ProjectDraft? = nil) {
+    init(model: AppModel, content: PanelContent, list: CheckInList? = nil, draft: ProjectDraft? = nil) {
         self.model = model
-        self.checkIn = checkIn
-        _list = State(initialValue: list ?? CheckInList(catalog: model.catalog, prefill: checkIn.prefill))
+        self.content = content
+        let initial: CheckInList
+        switch content {
+        case .checkIn(let checkIn): initial = CheckInList(catalog: model.catalog, prefill: checkIn.prefill)
+        case .awayReturn(_, let prefill):
+            initial = CheckInList(catalog: model.catalog, prefill: prefill, includingBuiltIns: true)
+        case .breakReturn(_, let prefill): initial = CheckInList(catalog: model.catalog, prefill: prefill)
+        }
+        _list = State(initialValue: list ?? initial)
         _draft = State(initialValue: draft)
     }
 
@@ -25,7 +33,12 @@ struct CheckInView: View {
                     draft: binding, customers: model.catalog.customers, onCancel: { draft = nil },
                     onCreate: createProject)
             } else {
-                field
+                VStack(alignment: .leading, spacing: 6) {
+                    if let question {
+                        Text(question).padding(.horizontal, 4)
+                    }
+                    field
+                }
                 if !list.rows.isEmpty { suggestions }
                 Divider().padding(.horizontal, 4)
                 buttons
@@ -38,16 +51,40 @@ struct CheckInView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("What are you working on?")
+            Text(title)
                 .font(.title3.weight(.semibold))
-            if let span = checkIn.span {
-                Text(Self.since(span))
+            if let subtitle {
+                Text(subtitle)
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
         }
         .padding(.horizontal, 4)
+    }
+
+    private var title: String {
+        if case .checkIn = content {
+            String(localized: "What are you working on?")
+        } else {
+            String(localized: "Welcome back")
+        }
+    }
+
+    private var subtitle: String? {
+        switch content {
+        case .checkIn(let checkIn): checkIn.span.map(Self.since)
+        case .awayReturn(let span, _): Self.away(span)
+        case .breakReturn(let span, _): Self.onBreak(span)
+        }
+    }
+
+    private var question: String? {
+        switch content {
+        case .checkIn: nil
+        case .awayReturn: String(localized: "What was that time?")
+        case .breakReturn: String(localized: "What are you working on now?")
+        }
     }
 
     private var field: some View {
@@ -118,7 +155,7 @@ struct CheckInView: View {
 
     private var buttons: some View {
         HStack(spacing: 8) {
-            MoreActionsMenu()
+            if case .checkIn = content { MoreActionsMenu() }
             if let hint {
                 Text(hint)
                     .font(.subheadline)
@@ -126,7 +163,11 @@ struct CheckInView: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
-            Button("Break", action: model.startBreak)
+            switch content {
+            case .checkIn: Button("Break", action: model.startBreak)
+            case .awayReturn: EmptyView()
+            case .breakReturn: Button("Still on break", action: model.close)
+            }
             Button("Log", action: log)
                 .keyboardShortcut(.defaultAction)
                 .disabled(list.choice == nil)
@@ -135,7 +176,9 @@ struct CheckInView: View {
     }
 
     private func sectionTitle(at index: Int) -> String? {
-        guard list.showsSections, case .activity(_, let today) = list.rows[index] else { return nil }
+        guard case .checkIn = content, list.showsSections, case .activity(_, let today) = list.rows[index] else {
+            return nil
+        }
         if index > 0, case .activity(_, let previous) = list.rows[index - 1], previous == today { return nil }
         return today ? String(localized: "Today") : String(localized: "Earlier")
     }
@@ -166,6 +209,26 @@ struct CheckInView: View {
         let time = span.start.formatted(date: .omitted, time: .shortened)
         guard let length = DurationText.span(span.duration) else { return String(localized: "Since \(time)") }
         return String(localized: "Since \(time), \(length)")
+    }
+
+    static func away(_ span: DateInterval) -> String {
+        let (start, end) = times(span)
+        guard let length = DurationText.span(span.duration) else {
+            return String(localized: "Away from \(start) to \(end)")
+        }
+        return String(localized: "Away from \(start) to \(end), \(length)")
+    }
+
+    static func onBreak(_ span: DateInterval) -> String {
+        let (start, end) = times(span)
+        guard let length = DurationText.span(span.duration) else {
+            return String(localized: "Break from \(start) to \(end)")
+        }
+        return String(localized: "Break from \(start) to \(end), \(length)")
+    }
+
+    static func times(_ span: DateInterval) -> (String, String) {
+        (span.start.formatted(date: .omitted, time: .shortened), span.end.formatted(date: .omitted, time: .shortened))
     }
 
     static func meta(project: String?, customer: String?) -> String {
@@ -210,6 +273,19 @@ private struct SuggestionRow: View {
         switch row {
         case .create:
             Image(systemName: "plus").fontWeight(.medium)
+        case .activity(let suggestion, _) where suggestion.activity.kind != .regular:
+            let square = RoundedRectangle(cornerRadius: 2)
+            Group {
+                if suggestion.activity.kind == .break {
+                    square.fill(Color(nsColor: .tertiaryLabelColor))
+                } else {
+                    square.strokeBorder(Color(nsColor: .secondaryLabelColor), lineWidth: 1.5)
+                }
+            }
+            .frame(width: 8, height: 8)
+            .background {
+                if selected { square.fill(Self.selectedText).padding(-1.5) }
+            }
         case .activity(let suggestion, _):
             Circle()
                 .fill(Color(nsColor: CustomerColor.nsColor(for: catalog.customer(of: suggestion.activity))))
@@ -233,7 +309,11 @@ private struct SuggestionRow: View {
             let project = catalog.project(projectId)
             return CheckInView.meta(project: project?.name, customer: catalog.customer(project?.customerId)?.name)
         case .activity(let suggestion, _):
-            return CheckInView.meta(project: suggestion.projectName, customer: suggestion.customerName)
+            switch suggestion.activity.kind {
+            case .break: return String(localized: "Not work time")
+            case .private: return String(localized: "Not counted")
+            case .regular: return CheckInView.meta(project: suggestion.projectName, customer: suggestion.customerName)
+            }
         }
     }
 }

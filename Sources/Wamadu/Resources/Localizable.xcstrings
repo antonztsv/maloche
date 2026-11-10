@@ -33,8 +33,48 @@
     "Activity" : {
 
     },
+    "Away from %@ to %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Away from %1$@ to %2$@"
+          }
+        }
+      }
+    },
+    "Away from %@ to %@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Away from %1$@ to %2$@, %3$@"
+          }
+        }
+      }
+    },
     "Break" : {
 
+    },
+    "Break from %@ to %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Break from %1$@ to %2$@"
+          }
+        }
+      }
+    },
+    "Break from %@ to %@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Break from %1$@ to %2$@, %3$@"
+          }
+        }
+      }
     },
     "Cancel" : {
 
@@ -132,6 +172,12 @@
     "No project" : {
 
     },
+    "Not counted" : {
+
+    },
+    "Not work time" : {
+
+    },
     "Now" : {
 
     },
@@ -175,6 +221,9 @@
         }
       }
     },
+    "Still on break" : {
+
+    },
     "Suggestions" : {
 
     },
@@ -199,7 +248,16 @@
     "Week" : {
 
     },
+    "Welcome back" : {
+
+    },
+    "What are you working on now?" : {
+
+    },
     "What are you working on?" : {
+
+    },
+    "What was that time?" : {
 
     },
     "Work" : {

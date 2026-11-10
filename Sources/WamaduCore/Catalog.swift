@@ -39,9 +39,10 @@ public struct Catalog: Equatable, Sendable {
         customer(activity.customerId(projects: projects.byId))
     }
 
-    func suggestions(for query: String) -> [Suggestion] {
+    func suggestions(for query: String, includingBuiltIns: Bool = false) -> [Suggestion] {
         Suggestions.ranked(
-            query: query, activities: activities, projects: projects, customers: customers, usedToday: usedToday)
+            query: query, activities: activities, projects: projects, customers: customers, usedToday: usedToday,
+            includingBuiltIns: includingBuiltIns)
     }
 
     func suggestion(for activity: Activity) -> Suggestion {

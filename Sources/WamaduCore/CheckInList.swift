@@ -22,9 +22,12 @@ public struct CheckInList: Equatable, Sendable {
     /// The project of a new activity.
     public var projectId: Int64?
     private let catalog: Catalog
+    /// Break and Private are suggested too, below the other activities.
+    private let includingBuiltIns: Bool
 
-    public init(catalog: Catalog, prefill: Int64?) {
+    public init(catalog: Catalog, prefill: Int64?, includingBuiltIns: Bool = false) {
         self.catalog = catalog
+        self.includingBuiltIns = includingBuiltIns
         let activity = catalog.activity(prefill)
         text = activity?.name ?? ""
         fill(top: activity, query: "")
@@ -77,7 +80,13 @@ public struct CheckInList: Equatable, Sendable {
     /// Ranked suggestions for the query with `top` moved to the first row, which is selected.
     private mutating func fill(top: Activity?, query: String) {
         let usedToday = Set(catalog.usedToday)
-        let ranked = catalog.suggestions(for: query).filter { $0.activity.id != top?.id }
+        var ranked = catalog.suggestions(for: query, includingBuiltIns: includingBuiltIns).filter {
+            $0.activity.id != top?.id
+        }
+        if includingBuiltIns, query.isEmpty {
+            let builtIns = ranked.filter { $0.activity.kind != .regular }
+            ranked = ranked.filter { $0.activity.kind == .regular }.prefix(Self.maxRows - 1 - builtIns.count) + builtIns
+        }
         let suggestions = (top.map { [catalog.suggestion(for: $0)] } ?? []) + ranked
         rows = suggestions.prefix(Self.maxRows).map { .activity($0, today: usedToday.contains($0.activity.id ?? 0)) }
         selection = rows.isEmpty ? nil : 0

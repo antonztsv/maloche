@@ -185,7 +185,128 @@ final class TestClock: WallClock, @unchecked Sendable {
         clock.now = Fixture.at("09:20")
         model.statusItemClicked()
         #expect(model.tracker.state.phase == .breakReturn(returnAt: Fixture.at("09:20")))
-        #expect(model.panel == .checkIn(CheckIn(mode: .manual, span: Fixture.span("09:05", "09:20"), prefill: writing)))
+        #expect(model.panel == .breakReturn(span: Fixture.span("09:05", "09:20"), prefill: writing))
+        #expect(presenter.calls.suffix(2) == ["show(focus: false)", "focus"])
+    }
+
+    // MARK: Returns
+
+    /// Writing from 09:00, away from 09:05 (screen locked) until an input at 09:50.
+    private func backFromAway(_ model: AppModel) throws -> Int64 {
+        let writing = try model.database.createActivity(name: "Writing").id!
+        tick(model, at: "09:00")
+        model.statusItemClicked()
+        model.log(.existing(writing))
+        clock.now = Fixture.at("09:05")
+        model.send(.systemAway(since: Fixture.at("09:05")))
+        tick(model, at: "09:50")
+        return writing
+    }
+
+    @Test func backFromAwayAsksWithoutFocusPrefilledWithBreak() throws {
+        let model = try makeModel()
+        _ = try backFromAway(model)
+        #expect(presenter.calls.last == "show(focus: false)")
+        #expect(model.panel == .awayReturn(span: Fixture.span("09:05", "09:50"), prefill: model.builtIns.breakId))
+    }
+
+    @Test func awayAnsweredWithBreakBooksABreakAndWritingRunsOn() throws {
+        let model = try makeModel()
+        _ = try backFromAway(model)
+        model.log(.existing(model.builtIns.breakId))
+        #expect(model.panel == nil)
+        #expect(presenter.calls.last == "hide")
+        tick(model, at: "09:52")
+        #expect(try timeline(model) == ["Writing 09:00-09:05", "Break 09:05-09:50", "Writing 09:50-09:52"])
+    }
+
+    @Test func awayAnsweredWithPrivateBooksPrivateAndWritingRunsOn() throws {
+        let model = try makeModel()
+        _ = try backFromAway(model)
+        model.log(.existing(model.builtIns.privateId))
+        tick(model, at: "09:52")
+        #expect(try timeline(model) == ["Writing 09:00-09:05", "Private 09:05-09:50", "Writing 09:50-09:52"])
+        #expect(model.tracker.mode == .tracking)
+    }
+
+    @Test func awayAnsweredWithAnActivityBooksItAndItRunsOn() throws {
+        let model = try makeModel()
+        _ = try backFromAway(model)
+        let meeting = try model.database.createActivity(name: "Meeting").id!
+        model.log(.existing(meeting))
+        tick(model, at: "09:52")
+        #expect(try timeline(model) == ["Writing 09:00-09:05", "Meeting 09:05-09:52"])
+    }
+
+    @Test func awayAnsweredWithANewNameCreatesThatActivity() throws {
+        let model = try makeModel()
+        _ = try backFromAway(model)
+        model.log(.create(name: "Offsite", projectId: nil))
+        tick(model, at: "09:52")
+        #expect(try timeline(model) == ["Writing 09:00-09:05", "Offsite 09:05-09:52"])
+    }
+
+    @Test func dismissingTheAwayReturnCountsAsBreak() throws {
+        let model = try makeModel()
+        _ = try backFromAway(model)
+        model.close()
+        #expect(model.panel == nil)
+        tick(model, at: "09:52")
+        #expect(try timeline(model) == ["Writing 09:00-09:05", "Break 09:05-09:50", "Writing 09:50-09:52"])
+    }
+
+    @Test func timedCheckInsResumeAfterTheAwayAnswer() throws {
+        let model = try makeModel()
+        let writing = try backFromAway(model)
+        model.log(.existing(model.builtIns.breakId))
+        tick(model, at: "10:05")
+        #expect(model.panel == .checkIn(CheckIn(mode: .timed, span: Fixture.span("09:50", "10:05"), prefill: writing)))
+        #expect(presenter.calls.last == "show(focus: false)")
+    }
+
+    /// Writing from 09:00, a break from 09:05, away during it from 09:10 until an input at 09:40.
+    private func backFromBreak(_ model: AppModel) throws -> Int64 {
+        let writing = try model.database.createActivity(name: "Writing").id!
+        tick(model, at: "09:00")
+        model.statusItemClicked()
+        model.log(.existing(writing))
+        clock.now = Fixture.at("09:05")
+        model.startBreak()
+        clock.now = Fixture.at("09:10")
+        model.send(.systemAway(since: Fixture.at("09:10")))
+        tick(model, at: "09:40")
+        return writing
+    }
+
+    @Test func backFromABreakAsksWithoutFocusPrefilledWithTheActivityBefore() throws {
+        let model = try makeModel()
+        let writing = try backFromBreak(model)
+        #expect(presenter.calls.last == "show(focus: false)")
+        #expect(model.panel == .breakReturn(span: Fixture.span("09:05", "09:40"), prefill: writing))
+    }
+
+    @Test func theBreakReturnAnswerEndsTheBreakAndCheckInsResume() throws {
+        let model = try makeModel()
+        _ = try backFromBreak(model)
+        let reading = try model.database.createActivity(name: "Reading").id!
+        model.log(.existing(reading))
+        #expect(model.panel == nil)
+        #expect(model.tracker.mode == .tracking)
+        tick(model, at: "09:55")
+        #expect(try timeline(model) == ["Writing 09:00-09:05", "Break 09:05-09:40", "Reading 09:40-09:55"])
+        #expect(model.panel == .checkIn(CheckIn(mode: .timed, span: Fixture.span("09:40", "09:55"), prefill: reading)))
+    }
+
+    @Test func stillOnBreakAndEscapeKeepTheBreak() throws {
+        let model = try makeModel()
+        _ = try backFromBreak(model)
+        model.close()
+        #expect(model.panel == nil)
+        #expect(presenter.calls.last == "hide")
+        #expect(model.tracker.mode == .onBreak)
+        tick(model, at: "09:42")
+        #expect(model.panel == nil)
+        #expect(try timeline(model) == ["Writing 09:00-09:05", "Break 09:05-09:42"])
     }
 
     @Test func aNewNameCreatesTheActivity() throws {

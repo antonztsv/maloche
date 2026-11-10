@@ -34,8 +34,13 @@ struct PanelView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // one branch per kind, so another kind of prompt starts with a fresh field
             switch model.panel {
-            case .checkIn(let checkIn): CheckInView(model: model, checkIn: checkIn)
+            case .checkIn(let checkIn): CheckInView(model: model, content: .checkIn(checkIn))
+            case .awayReturn(let span, let prefill):
+                CheckInView(model: model, content: .awayReturn(span: span, prefill: prefill))
+            case .breakReturn(let span, let prefill):
+                CheckInView(model: model, content: .breakReturn(span: span, prefill: prefill))
             case nil: EmptyView()
             }
         }

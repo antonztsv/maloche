@@ -19,6 +19,10 @@ public protocol PanelPresenter: AnyObject {
 
 public enum PanelContent: Equatable, Sendable {
     case checkIn(CheckIn)
+    /// Back after being away, the answer covers the span.
+    case awayReturn(span: DateInterval, prefill: Int64)
+    /// Back from a break, the answer runs from the end of the span.
+    case breakReturn(span: DateInterval, prefill: Int64?)
 }
 
 public struct CheckIn: Equatable, Sendable {
@@ -88,12 +92,11 @@ public final class AppModel {
                     logger.error("booking failed: \(String(describing: error), privacy: .public)")
                 }
             case .showCheckIn(let prompt):
-                reloadCatalog()
-                panel = .checkIn(CheckIn(mode: .timed, span: prompt.span, prefill: prompt.prefill))
-                open(.timer)
-            case .showAwayReturn, .showBreakReturn:
-                // TODO: show the away and break returns, an unanswered one counts as Break meanwhile
-                break
+                present(.checkIn(CheckIn(mode: .timed, span: prompt.span, prefill: prompt.prefill)))
+            case .showAwayReturn(let span, let prefill):
+                present(.awayReturn(span: span, prefill: prefill))
+            case .showBreakReturn(let span, let prefill):
+                present(.breakReturn(span: span, prefill: prefill))
             case .hidePrompt:
                 panel = nil
                 presenter?.hide()
@@ -110,6 +113,10 @@ public final class AppModel {
     public func open(_ trigger: PanelFocus.Trigger) {
         guard let presenter else { return }
         switch PanelFocus.action(for: trigger, visible: presenter.isVisible, key: presenter.isKey) {
+        case .show where trigger != .timer && tracker.mode == .onBreak:
+            // the break return opens like a timed prompt, then takes the focus
+            send(.openedDuringBreak)
+            presenter.focus()
         case .show(let focus):
             if trigger != .timer { prepareManualCheckIn() }
             if panel != nil { presenter.show(focus: focus) }
@@ -119,17 +126,23 @@ public final class AppModel {
         }
     }
 
-    /// Escape, or a click on the icon while the panel has the focus; a timed prompt counts as dismissed.
+    /// Escape, or a click on the icon while the panel has the focus: a timed prompt counts as dismissed,
+    /// the away return as Break, the break return as still on break.
     public func close() {
         let closed = panel
         panel = nil
         presenter?.hide()
-        if case .checkIn(let checkIn) = closed, checkIn.mode == .timed { send(.checkInDismissed) }
+        switch closed {
+        case .checkIn(let checkIn) where checkIn.mode == .timed: send(.checkInDismissed)
+        case .awayReturn: send(.awayDismissed)
+        case .breakReturn: send(.stillOnBreak)
+        default: break
+        }
     }
 
-    /// A timed prompt books its span, one opened by hand switches now.
+    /// A timed prompt books its span, one opened by hand switches now, a return answers for the time away.
     public func log(_ choice: CheckInList.Choice) {
-        guard case .checkIn(let checkIn) = panel else { return }
+        guard let content = panel else { return }
         let id: Int64
         switch choice {
         case .existing(let existing):
@@ -145,8 +158,15 @@ public final class AppModel {
         }
         panel = nil
         presenter?.hide()
-        logger.info("answered \(checkIn.mode == .timed ? "timed" : "manual", privacy: .public) check-in with \(id)")
-        send(checkIn.mode == .timed ? .checkInAnswered(id) : .switchActivity(id))
+        logger.info("answered the panel with \(id)")
+        switch content {
+        case .checkIn(let checkIn): send(checkIn.mode == .timed ? .checkInAnswered(id) : .switchActivity(id))
+        case .awayReturn:
+            send(
+                .awayAnswered(
+                    id == builtIns.breakId ? .break : id == builtIns.privateId ? .private : .activity(id)))
+        case .breakReturn: send(.breakReturnAnswered(id))
+        }
         reloadCatalog()
     }
 
@@ -172,9 +192,13 @@ public final class AppModel {
         return project
     }
 
+    private func present(_ content: PanelContent) {
+        reloadCatalog()
+        panel = content
+        open(.timer)
+    }
+
     private func prepareManualCheckIn() {
-        // TODO: show the break return here, the check-in stands in until it exists
-        if tracker.mode == .onBreak { send(.openedDuringBreak) }
         reloadCatalog()
         let now = clock.now
         let span = tracker.runningSince.map { DateInterval(start: min($0, now), end: now) }
