@@ -169,10 +169,12 @@ final class CheckInPanelController: PanelPresenter {
 
     /// Highlighted while the panel shows, like a menu bar extra with its menu open.
     private func highlightStatusItem() {
-        // a turn later, the mouse up of a click on the icon resets the highlight after the action
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.statusItem?.button?.highlight(self.panel.isVisible)
+        // default mode only, the click on the icon drops the highlight at mouse up while tracking in another mode
+        RunLoop.main.perform(inModes: [.default]) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.statusItem?.button?.highlight(self.panel.isVisible)
+            }
         }
     }
 
