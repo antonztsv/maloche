@@ -12,14 +12,27 @@ import Testing
         return calendar
     }
 
-    private func makeModel(calendar: Calendar = calendar(firstWeekday: 2)) throws -> AppModel {
+    private func makeModel(
+        database: AppDatabase? = nil, calendar: Calendar = calendar(firstWeekday: 2)
+    ) throws -> AppModel {
         try AppModel(
-            database: .inMemory(), stateURL: nil, settingsStore: store, clock: TestClock("09:00"),
+            database: database ?? .inMemory(), stateURL: nil, settingsStore: store, clock: TestClock("09:00"),
             calendar: calendar)
     }
 
-    @Test func isDueWithNothingStored() throws {
-        #expect(try !makeModel().settings.welcomeDone)
+    @Test func isDueWithNothingStoredAndNoTimeBooked() throws {
+        let model = try makeModel()
+        #expect(!model.settings.welcomeDone)
+        #expect(model.welcomeDue)
+    }
+
+    @Test func timeBookedCountsAsDoneWithNothingStored() throws {
+        let database = try AppDatabase.inMemory()
+        let writing = try database.createActivity(name: "Writing").id!
+        try database.insert(
+            block: Block(
+                activityId: writing, startedAt: Fixture.at("08:00"), endedAt: Fixture.at("08:30"), source: .checkIn))
+        #expect(try !makeModel(database: database).welcomeDue)
     }
 
     @Test func settingsStoredBeforeTheWelcomeExistedCountAsDone() throws {
@@ -44,7 +57,7 @@ import Testing
         #expect(model.tracker.settings.schedule == model.settings.schedule)
         let reloaded = try makeModel()
         #expect(reloaded.settings == model.settings)
-        #expect(reloaded.settings.welcomeDone)
+        #expect(!reloaded.welcomeDue)
     }
 
     @Test func startWithTheDefaultsStillMarksItDone() throws {

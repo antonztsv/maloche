@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import Testing
 import WamaduCore
 
@@ -59,6 +60,33 @@ import WamaduCore
         controller.start(Welcome(settings: model.settings, calendar: model.calendar), openAtLogin: true)
         #expect(loginItem.calls == [true])
         #expect(model.settings.welcomeDone)
+    }
+
+    /// Return in the welcome view, hosted in a window that is never shown or key; true when Start ran.
+    private func pressReturn(_ model: AppModel) -> Bool {
+        _ = NSApplication.shared
+        var started = false
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: WelcomeWindowController.width, height: 600), styleMask: .borderless,
+            backing: .buffered, defer: false)
+        let hosting = NSHostingView(rootView: WelcomeView(model: model, openAtLogin: false) { _, _ in started = true })
+        window.contentView = hosting
+        hosting.layoutSubtreeIfNeeded()
+        let event = NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
+            context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36)!
+        _ = window.performKeyEquivalent(with: event)
+        return started
+    }
+
+    @Test func startNeedsAWorkDay() throws {
+        let (_, model) = try makeController()
+        #expect(pressReturn(model))
+
+        var settings = model.settings
+        settings.schedule = WorkSchedule(plans: [:])
+        model.update(settings)
+        #expect(!pressReturn(model))
     }
 
     @Test func closingKeepsTheSettingsAndMarksItDone() throws {

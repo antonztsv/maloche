@@ -123,6 +123,10 @@ extension AppDatabase {
         }
     }
 
+    public func hasBlocks() throws -> Bool {
+        try dbQueue.read { try !Block.all().isEmpty($0) }
+    }
+
     /// Blocks of the activities, sorted by start.
     public func blocks(ofActivities ids: [Int64]) throws -> [Block] {
         try dbQueue.read { db in

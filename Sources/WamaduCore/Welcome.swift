@@ -15,6 +15,11 @@ public struct Welcome: Equatable, Sendable {
 }
 
 extension AppModel {
+    /// Until Start or closing; time already booked belongs to someone using the app, also without stored settings.
+    public var welcomeDue: Bool {
+        !settings.welcomeDone && (try? database.hasBlocks()) == false
+    }
+
     /// Start applies the choices, closing keeps the settings; either way the welcome is done.
     public func finishWelcome(_ welcome: Welcome?) {
         var settings = settings

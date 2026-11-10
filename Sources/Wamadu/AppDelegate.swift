@@ -64,7 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.manageWindow = manageWindow
 
         // launches with debug arguments are for manual testing and skip the welcome
-        if !model.settings.welcomeDone && !CommandLine.arguments.contains(where: { $0.hasPrefix("-Debug") }) {
+        if model.welcomeDue && !CommandLine.arguments.contains(where: { $0.hasPrefix("-Debug") }) {
             let welcomeWindow = WelcomeWindowController(model: model)
             self.welcomeWindow = welcomeWindow
             welcomeWindow.show()

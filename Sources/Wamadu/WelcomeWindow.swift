@@ -141,6 +141,7 @@ struct WelcomeView: View {
                 Spacer()
                 Button("Start") { onStart(welcome, openAtLogin) }
                     .keyboardShortcut(.defaultAction)
+                    .disabled(welcome.days.isEmpty)
             }
             .padding([.horizontal, .bottom], 20)
         }
