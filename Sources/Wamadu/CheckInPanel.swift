@@ -22,6 +22,27 @@ final class CheckInPanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
 
+    override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        super.setFrame(frameRect, display: flag)
+        reshapeShadow()
+    }
+
+    override func becomeKey() {
+        super.becomeKey()
+        reshapeShadow()
+    }
+
+    override func resignKey() {
+        super.resignKey()
+        reshapeShadow()
+    }
+
+    /// The shadow of a borderless window keeps the shape it was computed from, a stale one shows square edges.
+    private func reshapeShadow() {
+        // after the next display pass, so the shadow follows the content as drawn
+        DispatchQueue.main.async { [weak self] in self?.invalidateShadow() }
+    }
+
     override func cancelOperation(_ sender: Any?) {
         if let onCancel { onCancel() } else { orderOut(nil) }
     }
@@ -79,7 +100,16 @@ final class CheckInPanelController: PanelPresenter {
         self.model = model
         glass.style = .regular
         glass.cornerRadius = 16
-        panel.contentView = glass
+        // a rounded mask under the glass, so the window shape and its shadow have no square corners
+        let shape = NSView()
+        shape.wantsLayer = true
+        shape.layer?.cornerRadius = 16
+        shape.layer?.cornerCurve = .continuous
+        shape.layer?.masksToBounds = true
+        panel.contentView = shape
+        glass.frame = shape.bounds
+        glass.autoresizingMask = [.width, .height]
+        shape.addSubview(glass)
         panel.onCancel = { [weak model] in model?.close() }
         resignKeyObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
