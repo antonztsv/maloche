@@ -22,9 +22,10 @@
             let timed = CheckIn(
                 mode: .timed, span: DateInterval(start: Sample.at(10, 15), end: Sample.at(10, 30)),
                 prefill: sample.review)
-            func typed(_ text: String) -> CheckInList {
+            func typed(_ text: String, projectId: Int64? = nil) -> CheckInList {
                 var list = CheckInList(catalog: model.catalog, prefill: sample.review)
                 list.setText(text)
+                list.projectId = projectId
                 return list
             }
             let screens: [(name: String, view: AnyView)] = [
@@ -39,6 +40,18 @@
                                 prefill: sample.writing)))
                 ),
                 ("newactivity", AnyView(CheckInView(model: model, checkIn: timed, list: typed("Kickoff")))),
+                (
+                    "newactivity-project",
+                    AnyView(
+                        CheckInView(model: model, checkIn: timed, list: typed("Kickoff", projectId: sample.relaunch)))
+                ),
+                (
+                    "newproject",
+                    AnyView(
+                        CheckInView(
+                            model: model, checkIn: timed, list: typed("Kickoff"),
+                            draft: ProjectDraft(name: "Relaunch 2027", customer: "Acme")))
+                ),
             ]
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             for screen in screens {
@@ -55,6 +68,7 @@
             let model: AppModel
             let review: Int64?
             let writing: Int64?
+            let relaunch: Int64?
             static let today = Calendar.current.startOfDay(for: .now)
 
             static func at(_ hour: Int, _ minute: Int) -> Date {
@@ -75,6 +89,7 @@
                 let kickoff = try database.createActivity(name: "Kickoff Shop", projectId: shop.id)
                 self.review = review.id
                 self.writing = writing.id
+                self.relaunch = relaunch.id
                 let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Self.today)!
                 try database.insert(
                     block: Block(

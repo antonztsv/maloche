@@ -156,6 +156,22 @@ public final class AppModel {
         send(.startBreak)
     }
 
+    /// Uses the customer of that name or creates it; an empty customer name means none.
+    public func createProject(name: String, customerName: String) throws -> Project {
+        guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw WamaduError.emptyName }
+        let customerName = customerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        var customerId: Int64?
+        if !customerName.isEmpty {
+            let existing = try database.customers().first {
+                $0.name.caseInsensitiveCompare(customerName) == .orderedSame
+            }
+            customerId = try (existing ?? database.createCustomer(name: customerName)).id
+        }
+        let project = try database.createProject(name: name, customerId: customerId)
+        reloadCatalog()
+        return project
+    }
+
     private func prepareManualCheckIn() {
         // TODO: show the break return here, the check-in stands in until it exists
         if tracker.mode == .onBreak { send(.openedDuringBreak) }

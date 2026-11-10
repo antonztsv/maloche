@@ -200,6 +200,34 @@ final class TestClock: WallClock, @unchecked Sendable {
         #expect(model.catalog.activity(kickoff.id) == kickoff)
     }
 
+    @Test func aNewNameCreatesTheActivityWithItsProject() throws {
+        let model = try makeModel()
+        let acme = try model.database.createCustomer(name: "Acme")
+        tick(model, at: "09:00")
+        let relaunch = try model.createProject(name: "Relaunch", customerName: " acme ")
+        #expect(relaunch.customerId == acme.id)
+        model.statusItemClicked()
+        model.log(.create(name: "Kickoff", projectId: relaunch.id))
+
+        let kickoff = try #require(try model.database.activities().first { $0.name == "Kickoff" })
+        #expect(kickoff.projectId == relaunch.id)
+        #expect(model.tracker.currentActivity == kickoff.id)
+        #expect(model.catalog.activity(kickoff.id) == kickoff)
+        #expect(model.catalog.projects.map(\.name) == ["Relaunch"])
+    }
+
+    @Test func aNewProjectTakesANewCustomerOrNone() throws {
+        let model = try makeModel()
+        let shop = try model.createProject(name: "Shop", customerName: "Northwind")
+        let northwind = try #require(try model.database.customers().first)
+        #expect(northwind.name == "Northwind")
+        #expect(shop.customerId == northwind.id)
+        #expect(try model.createProject(name: "Tools", customerName: "  ").customerId == nil)
+        #expect(throws: WamaduError.emptyName) { try model.createProject(name: " ", customerName: "Globex") }
+        #expect(try model.database.customers().map(\.name) == ["Northwind"])
+        #expect(model.catalog.customers.map(\.name) == ["Northwind"])
+    }
+
     @Test func trackerStateSurvivesARelaunch() throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

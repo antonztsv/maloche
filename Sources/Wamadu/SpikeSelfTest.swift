@@ -88,11 +88,60 @@
             model.statusItemClicked()
             await pause()
             key("x", 7)
+            await pause()
             key("a", 0, .command)
             spikeLog.info(
                 "self-test cmd-a: field=\(field(), privacy: .public) selection=\(selection(), privacy: .public)")
             key("\u{1b}", 53)
             await pause()
+
+            let probe = MenuProbe()
+            func project() -> String {
+                let activity = model.catalog.activity(model.tracker.currentActivity)
+                let project = model.catalog.project(activity?.projectId)
+                return "\(project?.name ?? "-"), \(model.catalog.customer(project?.customerId)?.name ?? "-")"
+            }
+            func tabToProjectMenu(picking title: String) async {
+                probe.pick = title
+                let menus = probe.closed
+                key("\t", 48)
+                for _ in 0..<30 where probe.closed == menus { await pause(100) }
+                await pause()
+                spikeLog.info("self-test tab opens project menu: items=\(probe.items, privacy: .public)")
+            }
+            model.statusItemClicked()
+            await pause()
+            key("Self-test \(stamp) three", 0)
+            await pause()
+            await tabToProjectMenu(picking: "New project…")
+            key("\u{1b}", 53)
+            await pause()
+            spikeLog.info("self-test escape in project form: field=\(field(), privacy: .public)")
+            await tabToProjectMenu(picking: "New project…")
+            key("Self-test \(stamp) project", 0)
+            key("\t", 48)
+            await pause()
+            key("Self-test \(stamp) customer", 0)
+            spikeLog.info("self-test new project form: field=\(field(), privacy: .public)")
+            key(returnKey.0, returnKey.1)
+            await pause()
+            spikeLog.info("self-test project created: field=\(field(), privacy: .public)")
+            key(returnKey.0, returnKey.1)
+            await pause()
+            spikeLog.info(
+                "self-test created with new project: current=\(current(), privacy: .public) \(project(), privacy: .public)"
+            )
+
+            model.statusItemClicked()
+            await pause()
+            key("Self-test \(stamp) four", 0)
+            await pause()
+            await tabToProjectMenu(picking: "Self-test \(stamp) project")
+            key(returnKey.0, returnKey.1)
+            await pause()
+            spikeLog.info(
+                "self-test created with picked project: current=\(current(), privacy: .public) \(project(), privacy: .public)"
+            )
 
             controller.statusItem?.button?.performClick(nil)
             await pause()
@@ -100,6 +149,47 @@
             controller.statusItem?.button?.performClick(nil)
             await pause()
             spikeLog.info("self-test status item click 2: visible=\(panel.isVisible)")
+        }
+    }
+
+    /// Closes every menu as soon as it opens, records its items and then picks the item titled `pick`.
+    @MainActor
+    private final class MenuProbe {
+        var items: [String] = []
+        var pick = ""
+        private(set) var closed = 0
+        private var index: Int?
+        private var observers: [NSObjectProtocol] = []
+
+        init() {
+            let center = NotificationCenter.default
+            observers.append(
+                center.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) {
+                    [weak self] note in
+                    // posted on the main thread while the menu tracks
+                    nonisolated(unsafe) let menu = note.object as? NSMenu
+                    MainActor.assumeIsolated {
+                        guard let self, let menu else { return }
+                        self.items = menu.items.map(\.title)
+                        self.index = menu.items.firstIndex { $0.title == self.pick }
+                        DispatchQueue.main.async { menu.cancelTracking() }
+                    }
+                })
+            // picking after tracking ended keeps the action out of the menu's event loop
+            observers.append(
+                center.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: .main) {
+                    [weak self] note in
+                    nonisolated(unsafe) let menu = note.object as? NSMenu
+                    MainActor.assumeIsolated {
+                        guard let self, let menu else { return }
+                        let index = self.index
+                        self.index = nil
+                        DispatchQueue.main.async {
+                            if let index { menu.performActionForItem(at: index) }
+                            self.closed += 1
+                        }
+                    }
+                })
         }
     }
 #endif

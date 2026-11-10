@@ -6,21 +6,30 @@ struct CheckInView: View {
     let model: AppModel
     let checkIn: CheckIn
     @State private var list: CheckInList
+    @State private var draft: ProjectDraft?
+    @State private var projectMenuRequest = 0
     @FocusState private var fieldFocused: Bool
 
-    init(model: AppModel, checkIn: CheckIn, list: CheckInList? = nil) {
+    init(model: AppModel, checkIn: CheckIn, list: CheckInList? = nil, draft: ProjectDraft? = nil) {
         self.model = model
         self.checkIn = checkIn
         _list = State(initialValue: list ?? CheckInList(catalog: model.catalog, prefill: checkIn.prefill))
+        _draft = State(initialValue: draft)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            field
-            if !list.rows.isEmpty { suggestions }
-            Divider().padding(.horizontal, 4)
-            buttons
+            if let binding = Binding($draft) {
+                NewProjectForm(
+                    draft: binding, customers: model.catalog.customers, onCancel: { draft = nil },
+                    onCreate: createProject)
+            } else {
+                field
+                if !list.rows.isEmpty { suggestions }
+                Divider().padding(.horizontal, 4)
+                buttons
+            }
         }
         .padding(12)
         .padding(.top, 4)
@@ -55,18 +64,28 @@ struct CheckInView: View {
                     list.moveSelection(by: -1)
                     return .handled
                 }
+                .onKeyPress(.tab) {
+                    guard list.isCreating else { return .ignored }
+                    projectMenuRequest += 1
+                    return .handled
+                }
                 .onKeyPress(.escape) {
                     model.close()
                     return .handled
                 }
-            if let match = list.fieldMatch {
+            if list.isCreating {
+                ProjectChip(
+                    catalog: model.catalog, projectId: $list.projectId, menuRequest: $projectMenuRequest,
+                    onNewProject: { draft = ProjectDraft() })
+            } else if let match = list.fieldMatch {
                 Text(Self.meta(project: match.projectName, customer: match.customerName))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.leading, 8)
+        .padding(.trailing, list.isCreating ? 3 : 8)
         .fieldBackground(focused: fieldFocused)
         // focus per appearance, a panel opened without key status still types into the field after a click
         .task { fieldFocused = true }
@@ -84,11 +103,13 @@ struct CheckInView: View {
                         .padding(.bottom, 2)
                         .accessibilityAddTraits(.isHeader)
                 }
-                SuggestionRow(row: row, selected: index == list.selection, catalog: model.catalog)
-                    .onTapGesture {
-                        list.select(index)
-                        log()
-                    }
+                SuggestionRow(
+                    row: row, selected: index == list.selection, catalog: model.catalog, projectId: list.projectId
+                )
+                .onTapGesture {
+                    list.select(index)
+                    log()
+                }
             }
         }
         .accessibilityElement(children: .contain)
@@ -98,6 +119,12 @@ struct CheckInView: View {
     private var buttons: some View {
         HStack(spacing: 8) {
             MoreActionsMenu()
+            if let hint {
+                Text(hint)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
             Spacer(minLength: 0)
             Button("Break", action: model.startBreak)
             Button("Log", action: log)
@@ -113,8 +140,26 @@ struct CheckInView: View {
         return today ? String(localized: "Today") : String(localized: "Earlier")
     }
 
+    private var hint: String? {
+        guard list.isCreating else { return nil }
+        guard let project = model.catalog.project(list.projectId) else {
+            return String(localized: "Tab picks a project")
+        }
+        return model.catalog.customer(project.customerId).map { String(localized: "\($0.name) comes with the project") }
+    }
+
     private func log() {
         if let choice = list.choice { model.log(choice) }
+    }
+
+    private func createProject() {
+        guard let draft else { return }
+        do {
+            list.projectId = try model.createProject(name: draft.name, customerName: draft.customer).id
+            self.draft = nil
+        } catch {
+            NSSound.beep()
+        }
     }
 
     static func since(_ span: DateInterval) -> String {
@@ -136,6 +181,7 @@ private struct SuggestionRow: View {
     let row: CheckInList.Row
     let selected: Bool
     let catalog: Catalog
+    let projectId: Int64?
 
     private static let selectedText = Color(nsColor: .alternateSelectedControlTextColor)
 
@@ -183,9 +229,11 @@ private struct SuggestionRow: View {
 
     private var meta: String {
         switch row {
-        case .create: ""
+        case .create:
+            let project = catalog.project(projectId)
+            return CheckInView.meta(project: project?.name, customer: catalog.customer(project?.customerId)?.name)
         case .activity(let suggestion, _):
-            CheckInView.meta(project: suggestion.projectName, customer: suggestion.customerName)
+            return CheckInView.meta(project: suggestion.projectName, customer: suggestion.customerName)
         }
     }
 }

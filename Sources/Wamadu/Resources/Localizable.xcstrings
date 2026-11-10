@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ comes with the project" : {
+
+    },
     "%@, %@" : {
       "localizations" : {
         "en" : {
@@ -17,13 +20,25 @@
     "Break" : {
 
     },
+    "Cancel" : {
+
+    },
     "Continue without asking" : {
 
     },
     "Copy" : {
 
     },
+    "Create" : {
+
+    },
     "Create “%@”" : {
+
+    },
+    "Customer" : {
+
+    },
+    "Customers" : {
 
     },
     "Cut" : {
@@ -65,7 +80,25 @@
     "More actions" : {
 
     },
+    "Name" : {
+
+    },
+    "New project" : {
+
+    },
+    "New project…" : {
+
+    },
+    "No project" : {
+
+    },
     "Paste" : {
+
+    },
+    "Pick one or type a new customer name." : {
+
+    },
+    "Project" : {
 
     },
     "Quit wamadu" : {
@@ -94,6 +127,9 @@
       }
     },
     "Suggestions" : {
+
+    },
+    "Tab picks a project" : {
 
     },
     "Today" : {
