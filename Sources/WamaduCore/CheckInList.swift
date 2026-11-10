@@ -93,9 +93,12 @@ public struct CheckInList: Equatable, Sendable {
             selection = rows.isEmpty || top == nil ? nil : 0
             return
         }
-        // the same name may be created for another project or customer
-        if top != nil {
-            rows = suggestions.prefix(Self.maxRows - 1).map(row) + [.create(name: query)]
+        // the same name may be created for another project or customer, Break and Private never
+        if let top {
+            rows =
+                top.kind == .regular
+                ? suggestions.prefix(Self.maxRows - 1).map(row) + [.create(name: query)]
+                : suggestions.prefix(Self.maxRows).map(row)
             selection = 0
             return
         }

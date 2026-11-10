@@ -127,6 +127,8 @@ struct DashboardView: View {
         }
     }
 
+    private var offersKeepTracking: Bool { data.current == .off || data.current == .doneForToday }
+
     private func keepTrackingRow(_ message: Text) -> some View {
         HStack {
             message
@@ -330,7 +332,8 @@ struct DashboardView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 260)
                 Button("Check In Now", action: onCheckIn)
-                    .keyboardShortcut(.defaultAction)
+                    // NSApplication offers Return to the default button before the focused Keep tracking
+                    .keyboardShortcut(offersKeepTracking ? nil : .defaultAction)
                     .controlSize(.large)
                     .padding(.top, 10)
             case (.day, false):

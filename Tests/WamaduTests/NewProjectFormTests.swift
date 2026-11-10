@@ -41,13 +41,14 @@ import WamaduCore
         Customer(id: 3, name: "Ångström Labs", colorIndex: 2),
     ]
 
+    /// A key as NSApplication dispatches it: a keyDown is offered as a key equivalent first.
     private func press(_ characters: String, keyCode: UInt16, in window: NSWindow) {
         for type in [NSEvent.EventType.keyDown, .keyUp] {
             let event = NSEvent.keyEvent(
                 with: type, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
                 context: nil, characters: characters, charactersIgnoringModifiers: characters, isARepeat: false,
-                keyCode: keyCode)
-            window.sendEvent(event!)
+                keyCode: keyCode)!
+            if type == .keyUp || !window.performKeyEquivalent(with: event) { window.sendEvent(event) }
         }
     }
 

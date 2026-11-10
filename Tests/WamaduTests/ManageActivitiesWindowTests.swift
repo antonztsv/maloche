@@ -82,8 +82,10 @@ import WamaduCore
             keyCode: keyCode)!
     }
 
+    /// A key as NSApplication dispatches it: offered as a key equivalent first, then sent to the focused view.
     private func press(_ characters: String, keyCode: UInt16, in window: NSWindow) {
-        window.sendEvent(event(characters, [], keyCode: keyCode, in: window))
+        let event = event(characters, [], keyCode: keyCode, in: window)
+        if !window.performKeyEquivalent(with: event) { window.sendEvent(event) }
     }
 
     private func views<T: NSView>(_ type: T.Type, in view: NSView) -> [T] {

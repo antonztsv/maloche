@@ -120,6 +120,19 @@ import Testing
         #expect(!list.isCreating)
     }
 
+    /// Break and Private cannot be created again, a regular exact name still offers Create.
+    @Test(arguments: [("break", 100), ("BREAK", 100), ("private", 101), ("Private", 101)] as [(String, Int64)])
+    func theNameOfABuiltInOffersNoCreate(typed: String, id: Int64) {
+        for includingBuiltIns in [false, true] {
+            var list = CheckInList(catalog: catalog, prefill: 1, includingBuiltIns: includingBuiltIns)
+            list.setText(typed)
+            #expect(list.choice == .existing(id))
+            #expect(!names(list).contains("+\(typed)"))
+            list.setText("writing")
+            #expect(names(list).last == "+writing")
+        }
+    }
+
     @Test func withBuiltInsBreakLeadsAndPrivateClosesTheList() {
         let list = CheckInList(catalog: catalog, prefill: 100, includingBuiltIns: true)
         #expect(list.text == "Break")

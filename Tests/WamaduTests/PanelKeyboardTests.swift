@@ -92,8 +92,10 @@ import WamaduCore
         window.performKeyEquivalent(with: event(characters, .command, keyCode: keyCode, in: window))
     }
 
+    /// A key as NSApplication dispatches it: offered as a key equivalent first, then sent to the focused view.
     private func press(_ characters: String, keyCode: UInt16, in window: NSWindow) {
-        window.sendEvent(event(characters, [], keyCode: keyCode, in: window))
+        let event = event(characters, [], keyCode: keyCode, in: window)
+        if !window.performKeyEquivalent(with: event) { window.sendEvent(event) }
     }
 
     private static let left = String(UnicodeScalar(NSLeftArrowFunctionKey)!)
@@ -203,6 +205,22 @@ import WamaduCore
 
         #expect(calls.keepTracking == 1)
         #expect(calls.checkIns == 0)
+    }
+
+    @Test func returnOnKeepTrackingOfAFreshDayResumesTrackingWithoutACheckIn() throws {
+        let model = try AppModel(database: .inMemory(), stateURL: nil, clock: FixedClock(now: now))
+        model.showDashboard(Period(.day, containing: now, calendar: calendar))
+        #expect(model.nowRow == .off)
+        let (window, hosting) = host(PanelView(model: model, onResize: {}, onEdit: { _, _ in }))
+        window.makeFirstResponder(hosting)
+        window.selectPreviousKeyView(nil)
+        settle(hosting)
+
+        press("\r", keyCode: 36, in: window)
+        settle(hosting)
+
+        #expect(model.mode == .tracking)
+        #expect(model.panel?.isPrompt == false)
     }
 
     @Test func commandCommaOpensTheSettingsWithTheMenuClosed() throws {
