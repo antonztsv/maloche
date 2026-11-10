@@ -71,6 +71,13 @@ import WamaduCore
         #expect(ShortcutAction.toggleBreak.title == "Start or end break")
     }
 
+    /// D10: the window grows to the pane with the system resize, with Reduce Motion at once.
+    @Test func reduceMotionResizesTheWindowAtOnce() {
+        #expect(SettingsWindowController.animatesResize(visible: true, reduceMotion: false))
+        #expect(!SettingsWindowController.animatesResize(visible: true, reduceMotion: true))
+        #expect(!SettingsWindowController.animatesResize(visible: false, reduceMotion: false))
+    }
+
     @Test func recordedModifiersKeepOnlyTheFourShortcutKeys() {
         #expect(Shortcut.Modifiers([.command, .option, .capsLock, .function]) == [.command, .option])
         #expect(Shortcut.Modifiers([.control, .shift, .numericPad]) == [.control, .shift])

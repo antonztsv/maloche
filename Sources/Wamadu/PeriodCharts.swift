@@ -62,6 +62,7 @@ struct WeekChart: View {
 /// The month as a calendar from the first weekday, each day with its work on an accent fill growing with it.
 struct MonthGrid: View {
     var data: DashboardData
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         Grid(horizontalSpacing: 3, verticalSpacing: 3) {
@@ -112,6 +113,7 @@ struct MonthGrid: View {
             Color.accentColor.opacity(day.work > 0 ? 0.1 + 0.3 * data.summary.share(of: day) : 0),
             in: .rect(cornerRadius: 6)
         )
+        .contrastEdge(cornerRadius: 6, contrast: contrast)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(day.interval.start, format: .dateTime.month(.wide).day()))
         .accessibilityValue(day.work > 0 ? DashboardData.spoken(day.work) : "")

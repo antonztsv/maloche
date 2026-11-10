@@ -14,6 +14,7 @@ struct EntryEditorView: View {
     /// Typed times not yet committed.
     @State private var drafts: [Field: String] = [:]
     @FocusState private var focus: Field?
+    @Environment(\.colorSchemeContrast) private var contrast
 
     struct Field: Hashable {
         var span: Int
@@ -76,6 +77,7 @@ struct EntryEditorView: View {
             }
         }
         .background(Color(nsColor: .quaternarySystemFill), in: .rect(cornerRadius: 10))
+        .contrastEdge(cornerRadius: 10, contrast: contrast)
         HStack(spacing: 8) {
             Button("Delete…", role: .destructive) {
                 drafts = [:]

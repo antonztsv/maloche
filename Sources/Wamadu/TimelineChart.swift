@@ -17,7 +17,9 @@ struct TimelineChart: View {
         let ticks = timeline.hourTicks(calendar: data.calendar)
         Canvas { context, size in
             let track = CGRect(x: 0, y: 0, width: size.width, height: Self.barHeight)
-            context.fill(Path(roundedRect: track, cornerRadius: 4), with: .color(Color(nsColor: .quaternarySystemFill)))
+            let trackPath = Path(roundedRect: track, cornerRadius: 4)
+            context.fill(trackPath, with: .color(Color(nsColor: .quaternarySystemFill)))
+            context.contrastEdge(trackPath, contrast: context.environment.colorSchemeContrast)
             for bar in data.bars {
                 let minX = bar.start * size.width + 1
                 let rect = CGRect(
@@ -90,6 +92,7 @@ struct TimelineChart: View {
             stripes.addLine(to: CGPoint(x: x + rect.height, y: rect.minY))
         }
         context.stroke(stripes, with: .color(Color(nsColor: .tertiaryLabelColor)), lineWidth: 1.5)
+        context.contrastEdge(path, contrast: context.environment.colorSchemeContrast)
     }
 }
 

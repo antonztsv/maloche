@@ -13,6 +13,11 @@ final class SettingsWindowController {
     private let onRecording: (Bool) -> Void
     private(set) lazy var window = makeWindow()
 
+    /// A visible window grows or shrinks to the pane with the system animation, with Reduce Motion at once.
+    static func animatesResize(visible: Bool, reduceMotion: @autoclosure () -> Bool) -> Bool {
+        visible && !reduceMotion()
+    }
+
     /// `onRecording` pauses the global hotkeys while a shortcut field records.
     init(model: AppModel, onRecording: @escaping (Bool) -> Void) {
         self.model = model
@@ -93,6 +98,10 @@ private final class SettingsTabs: NSTabViewController {
         let grow = pane.fittingSize.height - content.frame.height
         frame.size.height += grow
         frame.origin.y -= grow
-        window.setFrame(frame, display: true, animate: window.isVisible)
+        window.setFrame(
+            frame, display: true,
+            animate: SettingsWindowController.animatesResize(
+                visible: window.isVisible,
+                reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion))
     }
 }
