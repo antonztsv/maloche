@@ -65,6 +65,21 @@ import Testing
         }
     }
 
+    @Test func germanUsesTheChosenWords() {
+        let chosen = [
+            "Log": "Eintragen", "Check In Now": "Jetzt eintragen", "Start": "Start",
+            "Done for today": "Feierabend", "That’s it for today": "Schönen Feierabend",
+            "Move to Project": "In Projekt verschieben",
+            "Restore the backup from %@?": "Backup vom %@ wiederherstellen?",
+            "Schedule": "Arbeitszeiten", "Back Up Now": "Backup jetzt erstellen",
+        ]
+        for (key, expected) in chosen {
+            let german = (Self.strings[key]?["localizations"] as? [String: Object])?["de"]
+            let value = (german?["stringUnit"] as? Object)?["value"] as? String
+            #expect(value == expected, "\(key)")
+        }
+    }
+
     @Test func germanCopyStaysPositiveAndCalm() {
         let forbidden = ["offen", "fehlend", "fehlt", "verloren", "lücke", "nicht zugeordnet", "countdown", "·"]
         for (key, entry) in Self.strings {

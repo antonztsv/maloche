@@ -376,7 +376,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Jetzt sichern"
+            "value" : "Backup jetzt erstellen"
           }
         }
       }
@@ -1396,7 +1396,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buchen"
+            "value" : "Eintragen"
           }
         }
       }
@@ -1496,7 +1496,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "In Projekt bewegen"
+            "value" : "In Projekt verschieben"
           }
         }
       }
@@ -2002,7 +2002,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Backup von %@ wiederherstellen?"
+            "value" : "Backup vom %@ wiederherstellen?"
           }
         }
       }
@@ -2052,7 +2052,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zeitplan"
+            "value" : "Arbeitszeiten"
           }
         }
       }
@@ -2180,7 +2180,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Starten"
+            "value" : "Start"
           }
         }
       }
@@ -2280,7 +2280,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Feierabend für heute"
+            "value" : "Schönen Feierabend"
           }
         }
       }
