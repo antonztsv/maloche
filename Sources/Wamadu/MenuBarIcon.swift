@@ -38,13 +38,7 @@ enum MenuBarIcon {
     }
 
     #if DEBUG
-        /// Writes every mode at 1x and 2x on light and dark menu bars: `Wamadu --icon-previews <dir>`.
-        static var previewDirectory: URL? {
-            let args = CommandLine.arguments
-            guard let index = args.firstIndex(of: "--icon-previews"), index + 1 < args.count else { return nil }
-            return URL(filePath: args[index + 1], directoryHint: .isDirectory)
-        }
-
+        /// Writes every mode at 1x and 2x on light and dark menu bars.
         static func writePreviews(to directory: URL) throws {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             let modes: [TrackerMode] = [.tracking, .onBreak, .continuing, .off]

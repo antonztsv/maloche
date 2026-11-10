@@ -101,12 +101,16 @@
                                 span: DateInterval(start: Sample.at(12, 15), end: Sample.at(13, 0)),
                                 prefill: sample.review)))
                 ),
-                ("dashboard-day", AnyView(DashboardView.sample(.activity(id: DashboardView.sampleCodeReviewId)))),
-                ("dashboard-break", AnyView(DashboardView.sample(.onBreak))),
-                ("dashboard-off", AnyView(DashboardView.sample(.off))),
-                ("dashboard-empty", AnyView(DashboardView.sample(.none, empty: true))),
+                (
+                    "dashboard-day",
+                    AnyView(DashboardView.sample(.activity(id: DashboardView.sampleCodeReviewId), model: model))
+                ),
+                ("dashboard-break", AnyView(DashboardView.sample(.onBreak, model: model))),
+                ("dashboard-off", AnyView(DashboardView.sample(.off, model: model))),
+                ("dashboard-empty", AnyView(DashboardView.sample(.none, empty: true, model: model))),
+                ("done-for-today", AnyView(DashboardView.sample(.off, done: true, model: model))),
             ]
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try MenuBarIcon.writePreviews(to: directory)
             for screen in screens {
                 for (mode, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
                     let url = directory.appending(path: "\(screen.name)-\(mode).png")

@@ -154,6 +154,9 @@
     "Internal" : {
 
     },
+    "Keep logging %@" : {
+
+    },
     "Keep tracking" : {
 
     },
@@ -239,10 +242,16 @@
     "Still on break" : {
 
     },
+    "Stop continuing" : {
+
+    },
     "Suggestions" : {
 
     },
     "Tab picks a project" : {
+
+    },
+    "That’s it for today" : {
 
     },
     "Today" : {
@@ -252,6 +261,9 @@
 
     },
     "Turn off tracking" : {
+
+    },
+    "Turn on tracking" : {
 
     },
     "Undo" : {
@@ -285,6 +297,9 @@
 
     },
     "Your day shows up here as soon as you answer the first check-in." : {
+
+    },
+    "wamadu checks in again tomorrow." : {
 
     },
     "wamadu, logging without asking" : {

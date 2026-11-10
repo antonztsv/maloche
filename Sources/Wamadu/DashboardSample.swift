@@ -6,7 +6,9 @@
     extension DashboardView {
         static let sampleCodeReviewId: Int64 = 1
 
-        static func sample(_ current: DashboardData.Current, empty: Bool = false) -> DashboardView {
+        static func sample(
+            _ current: NowRow, empty: Bool = false, done: Bool = false, model: AppModel
+        ) -> DashboardView {
             let calendar = Calendar.current
             let day = calendar.date(from: DateComponents(year: 2026, month: 11, day: 9))!
             func at(_ hour: Int, _ minute: Int = 0) -> Date {
@@ -39,7 +41,8 @@
                 schedule: WorkSchedule(plans: [2: .init(start: 9 * 60, end: 17 * 60)]), current: current,
                 now: empty ? at(8, 50) : at(17, 30), calendar: calendar)
             return DashboardView(
-                data: data, onShowPeriod: { _ in }, onMoreActions: {}, onCheckIn: {}, onKeepTracking: {})
+                data: data, done: done, moreActions: MoreActionsMenu(model: model), onShowPeriod: { _ in },
+                onCheckIn: {}, onKeepTracking: {})
         }
     }
 #endif

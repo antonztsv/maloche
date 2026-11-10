@@ -41,6 +41,8 @@ struct PanelView: View {
                 CheckInView(model: model, content: .awayReturn(span: span, prefill: prefill))
             case .breakReturn(let span, let prefill):
                 CheckInView(model: model, content: .breakReturn(span: span, prefill: prefill))
+            case .dashboard(let day): dashboard(day, done: false)
+            case .doneForToday(let day): dashboard(day, done: true)
             case nil: EmptyView()
             }
         }
@@ -49,6 +51,17 @@ struct PanelView: View {
         } action: { _ in
             onResize()
         }
+    }
+
+    private func dashboard(_ day: DashboardDay, done: Bool) -> DashboardView {
+        let catalog = model.catalog
+        return DashboardView(
+            data: DashboardData(
+                period: day.period, blocks: day.blocks, activities: catalog.activities, projects: catalog.projects,
+                customers: catalog.customers, schedule: model.tracker.settings.schedule, current: model.nowRow,
+                now: model.now, calendar: model.calendar),
+            done: done, moreActions: MoreActionsMenu(model: model), onShowPeriod: model.showDashboard,
+            onCheckIn: model.checkIn, onKeepTracking: model.keepTracking)
     }
 }
 
@@ -73,7 +86,7 @@ final class CheckInPanelController: PanelPresenter {
             MainActor.assumeIsolated {
                 guard let self, self.panel.isVisible else { return }
                 self.position()
-                spikeLog.debug(
+                appLog.debug(
                     "panel followed active app to screen \(self.panel.screen?.localizedName ?? "?", privacy: .public)")
             }
         }
@@ -118,7 +131,7 @@ final class CheckInPanelController: PanelPresenter {
     private func logState(_ action: String) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [panel] in
             let editor = panel.firstResponder as? NSTextView
-            spikeLog.info(
+            appLog.info(
                 """
                 panel \(action, privacy: .public): visible=\(panel.isVisible) \
                 key=\(panel.isKeyWindow) screen=\(panel.screen?.localizedName ?? "?", privacy: .public) \

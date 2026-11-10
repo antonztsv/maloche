@@ -4,15 +4,6 @@ import WamaduCore
 
 /// Everything the day dashboard shows, built from database values.
 struct DashboardData {
-    /// What the Now row shows.
-    enum Current: Equatable {
-        case activity(id: Int64)
-        case onBreak
-        case off
-        /// No answer yet, the row stays hidden.
-        case none
-    }
-
     /// Timeline colors: work per customer, nil for activities without customer.
     enum Lane: Equatable, Sendable {
         case work(customerId: Int64?)
@@ -21,7 +12,7 @@ struct DashboardData {
 
     var period: Period
     var summary: PeriodSummary
-    var current: Current
+    var current: NowRow
     var isToday: Bool
     var calendar: Calendar
     /// Nil on a day without work or break.
@@ -36,7 +27,7 @@ struct DashboardData {
 
     init(
         period: Period, blocks: [Block], activities: [Activity], projects: [Project], customers: [Customer],
-        schedule: WorkSchedule, current: Current, now: Date, calendar: Calendar
+        schedule: WorkSchedule, current: NowRow, now: Date, calendar: Calendar
     ) {
         self.period = period
         self.current = current

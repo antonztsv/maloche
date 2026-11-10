@@ -67,14 +67,14 @@ final class TestClock: WallClock, @unchecked Sendable {
         return merged.map { "\(names[$0.activityId]!) \(Fixture.clock($0.startedAt))-\(Fixture.clock($0.endedAt))" }
     }
 
-    @Test func iconClickOpensTheCheckInByHandAndTheAnswerStartsNow() throws {
+    @Test func checkInShortcutOpensTheCheckInByHandAndTheAnswerStartsNow() throws {
         let model = try makeModel()
         let writing = try model.database.createActivity(name: "Writing").id!
         let reading = try model.database.createActivity(name: "Reading").id!
         tick(model, at: "09:00")
 
         clock.now = Fixture.at("09:10")
-        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
         #expect(presenter.calls == ["show(focus: true)"])
         #expect(model.panel == .checkIn(CheckIn(mode: .manual, span: Fixture.span("09:00", "09:10"), prefill: nil)))
         model.log(.existing(writing))
@@ -82,7 +82,7 @@ final class TestClock: WallClock, @unchecked Sendable {
         #expect(presenter.calls.last == "hide")
 
         clock.now = Fixture.at("09:12")
-        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
         #expect(model.panel == .checkIn(CheckIn(mode: .manual, span: Fixture.span("09:10", "09:12"), prefill: writing)))
         model.log(.existing(reading))
         tick(model, at: "09:14")
@@ -95,7 +95,7 @@ final class TestClock: WallClock, @unchecked Sendable {
         let writing = try model.database.createActivity(name: "Writing").id!
         let reading = try model.database.createActivity(name: "Reading").id!
         tick(model, at: "09:00")
-        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
         model.log(.existing(writing))
 
         tick(model, at: "09:15")
@@ -110,11 +110,11 @@ final class TestClock: WallClock, @unchecked Sendable {
         let model = try makeModel()
         let writing = try model.database.createActivity(name: "Writing").id!
         tick(model, at: "09:00")
-        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
         model.log(.existing(writing))
 
         clock.now = Fixture.at("09:14")
-        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
         tick(model, at: "09:15")
         #expect(presenter.calls.suffix(2) == ["show(focus: true)", "update"])
         #expect(model.panel == .checkIn(CheckIn(mode: .timed, span: Fixture.span("09:00", "09:15"), prefill: writing)))
@@ -124,11 +124,11 @@ final class TestClock: WallClock, @unchecked Sendable {
         let model = try makeModel()
         let writing = try model.database.createActivity(name: "Writing").id!
         tick(model, at: "09:00")
-        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
         model.log(.existing(writing))
 
         clock.now = Fixture.at("09:05")
-        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
         let before = model.tracker.state
         model.close()
         #expect(model.panel == nil)
@@ -146,7 +146,7 @@ final class TestClock: WallClock, @unchecked Sendable {
         let model = try makeModel()
         let writing = try model.database.createActivity(name: "Writing").id!
         tick(model, at: "09:00")
-        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
         model.log(.existing(writing))
         tick(model, at: "09:15")
 
@@ -162,31 +162,346 @@ final class TestClock: WallClock, @unchecked Sendable {
         let model = try makeModel()
         let writing = try model.database.createActivity(name: "Writing").id!
         tick(model, at: "09:00")
-        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
         model.log(.existing(writing))
 
         clock.now = Fixture.at("09:10")
-        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
         model.startBreak()
         #expect(model.panel == nil)
         #expect(presenter.calls.last == "hide")
         #expect(model.tracker.mode == .onBreak)
     }
 
-    @Test func iconClickDuringABreakAsksAboutTheBreak() throws {
+    @Test func breakShortcutDuringABreakAsksAboutTheBreakFocused() throws {
         let model = try makeModel()
-        let writing = try model.database.createActivity(name: "Writing").id!
-        tick(model, at: "09:00")
-        model.statusItemClicked()
-        model.log(.existing(writing))
+        let writing = try writingFrom0900(model)
         clock.now = Fixture.at("09:05")
         model.send(.startBreak)
 
         clock.now = Fixture.at("09:20")
-        model.statusItemClicked()
+        model.shortcut(.toggleBreak)
         #expect(model.tracker.state.phase == .breakReturn(returnAt: Fixture.at("09:20")))
         #expect(model.panel == .breakReturn(span: Fixture.span("09:05", "09:20"), prefill: writing))
         #expect(presenter.calls.suffix(2) == ["show(focus: false)", "focus"])
+    }
+
+    // MARK: Dashboard
+
+    /// Writing from 09:00, answered through the check-in shortcut.
+    private func writingFrom0900(_ model: AppModel) throws -> Int64 {
+        let writing = try model.database.createActivity(name: "Writing").id!
+        tick(model, at: "09:00")
+        model.shortcut(.openCheckIn)
+        model.log(.existing(writing))
+        return writing
+    }
+
+    private func shownDay(_ model: AppModel) -> DashboardDay? {
+        if case .dashboard(let day) = model.panel { day } else { nil }
+    }
+
+    private var today: Period { Period(.day, containing: Fixture.at("09:00"), calendar: Fixture.berlin) }
+
+    @Test func iconClickOpensTodaysDashboardFocusedAndClosesItWhenFocused() throws {
+        let model = try makeModel()
+        _ = try writingFrom0900(model)
+        tick(model, at: "09:10")
+        presenter.calls = []
+
+        model.statusItemClicked()
+        #expect(presenter.calls == ["show(focus: true)"])
+        #expect(shownDay(model)?.period == today)
+        #expect(shownDay(model)?.blocks.map(\.endedAt) == [Fixture.at("09:10")])
+        let before = model.tracker.state
+        model.statusItemClicked()
+        #expect(presenter.calls.last == "hide")
+        #expect(model.panel == nil)
+        #expect(model.tracker.state == before)
+    }
+
+    @Test func theNowRowOpensTheCheckInByHandAndLogGoesBackToTheDashboard() throws {
+        let model = try makeModel()
+        let writing = try writingFrom0900(model)
+        let reading = try model.database.createActivity(name: "Reading").id!
+        clock.now = Fixture.at("09:10")
+        model.statusItemClicked()
+        presenter.calls = []
+
+        model.checkIn()
+        #expect(model.panel == .checkIn(CheckIn(mode: .manual, span: Fixture.span("09:00", "09:10"), prefill: writing)))
+        model.log(.existing(reading))
+        #expect(presenter.calls.isEmpty)
+        #expect(shownDay(model)?.period == today)
+        #expect(shownDay(model)?.blocks.map(\.activityId) == [writing])
+        #expect(model.nowRow == .activity(id: reading))
+        #expect(model.tracker.currentActivity == reading)
+    }
+
+    @Test func checkInNowOnAFreshDayOpensTheCheckInByHand() throws {
+        let model = try makeModel()
+        let writing = try model.database.createActivity(name: "Writing").id!
+        tick(model, at: "09:00")
+        model.statusItemClicked()
+        #expect(shownDay(model)?.blocks == [])
+        #expect(model.nowRow == .none)
+
+        clock.now = Fixture.at("09:05")
+        model.checkIn()
+        #expect(model.panel == .checkIn(CheckIn(mode: .manual, span: Fixture.span("09:00", "09:05"), prefill: nil)))
+        model.log(.existing(writing))
+        #expect(shownDay(model)?.blocks.map(\.activityId) == [writing])
+    }
+
+    @Test func theNowRowFollowsTheTracker() throws {
+        let model = try makeModel()
+        #expect(model.nowRow == .off)
+        tick(model, at: "09:00")
+        #expect(model.nowRow == .none)
+        let writing = try writingFrom0900(model)
+        #expect(model.nowRow == .activity(id: writing))
+        model.continueWithoutAsking(for: nil)
+        #expect(model.nowRow == .activity(id: writing))
+        model.startBreak()
+        #expect(model.nowRow == .onBreak)
+        model.turnOff(for: nil)
+        #expect(model.nowRow == .off)
+    }
+
+    @Test func aClickOnTheIconDuringABreakShowsTheDashboardAndTheBreakRowAsksAboutTheBreak() throws {
+        let model = try makeModel()
+        let writing = try writingFrom0900(model)
+        let reading = try model.database.createActivity(name: "Reading").id!
+        clock.now = Fixture.at("09:05")
+        model.startBreak()
+
+        clock.now = Fixture.at("09:20")
+        model.statusItemClicked()
+        #expect(shownDay(model) != nil)
+        #expect(model.nowRow == .onBreak)
+        #expect(model.tracker.state.phase == .onBreak(awaySince: nil))
+
+        model.checkIn()
+        #expect(model.panel == .breakReturn(span: Fixture.span("09:05", "09:20"), prefill: writing))
+        model.log(.existing(reading))
+        #expect(shownDay(model) != nil)
+        #expect(model.nowRow == .activity(id: reading))
+        #expect(try timeline(model) == ["Writing 09:00-09:05", "Break 09:05-09:20"])
+    }
+
+    @Test func pagingShowsTheBlocksOfThatDay() throws {
+        let model = try makeModel()
+        let writing = try writingFrom0900(model)
+        try model.database.insert(
+            block: Block(
+                activityId: writing, startedAt: Fixture.at("2026-11-08 10:00"), endedAt: Fixture.at("2026-11-08 11:00"),
+                source: .checkIn))
+        tick(model, at: "09:10")
+        model.statusItemClicked()
+
+        let yesterday = today.previous(calendar: Fixture.berlin)
+        model.showDashboard(yesterday)
+        #expect(shownDay(model)?.period == yesterday)
+        #expect(shownDay(model)?.blocks.map(\.startedAt) == [Fixture.at("2026-11-08 10:00")])
+        model.showDashboard(today)
+        #expect(shownDay(model)?.blocks.map(\.startedAt) == [Fixture.at("09:00")])
+    }
+
+    @Test func theDashboardRefreshesAfterABooking() throws {
+        let model = try makeModel()
+        _ = try writingFrom0900(model)
+        clock.now = Fixture.at("09:01")
+        model.statusItemClicked()
+        #expect(shownDay(model)?.blocks == [])
+        tick(model, at: "09:05")
+        #expect(shownDay(model)?.blocks.map(\.endedAt) == [Fixture.at("09:05")])
+    }
+
+    @Test func aTimedCheckInOverTheDashboardGoesBackToItOnceAnswered() throws {
+        let model = try makeModel()
+        let writing = try writingFrom0900(model)
+        clock.now = Fixture.at("09:14")
+        model.statusItemClicked()
+        tick(model, at: "09:15")
+        #expect(presenter.calls.last == "update")
+        #expect(model.panel == .checkIn(CheckIn(mode: .timed, span: Fixture.span("09:00", "09:15"), prefill: writing)))
+        model.log(.existing(writing))
+        #expect(shownDay(model)?.blocks.map(\.endedAt) == [Fixture.at("09:15")])
+    }
+
+    @Test func escapeClosesACheckInOpenedFromTheDashboard() throws {
+        let model = try makeModel()
+        _ = try writingFrom0900(model)
+        model.statusItemClicked()
+        model.checkIn()
+        model.close()
+        #expect(model.panel == nil)
+        #expect(presenter.calls.last == "hide")
+    }
+
+    // MARK: More menu
+
+    @Test func doneForTodayShowsThatsItWithTheDayAndKeepTrackingResumes() throws {
+        let model = try makeModel()
+        let writing = try writingFrom0900(model)
+        clock.now = Fixture.at("17:00")
+        model.shortcut(.openCheckIn)
+
+        model.doneForToday()
+        let blocks = try model.database.blocks(in: today.interval)
+        #expect(model.panel == .doneForToday(DashboardDay(period: today, blocks: blocks)))
+        #expect(presenter.isVisible)
+        #expect(model.tracker.mode == .off)
+        #expect(try timeline(model) == ["Writing 09:00-17:00"])
+
+        clock.now = Fixture.at("17:05")
+        model.keepTracking()
+        #expect(model.panel == nil)
+        #expect(presenter.calls.last == "hide")
+        #expect(model.tracker.mode == .tracking)
+        #expect(model.nowRow == .activity(id: writing))
+    }
+
+    @Test func laterThatDayTheDashboardSaysTrackingIsOffAndKeepTrackingTurnsItOn() throws {
+        let model = try makeModel()
+        let writing = try writingFrom0900(model)
+        clock.now = Fixture.at("12:00")
+        model.statusItemClicked()
+        model.doneForToday()
+        model.close()
+
+        tick(model, at: "13:00")
+        model.statusItemClicked()
+        #expect(model.nowRow == .off)
+        model.keepTracking()
+        #expect(shownDay(model) != nil)
+        #expect(model.tracker.mode == .tracking)
+        #expect(model.nowRow == .activity(id: writing))
+    }
+
+    @Test func turnOffAndTurnOnFromTheMenu() throws {
+        let model = try makeModel()
+        _ = try writingFrom0900(model)
+        clock.now = Fixture.at("09:10")
+        model.turnOff(for: 30 * 60)
+        #expect(model.tracker.state.phase == .off(until: Fixture.at("09:40")))
+        #expect(model.tracker.mode == .off)
+        model.keepTracking()
+        #expect(model.tracker.mode == .tracking)
+
+        model.turnOff(for: nil)
+        #expect(model.tracker.state.phase == .off(until: nil))
+        model.keepTracking()
+        #expect(model.tracker.mode == .tracking)
+    }
+
+    @Test func continueWithoutAskingKeepsLoggingTheRunningActivity() throws {
+        let model = try makeModel()
+        #expect(model.activityToContinue == nil)
+        let writing = try writingFrom0900(model)
+        #expect(model.activityToContinue == writing)
+
+        clock.now = Fixture.at("09:10")
+        model.continueWithoutAsking(for: 2 * 3600)
+        #expect(model.tracker.state.phase == .continuing(until: Fixture.at("11:10")))
+        #expect(model.tracker.mode == .continuing)
+        model.stopContinuing()
+        #expect(model.tracker.mode == .tracking)
+        model.continueWithoutAsking(for: nil)
+        #expect(model.tracker.state.phase == .continuing(until: nil))
+
+        model.startBreak()
+        #expect(model.activityToContinue == nil)
+    }
+
+    @Test func aMenuActionKeepsTheDashboardAndAnswersACheckIn() throws {
+        let model = try makeModel()
+        _ = try writingFrom0900(model)
+        model.statusItemClicked()
+        model.turnOff(for: nil)
+        #expect(shownDay(model) != nil)
+        #expect(model.nowRow == .off)
+        model.keepTracking()
+        model.close()
+
+        tick(model, at: "09:15")
+        #expect(model.panel?.isPrompt == true)
+        model.continueWithoutAsking(for: 3600)
+        #expect(model.panel == nil)
+        #expect(presenter.calls.last == "hide")
+        #expect(!model.tracker.state.checkInShown)
+    }
+
+    // MARK: Shortcuts
+
+    @Test func checkInShortcutFocusesAVisiblePromptAndTurnsTheDashboardIntoACheckIn() throws {
+        let model = try makeModel()
+        let writing = try writingFrom0900(model)
+        tick(model, at: "09:15")
+        #expect(presenter.calls.last == "show(focus: false)")
+        model.shortcut(.openCheckIn)
+        #expect(presenter.calls.last == "focus")
+        #expect(model.panel == .checkIn(CheckIn(mode: .timed, span: Fixture.span("09:00", "09:15"), prefill: writing)))
+        model.log(.existing(writing))
+
+        clock.now = Fixture.at("09:20")
+        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
+        #expect(presenter.calls.last == "focus")
+        #expect(model.panel == .checkIn(CheckIn(mode: .manual, span: Fixture.span("09:00", "09:20"), prefill: writing)))
+    }
+
+    @Test func checkInShortcutDuringABreakAsksAboutTheBreak() throws {
+        let model = try makeModel()
+        let writing = try writingFrom0900(model)
+        clock.now = Fixture.at("09:05")
+        model.startBreak()
+        clock.now = Fixture.at("09:20")
+        model.shortcut(.openCheckIn)
+        #expect(model.panel == .breakReturn(span: Fixture.span("09:05", "09:20"), prefill: writing))
+        #expect(presenter.calls.suffix(2) == ["show(focus: false)", "focus"])
+    }
+
+    @Test func breakShortcutStartsABreakWhileTrackingOrContinuingAndDoesNothingWhileOff() throws {
+        let model = try makeModel()
+        model.shortcut(.toggleBreak)
+        #expect(model.tracker.mode == .off)
+        _ = try writingFrom0900(model)
+        presenter.calls = []
+
+        clock.now = Fixture.at("09:10")
+        model.shortcut(.toggleBreak)
+        #expect(model.tracker.mode == .onBreak)
+        #expect(presenter.calls.isEmpty)
+        clock.now = Fixture.at("09:20")
+        model.shortcut(.toggleBreak)
+        model.log(.existing(model.tracker.currentActivity!))
+
+        model.continueWithoutAsking(for: nil)
+        clock.now = Fixture.at("09:30")
+        model.statusItemClicked()
+        model.shortcut(.toggleBreak)
+        #expect(model.tracker.mode == .onBreak)
+        #expect(shownDay(model) != nil)
+        #expect(model.nowRow == .onBreak)
+
+        model.turnOff(for: nil)
+        presenter.calls = []
+        model.shortcut(.toggleBreak)
+        #expect(model.tracker.mode == .off)
+        #expect(presenter.calls.isEmpty)
+    }
+
+    @Test func dashboardShortcutOpensTheDashboardAndNeverCloses() throws {
+        let model = try makeModel()
+        _ = try writingFrom0900(model)
+        presenter.calls = []
+        model.shortcut(.openDashboard)
+        #expect(presenter.calls == ["show(focus: true)"])
+        #expect(shownDay(model)?.period == today)
+        model.shortcut(.openDashboard)
+        #expect(presenter.calls.last == "focus")
+        #expect(shownDay(model) != nil)
     }
 
     // MARK: Split
@@ -195,7 +510,7 @@ final class TestClock: WallClock, @unchecked Sendable {
     private func longSpan(_ model: AppModel) throws -> Int64 {
         let writing = try model.database.createActivity(name: "Writing").id!
         tick(model, at: "09:00")
-        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
         model.log(.existing(writing))
         tick(model, at: "09:15")
         model.close()
@@ -251,7 +566,7 @@ final class TestClock: WallClock, @unchecked Sendable {
     private func backFromAway(_ model: AppModel) throws -> Int64 {
         let writing = try model.database.createActivity(name: "Writing").id!
         tick(model, at: "09:00")
-        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
         model.log(.existing(writing))
         clock.now = Fixture.at("09:05")
         model.send(.systemAway(since: Fixture.at("09:05")))
@@ -324,7 +639,7 @@ final class TestClock: WallClock, @unchecked Sendable {
     private func backFromBreak(_ model: AppModel) throws -> Int64 {
         let writing = try model.database.createActivity(name: "Writing").id!
         tick(model, at: "09:00")
-        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
         model.log(.existing(writing))
         clock.now = Fixture.at("09:05")
         model.startBreak()
@@ -368,7 +683,7 @@ final class TestClock: WallClock, @unchecked Sendable {
     @Test func aNewNameCreatesTheActivity() throws {
         let model = try makeModel()
         tick(model, at: "09:00")
-        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
         model.log(.create(name: "Kickoff", projectId: nil))
 
         let kickoff = try #require(try model.database.activities().first { $0.name == "Kickoff" })
@@ -383,7 +698,7 @@ final class TestClock: WallClock, @unchecked Sendable {
         tick(model, at: "09:00")
         let relaunch = try model.createProject(name: "Relaunch", customerName: " acme ")
         #expect(relaunch.customerId == acme.id)
-        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
         model.log(.create(name: "Kickoff", projectId: relaunch.id))
 
         let kickoff = try #require(try model.database.activities().first { $0.name == "Kickoff" })
@@ -414,7 +729,7 @@ final class TestClock: WallClock, @unchecked Sendable {
         let model = try makeModel(database, stateURL: stateURL)
         let writing = try database.createActivity(name: "Writing").id!
         tick(model, at: "09:00")
-        model.statusItemClicked()
+        model.shortcut(.openCheckIn)
         model.log(.existing(writing))
 
         let relaunched = try makeModel(database, stateURL: stateURL)

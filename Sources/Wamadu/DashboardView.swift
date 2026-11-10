@@ -3,12 +3,13 @@ import SwiftUI
 import WamaduCore
 
 /// The day in the panel: Now row, period switcher, totals, timeline and the list by customer and project.
+/// After Done for today: "That's it for today" above the totals and the timeline.
 struct DashboardView: View {
     var data: DashboardData
+    var done = false
+    var moreActions: MoreActionsMenu
     /// Previous or next day, or another period kind from the switcher.
     var onShowPeriod: (Period) -> Void
-    /// Shows the ellipsis menu.
-    var onMoreActions: () -> Void
     /// Switches the panel to the check-in, from the Now row and from Check In Now.
     var onCheckIn: () -> Void
     var onKeepTracking: () -> Void
@@ -16,18 +17,30 @@ struct DashboardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            nowRow
-            periodPicker
-            if let timeline = data.timeline, let day = data.day {
-                totals(day)
-                TimelineChart(data: data, timeline: timeline)
-                    .padding(.horizontal, 4)
-                legend
-                Divider()
-                    .padding(.horizontal, 4)
-                DashboardList(data: data)
+            if done {
+                doneMessage
+                if let timeline = data.timeline, let day = data.day {
+                    Divider()
+                        .padding(.horizontal, 4)
+                    totals(day)
+                    TimelineChart(data: data, timeline: timeline, showsAxis: false)
+                        .padding(.horizontal, 4)
+                        .padding(.bottom, 4)
+                }
             } else {
-                emptyDay
+                nowRow
+                periodPicker
+                if let timeline = data.timeline, let day = data.day {
+                    totals(day)
+                    TimelineChart(data: data, timeline: timeline)
+                        .padding(.horizontal, 4)
+                    legend
+                    Divider()
+                        .padding(.horizontal, 4)
+                    DashboardList(data: data)
+                } else {
+                    emptyDay
+                }
             }
         }
         .padding(12)
@@ -50,13 +63,15 @@ struct DashboardView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            iconButton("chevron.left", Text("Previous day")) {
-                onShowPeriod(data.period.previous(calendar: data.calendar))
+            if !done {
+                iconButton("chevron.left", Text("Previous day")) {
+                    onShowPeriod(data.period.previous(calendar: data.calendar))
+                }
+                iconButton("chevron.right", Text("Next day"), enabled: !data.isToday) {
+                    onShowPeriod(data.period.next(calendar: data.calendar))
+                }
             }
-            iconButton("chevron.right", Text("Next day"), enabled: !data.isToday) {
-                onShowPeriod(data.period.next(calendar: data.calendar))
-            }
-            iconButton("ellipsis", Text("More actions"), action: onMoreActions)
+            moreActions
         }
         .padding(.leading, 4)
         .padding(.top, 2)
@@ -219,6 +234,24 @@ struct DashboardView: View {
             Text(name)
                 .lineLimit(1)
         }
+    }
+
+    private var doneMessage: some View {
+        VStack(spacing: 4) {
+            Text("That’s it for today")
+                .font(.body.weight(.semibold))
+            Text("wamadu checks in again tomorrow.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Button("Keep tracking", action: onKeepTracking)
+                .keyboardShortcut(.defaultAction)
+                .controlSize(.large)
+                .padding(.top, 8)
+        }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 16)
     }
 
     private var emptyDay: some View {

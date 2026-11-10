@@ -2,7 +2,7 @@ import AppKit
 import OSLog
 import WamaduCore
 
-let spikeLog = Logger(subsystem: Bundle.main.bundleIdentifier ?? "wamadu", category: "spike")
+let appLog = Logger(subsystem: Bundle.main.bundleIdentifier ?? "wamadu", category: "app")
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -10,6 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var model: AppModel?
     private var panelController: CheckInPanelController?
     private var presence: PresenceMonitor?
+    private var shortcuts: GlobalShortcuts?
+    private var iconMode: TrackerMode?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
@@ -36,30 +38,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.presenter = controller
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        if let button = item.button {
-            button.image = NSImage(systemSymbolName: "clock", accessibilityDescription: "wamadu")
-            button.image?.isTemplate = true
-            button.target = self
-            button.action = #selector(statusItemClicked(_:))
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        }
+        item.button?.target = self
+        item.button?.action = #selector(statusItemClicked)
         statusItem = item
         controller.statusItem = item
         self.model = model
         panelController = controller
+        showMode()
 
         model.send(.appLaunched)
         presence = PresenceMonitor(model: model)
         presence?.start()
 
-        #if DEBUG
-            if let action = UserDefaults.standard.string(forKey: "SpikeLoginItem") {
-                LoginItem.runSpike(action)
-            }
-            if UserDefaults.standard.bool(forKey: "SpikeSelfTest") {
-                Task { await SpikeSelfTest.run(model: model, controller: controller) }
-            }
-        #endif
+        let shortcuts = GlobalShortcuts { [weak model] in model?.shortcut($0) }
+        let failed = shortcuts.register(
+            Dictionary(uniqueKeysWithValues: ShortcutAction.allCases.map { ($0, $0.defaultShortcut) }))
+        if !failed.isEmpty {
+            appLog.error(
+                "shortcuts not registered: \(failed.map(\.rawValue).sorted().joined(separator: ", "), privacy: .public)"
+            )
+        }
+        self.shortcuts = shortcuts
+    }
+
+    /// The menu bar icon follows the tracker mode.
+    private func showMode() {
+        guard let model else { return }
+        let mode = withObservationTracking {
+            model.tracker.mode
+        } onChange: {
+            Task { @MainActor in self.showMode() }
+        }
+        guard mode != iconMode else { return }
+        iconMode = mode
+        statusItem?.button?.image = MenuBarIcon.image(for: mode)
+    }
+
+    @objc private func statusItemClicked() {
+        model?.statusItemClicked()
     }
 
     private static func makeModel() throws -> AppModel {
@@ -79,19 +95,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return try AppModel(
             database: .open(at: url), stateURL: url.deletingLastPathComponent().appending(path: "tracker-state.json"),
             settings: settings)
-    }
-
-    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
-        if NSApp.currentEvent?.type == .rightMouseUp {
-            let menu = NSMenu()
-            menu.addItem(
-                withTitle: String(localized: "Quit wamadu"), action: #selector(NSApplication.terminate(_:)),
-                keyEquivalent: "q")
-            statusItem?.menu = menu
-            sender.performClick(nil)
-            statusItem?.menu = nil
-            return
-        }
-        model?.statusItemClicked()
     }
 }

@@ -23,6 +23,37 @@ public enum PanelContent: Equatable, Sendable {
     case awayReturn(span: DateInterval, prefill: Int64)
     /// Back from a break, the answer runs from the end of the span.
     case breakReturn(span: DateInterval, prefill: Int64?)
+    case dashboard(DashboardDay)
+    /// "That's it for today" with the values of today.
+    case doneForToday(DashboardDay)
+
+    /// A question to the user, as opposed to the dashboard views.
+    public var isPrompt: Bool {
+        switch self {
+        case .checkIn, .awayReturn, .breakReturn: true
+        case .dashboard, .doneForToday: false
+        }
+    }
+}
+
+/// A day and its blocks as the dashboard shows them.
+public struct DashboardDay: Equatable, Sendable {
+    public var period: Period
+    public var blocks: [Block]
+
+    public init(period: Period, blocks: [Block]) {
+        self.period = period
+        self.blocks = blocks
+    }
+}
+
+/// What the Now row of the dashboard shows.
+public enum NowRow: Equatable, Sendable {
+    case activity(id: Int64)
+    case onBreak
+    case off
+    /// No answer yet, the row stays hidden.
+    case none
 }
 
 public struct CheckIn: Equatable, Sendable {
@@ -57,9 +88,11 @@ public final class AppModel {
     public private(set) var catalog = Catalog()
     public private(set) var panel: PanelContent?
     @ObservationIgnored public weak var presenter: (any PanelPresenter)?
+    public let calendar: Calendar
     @ObservationIgnored private let clock: any WallClock
-    @ObservationIgnored private let calendar: Calendar
     @ObservationIgnored private let stateURL: URL?
+    /// The dashboard a prompt replaced, the panel goes back to it once the prompt is answered.
+    @ObservationIgnored private var returnTo: Period?
 
     public init(
         database: AppDatabase, stateURL: URL?, settings: TrackerSettings = TrackerSettings(),
@@ -103,40 +136,107 @@ public final class AppModel {
             case .showBreakReturn(let span, let prefill):
                 present(.breakReturn(span: span, prefill: prefill))
             case .hidePrompt:
-                panel = nil
-                presenter?.hide()
+                if panel?.isPrompt == true { hidePanel() }
             }
         }
-        if booked { reloadCatalog() }
+        guard booked else { return }
+        reloadCatalog()
+        if case .dashboard(let day) = panel { showDashboard(day.period) }
     }
 
-    /// What a click on the menu bar icon opens.
-    public func statusItemClicked() {
-        open(.statusItem)
-    }
-
-    public func open(_ trigger: PanelFocus.Trigger) {
-        guard let presenter else { return }
-        switch PanelFocus.action(for: trigger, visible: presenter.isVisible, key: presenter.isKey) {
-        case .show where trigger != .timer && tracker.mode == .onBreak:
-            // the break return opens like a timed prompt, then takes the focus
-            send(.openedDuringBreak)
-            presenter.focus()
-        case .show(let focus):
-            if trigger != .timer { prepareManualCheckIn() }
-            if panel != nil { presenter.show(focus: focus) }
-        case .update: presenter.update()
-        case .focus: presenter.focus()
-        case .close: close()
+    public var nowRow: NowRow {
+        switch tracker.mode {
+        case .onBreak: .onBreak
+        case .off: .off
+        case .tracking, .continuing: tracker.currentActivity.map { .activity(id: $0) } ?? .none
         }
+    }
+
+    /// The activity "Continue without asking" keeps logging, nil before the first answer and during a break.
+    public var activityToContinue: Int64? {
+        tracker.mode == .onBreak ? nil : tracker.currentActivity
+    }
+
+    /// Today's dashboard, or focus or close the visible panel.
+    public func statusItemClicked() {
+        reveal(.statusItem) { showDashboard(today) }
+    }
+
+    public func shortcut(_ action: ShortcutAction) {
+        guard let presenter else { return }
+        switch action {
+        case .openCheckIn:
+            if !(presenter.isVisible && panel?.isPrompt == true) { checkIn() }
+            if presenter.isVisible { presenter.focus() } else { presenter.show(focus: true) }
+        case .toggleBreak:
+            switch tracker.mode {
+            case .tracking, .continuing: startBreak()
+            case .onBreak:
+                send(.openedDuringBreak)
+                presenter.focus()
+            case .off: break
+            }
+        case .openDashboard:
+            reveal(.shortcut) { showDashboard(today) }
+        }
+    }
+
+    /// The Now row and Check In Now: the check-in by hand, during a break the break return.
+    public func checkIn() {
+        if tracker.mode == .onBreak {
+            send(.openedDuringBreak)
+        } else {
+            reloadCatalog()
+            let now = clock.now
+            let span = tracker.runningSince.map { DateInterval(start: min($0, now), end: now) }
+            showPrompt(.checkIn(CheckIn(mode: .manual, span: span, prefill: tracker.currentActivity)))
+        }
+    }
+
+    /// Paging through the days.
+    public func showDashboard(_ period: Period) {
+        if let day = day(period) { panel = .dashboard(day) }
+        returnTo = nil
+    }
+
+    // MARK: More menu
+
+    public func doneForToday() {
+        // without a prompt in the panel, the one the tracker ends does not close it
+        panel = nil
+        send(.doneForToday)
+        if let day = day(today) { panel = .doneForToday(day) } else { hidePanel() }
+        returnTo = nil
+    }
+
+    public func continueWithoutAsking(for duration: TimeInterval?) {
+        guard let id = activityToContinue else { return }
+        act(.continueWithoutAsking(id, for: duration))
+    }
+
+    public func stopContinuing() {
+        act(.stopContinuing)
+    }
+
+    /// For the given seconds, or until the app restarts when nil.
+    public func turnOff(for duration: TimeInterval?) {
+        act(.turnOff(for: duration))
+    }
+
+    /// After Done for today, after Turn off or outside the plan.
+    public func keepTracking() {
+        act(tracker.state.phase == .waiting ? .keepTracking : .turnOn)
+    }
+
+    public func startBreak() {
+        act(.startBreak)
     }
 
     /// Escape, or a click on the icon while the panel has the focus: a timed prompt counts as dismissed,
     /// the away return as Break, the break return as still on break.
     public func close() {
         let closed = panel
-        panel = nil
-        presenter?.hide()
+        hidePanel()
         switch closed {
         case .checkIn(let checkIn) where checkIn.mode == .timed: send(.checkInDismissed)
         case .awayReturn: send(.awayDismissed)
@@ -147,17 +247,14 @@ public final class AppModel {
 
     /// A timed prompt books its span, one opened by hand switches now, a return answers for the time away.
     public func log(_ choice: CheckInList.Choice) {
-        guard let content = panel, let id = resolve(choice) else { return }
-        panel = nil
-        presenter?.hide()
+        guard let content = panel, content.isPrompt, let id = resolve(choice) else { return }
         logger.info("answered the panel with \(id)")
         switch content {
-        case .checkIn(let checkIn): send(checkIn.mode == .timed ? .checkInAnswered(id) : .switchActivity(id))
+        case .checkIn(let checkIn): act(checkIn.mode == .timed ? .checkInAnswered(id) : .switchActivity(id))
         case .awayReturn:
-            send(
-                .awayAnswered(
-                    id == builtIns.breakId ? .break : id == builtIns.privateId ? .private : .activity(id)))
-        case .breakReturn: send(.breakReturnAnswered(id))
+            act(.awayAnswered(id == builtIns.breakId ? .break : id == builtIns.privateId ? .private : .activity(id)))
+        case .breakReturn: act(.breakReturnAnswered(id))
+        case .dashboard, .doneForToday: break
         }
         reloadCatalog()
     }
@@ -167,16 +264,8 @@ public final class AppModel {
         guard case .checkIn(let checkIn) = panel, checkIn.mode == .timed, let choices = split.choices else { return }
         let ids = choices.compactMap(resolve)
         guard ids.count == choices.count else { return }
-        panel = nil
-        presenter?.hide()
-        send(.checkInSplit(dividers: split.dividers, activities: ids))
+        act(.checkInSplit(dividers: split.dividers, activities: ids))
         reloadCatalog()
-    }
-
-    public func startBreak() {
-        panel = nil
-        presenter?.hide()
-        send(.startBreak)
     }
 
     /// Uses the customer of that name or creates it; an empty customer name means none.
@@ -213,17 +302,63 @@ public final class AppModel {
         }
     }
 
+    /// A prompt from the tracker shows without taking the focus.
     private func present(_ content: PanelContent) {
         reloadCatalog()
-        panel = content
-        open(.timer)
+        showPrompt(content)
+        reveal(.timer) {}
     }
 
-    private func prepareManualCheckIn() {
-        reloadCatalog()
-        let now = clock.now
-        let span = tracker.runningSince.map { DateInterval(start: min($0, now), end: now) }
-        panel = .checkIn(CheckIn(mode: .manual, span: span, prefill: tracker.currentActivity))
+    private func showPrompt(_ content: PanelContent) {
+        if case .dashboard(let day) = panel { returnTo = day.period }
+        panel = content
+    }
+
+    /// Shows, focuses or closes the panel; `content` fills it when it opens.
+    private func reveal(_ trigger: PanelFocus.Trigger, content: () -> Void) {
+        guard let presenter else { return }
+        switch PanelFocus.action(for: trigger, visible: presenter.isVisible, key: presenter.isKey) {
+        case .show(let focus):
+            content()
+            if panel != nil { presenter.show(focus: focus) }
+        case .update: presenter.update()
+        case .focus: presenter.focus()
+        case .close: close()
+        }
+    }
+
+    /// A user action: a dashboard stays and shows it, a prompt counts as answered and goes back to its dashboard or closes.
+    private func act(_ event: TrackerEvent) {
+        switch panel {
+        case .dashboard(let day):
+            send(event)
+            showDashboard(day.period)
+        case nil:
+            send(event)
+        default:
+            let back = returnTo
+            // without a prompt in the panel, the one the tracker ends does not close it
+            panel = nil
+            send(event)
+            if let back { showDashboard(back) } else { hidePanel() }
+        }
+    }
+
+    private var today: Period { Period(.day, containing: now, calendar: calendar) }
+
+    private func day(_ period: Period) -> DashboardDay? {
+        do {
+            return DashboardDay(period: period, blocks: try database.blocks(in: period.interval))
+        } catch {
+            logger.error("loading the dashboard failed: \(String(describing: error), privacy: .public)")
+            return nil
+        }
+    }
+
+    private func hidePanel() {
+        panel = nil
+        returnTo = nil
+        presenter?.hide()
     }
 
     private func reloadCatalog() {

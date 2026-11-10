@@ -44,7 +44,7 @@ final class PresenceMonitor {
             let token = center.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
                 let name = note.name.rawValue
                 MainActor.assumeIsolated {
-                    spikeLog.notice("presence: \(name, privacy: .public)")
+                    appLog.notice("presence: \(name, privacy: .public)")
                     if away { self?.away() } else { self?.tick() }
                 }
             }
