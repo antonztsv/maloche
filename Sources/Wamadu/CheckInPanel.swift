@@ -141,27 +141,40 @@ final class CheckInPanelController: PanelPresenter {
         hosting = view
         position()
         if focus { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
+        highlightStatusItem()
         logState("show focus=\(focus)")
     }
 
     func update() {
         position()
         panel.orderFrontRegardless()
+        highlightStatusItem()
         logState("update")
     }
 
     func focus() {
         position()
         panel.makeKeyAndOrderFront(nil)
+        highlightStatusItem()
         logState("focus")
     }
 
     func hide() {
         panel.orderOut(nil)
+        highlightStatusItem()
     }
 
     func signalFailure() {
         NSSound.beep()
+    }
+
+    /// Highlighted while the panel shows, like a menu bar extra with its menu open.
+    private func highlightStatusItem() {
+        // a turn later, the mouse up of a click on the icon resets the highlight after the action
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.statusItem?.button?.highlight(self.panel.isVisible)
+        }
     }
 
     private func contentResized() {
