@@ -6,6 +6,9 @@ import WamaduCore
 struct TimelineChart: View {
     var data: DashboardData
     var timeline: DayTimeline
+    /// A block was clicked, with its frame in the global coordinate space.
+    var onEdit: (Int64, CGRect) -> Void = { _, _ in }
+    @State private var frame = CGRect.zero
 
     private static let barHeight: CGFloat = 24
     private static let axisTop: CGFloat = barHeight + 4
@@ -36,10 +39,28 @@ struct TimelineChart: View {
             }
         }
         .frame(height: Self.axisTop + 14)
+        .onGeometryChange(for: CGRect.self) {
+            $0.frame(in: .global)
+        } action: {
+            frame = $0
+        }
+        .onTapGesture(coordinateSpace: .global, perform: edit)
         .accessibilityElement()
         .accessibilityLabel(Text("Day timeline"))
         .accessibilityValue(Text(verbatim: accessibilityValue))
         .accessibilityAddTraits(.isImage)
+    }
+
+    private func edit(at location: CGPoint) {
+        guard frame.width > 0, location.y - frame.minY <= Self.barHeight else { return }
+        let x = (location.x - frame.minX) / frame.width
+        guard let bar = data.bars.first(where: { $0.start <= x && x <= $0.end && data.editable.contains($0.key) })
+        else { return }
+        onEdit(
+            bar.key,
+            CGRect(
+                x: frame.minX + bar.start * frame.width, y: frame.minY, width: (bar.end - bar.start) * frame.width,
+                height: Self.barHeight))
     }
 
     /// "8:30 to 10:00 Internal, 10:00 to 12:15 Acme, 12:15 to 13:00 Break"

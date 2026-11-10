@@ -39,11 +39,12 @@
                 : spans.prefix(few ? 2 : spans.count).map {
                     Block(activityId: $0.0, startedAt: $0.1, endedAt: $0.2, source: .checkIn)
                 }
-            let data = DashboardData(
+            var data = DashboardData(
                 period: Period(.day, containing: day, calendar: calendar), blocks: blocks, activities: activities,
                 projects: projects, customers: customers,
                 schedule: WorkSchedule(plans: [2: .init(start: 9 * 60, end: 17 * 60)]), current: current,
                 now: empty ? at(8, 50) : few ? at(10, 5) : at(17, 30), calendar: calendar)
+            data.editable = Set(blocks.map(\.activityId))
             return DashboardView(
                 data: data, moreActions: MoreActionsMenu(model: model), onShowPeriod: { _ in },
                 onCheckIn: {}, onKeepTracking: {})

@@ -15,6 +15,17 @@
     "%@ comes with the project" : {
 
     },
+    "%@ on %@" : {
+      "comment" : "The time of an entry and its day, below the question whether to delete it",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ on %2$@"
+          }
+        }
+      }
+    },
     "%@ to %@" : {
       "localizations" : {
         "en" : {
@@ -34,6 +45,15 @@
           }
         }
       }
+    },
+    "+15" : {
+
+    },
+    "15 minutes less" : {
+
+    },
+    "15 minutes more" : {
+
     },
     "A fresh day" : {
 
@@ -99,6 +119,9 @@
     "Change activity" : {
 
     },
+    "Change times or activity" : {
+
+    },
     "Check In Now" : {
 
     },
@@ -126,7 +149,19 @@
     "Day timeline" : {
 
     },
+    "Delete" : {
+
+    },
+    "Delete “%@”?" : {
+
+    },
+    "Delete…" : {
+
+    },
     "Divider" : {
+
+    },
+    "Done" : {
 
     },
     "Done for today" : {
@@ -139,6 +174,12 @@
 
     },
     "Edit" : {
+
+    },
+    "Edit %@" : {
+
+    },
+    "End of part %lld" : {
 
     },
     "For 1 hour" : {
@@ -247,6 +288,9 @@
     "Split" : {
 
     },
+    "Start of part %lld" : {
+
+    },
     "Still on break" : {
 
     },
@@ -307,6 +351,9 @@
     "Your day shows up here as soon as you answer the first check-in." : {
 
     },
+    "to" : {
+
+    },
     "wamadu, logging without asking" : {
 
     },
@@ -317,6 +364,9 @@
 
     },
     "wamadu, tracking" : {
+
+    },
+    "−15" : {
 
     }
   },

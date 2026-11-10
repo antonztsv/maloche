@@ -70,10 +70,7 @@ private struct ProjectMenu: NSViewRepresentable {
             item.target = target
             item.tag = tag
             item.state = tag == selected ? .on : .off
-            item.image = color.flatMap { color in
-                NSImage(systemSymbolName: "square.fill", accessibilityDescription: nil)?.withSymbolConfiguration(
-                    .init(pointSize: 9, weight: .regular).applying(.init(paletteColors: [color])))
-            }
+            item.image = color.flatMap(NSImage.swatch)
         }
         add(String(localized: "No project"), tag: Self.noProject, color: .tertiaryLabelColor)
         let byCustomer = Dictionary(grouping: catalog.projects, by: \.customerId)
@@ -113,5 +110,13 @@ private struct ProjectMenu: NSViewRepresentable {
             default: parent?.projectId = Int64(item.tag)
             }
         }
+    }
+}
+
+extension NSImage {
+    /// The customer color square of a menu item.
+    static func swatch(_ color: NSColor) -> NSImage? {
+        NSImage(systemSymbolName: "square.fill", accessibilityDescription: nil)?.withSymbolConfiguration(
+            .init(pointSize: 9, weight: .regular).applying(.init(paletteColors: [color])))
     }
 }

@@ -24,6 +24,8 @@ struct DashboardData {
     var activities: [Int64: Activity]
     var projects: [Int64: Project]
     var customers: [Int64: Customer]
+    /// Activities whose rows and blocks open the entry editor.
+    var editable: Set<Int64> = []
 
     init(
         period: Period, blocks: [Block], activities: [Activity], projects: [Project], customers: [Customer],

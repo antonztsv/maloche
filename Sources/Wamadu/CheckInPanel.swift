@@ -4,8 +4,10 @@ import WamaduCore
 
 final class CheckInPanel: NSPanel {
     var onCancel: (() -> Void)?
+    /// Holds the content in the system glass.
+    let glass = NSGlassEffectView()
 
-    init() {
+    init(cornerRadius: CGFloat = 16) {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 380, height: 200),
             styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
@@ -18,6 +20,18 @@ final class CheckInPanel: NSPanel {
         backgroundColor = .clear
         isOpaque = false
         hasShadow = true
+        glass.style = .regular
+        glass.cornerRadius = cornerRadius
+        // a rounded mask under the glass, so the window shape and its shadow have no square corners
+        let shape = NSView()
+        shape.wantsLayer = true
+        shape.layer?.cornerRadius = cornerRadius
+        shape.layer?.cornerCurve = .continuous
+        shape.layer?.masksToBounds = true
+        contentView = shape
+        glass.frame = shape.bounds
+        glass.autoresizingMask = [.width, .height]
+        shape.addSubview(glass)
     }
 
     override var canBecomeKey: Bool { true }
@@ -52,6 +66,8 @@ final class CheckInPanel: NSPanel {
 struct PanelView: View {
     let model: AppModel
     let onResize: () -> Void
+    /// A row or block of the dashboard was clicked, with its frame in the global coordinate space.
+    let onEdit: (Int64, CGRect) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -75,13 +91,14 @@ struct PanelView: View {
 
     private func dashboard(_ day: DashboardDay) -> DashboardView {
         let catalog = model.catalog
+        var data = DashboardData(
+            period: day.period, blocks: day.blocks, activities: catalog.activities, projects: catalog.projects,
+            customers: catalog.customers, schedule: model.schedule, current: model.nowRow,
+            now: model.now, calendar: model.calendar)
+        data.editable = Set(day.blocks.map(\.activityId)).filter { model.entry(activityId: $0) != nil }
         return DashboardView(
-            data: DashboardData(
-                period: day.period, blocks: day.blocks, activities: catalog.activities, projects: catalog.projects,
-                customers: catalog.customers, schedule: model.schedule, current: model.nowRow,
-                now: model.now, calendar: model.calendar),
-            moreActions: MoreActionsMenu(model: model), onShowPeriod: model.showDashboard,
-            onCheckIn: model.checkIn, onKeepTracking: model.keepTracking)
+            data: data, moreActions: MoreActionsMenu(model: model), onShowPeriod: model.showDashboard,
+            onCheckIn: model.checkIn, onKeepTracking: model.keepTracking, onEdit: onEdit)
     }
 }
 
@@ -90,30 +107,21 @@ final class CheckInPanelController: PanelPresenter {
     weak var statusItem: NSStatusItem?
     let panel = CheckInPanel()
     private let model: AppModel
-    private let glass = NSGlassEffectView()
+    private let editor: EntryEditorController
     private var hosting: NSView?
     private var activationObserver: NSObjectProtocol?
-    private var resignKeyObserver: NSObjectProtocol?
+    private var resignKeyObservers: [NSObjectProtocol] = []
 
     init(model: AppModel) {
         self.model = model
-        glass.style = .regular
-        glass.cornerRadius = 16
-        // a rounded mask under the glass, so the window shape and its shadow have no square corners
-        let shape = NSView()
-        shape.wantsLayer = true
-        shape.layer?.cornerRadius = 16
-        shape.layer?.cornerCurve = .continuous
-        shape.layer?.masksToBounds = true
-        panel.contentView = shape
-        glass.frame = shape.bounds
-        glass.autoresizingMask = [.width, .height]
-        shape.addSubview(glass)
+        editor = EntryEditorController(model: model)
         panel.onCancel = { [weak model] in model?.close() }
-        resignKeyObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
-        ) { [weak model] _ in
-            MainActor.assumeIsolated { model?.panelLostFocus() }
+        resignKeyObservers = [panel, editor.panel].map { window in
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.didResignKeyNotification, object: window, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.keyResigned() }
+            }
         }
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
@@ -128,15 +136,19 @@ final class CheckInPanelController: PanelPresenter {
     }
 
     var isVisible: Bool { panel.isVisible }
-    var isKey: Bool { panel.isKeyWindow }
+    var isKey: Bool { panel.isKeyWindow || editor.panel.isKeyWindow }
 
     func show(focus: Bool) {
+        editor.close(focusDashboard: false)
         // a fresh hosting view per opening resets the field and its focus
         let view = NSHostingView(
-            rootView: PanelView(model: model) { [weak self] in
-                DispatchQueue.main.async { self?.contentResized() }
-            })
-        glass.contentView = view
+            rootView: PanelView(
+                model: model,
+                onResize: { [weak self] in
+                    DispatchQueue.main.async { self?.contentResized() }
+                },
+                onEdit: { [weak self] activityId, frame in self?.edit(activityId, frame: frame) }))
+        panel.glass.contentView = view
         hosting = view
         position()
         if focus { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
@@ -159,8 +171,32 @@ final class CheckInPanelController: PanelPresenter {
     }
 
     func hide() {
+        editor.close(focusDashboard: false)
         panel.orderOut(nil)
         highlightStatusItem()
+    }
+
+    /// The editor of the clicked row or block, beside it.
+    private func edit(_ activityId: Int64, frame: CGRect) {
+        guard let hosting else { return }
+        let anchor = panel.convertToScreen(hosting.convert(frame, to: nil))
+        editor.show(activityId: activityId, anchor: anchor, parent: panel)
+    }
+
+    /// A click outside closes the dashboard, the editor closes like a transient popover.
+    private func keyResigned() {
+        guard editor.isVisible else { return model.panelLostFocus() }
+        // the window taking the key status is known a run loop turn later
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            switch PanelFocus.afterResignKey(key: NSApp.keyWindow, dashboard: panel, editor: editor.panel) {
+            case .keep: break
+            case .closeEditor: editor.close()
+            case .closeAll:
+                editor.close(focusDashboard: false)
+                model.panelLostFocus()
+            }
+        }
     }
 
     func signalFailure() {

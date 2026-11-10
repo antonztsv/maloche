@@ -7,6 +7,7 @@ public enum WamaduError: Error, Equatable {
     case activityNotFound
     case activityHasBlocks
     case builtInActivity
+    case blockNotFound
 }
 
 extension AppDatabase {
@@ -74,22 +75,38 @@ extension AppDatabase {
     /// Times are rounded to whole seconds; a block that becomes empty is skipped and nil is returned.
     @discardableResult
     public func insert(block: Block) throws -> Block? {
-        var block = block
-        block.startedAt = Self.wholeSecond(block.startedAt)
-        block.endedAt = Self.wholeSecond(block.endedAt)
+        let block = Self.wholeSeconds(block)
         guard block.endedAt != block.startedAt else { return nil }
-        return try dbQueue.write { db in
-            let overlapping = try Self.overlapping(block.startedAt, block.endedAt).fetchAll(db)
-            let changes = Timeline.changes(inserting: block, into: overlapping)
-            _ = try Block.deleteAll(db, ids: changes.deletedIds)
-            for updated in changes.updated { try updated.update(db) }
-            var inserted = changes.inserted
-            for index in inserted.indices { try inserted[index].insert(db) }
-            try db.execute(
-                sql: "UPDATE activity SET lastUsedAt = ? WHERE id = ? AND (lastUsedAt IS NULL OR lastUsedAt < ?)",
-                arguments: [block.endedAt, block.activityId, block.endedAt])
-            return inserted[0]
+        return try dbQueue.write { db in try Self.insert(block, db) }
+    }
+
+    /// Replaces the blocks with one block of their activity and the source of the earliest over the interval,
+    /// which wins over the other blocks it overlaps like `insert(block:)`.
+    @discardableResult
+    public func replaceBlocks(_ ids: [Int64], over interval: DateInterval) throws -> Block {
+        try dbQueue.write { db in
+            guard let first = try Block.filter(ids: ids).order(Column("startedAt")).fetchOne(db) else {
+                throw WamaduError.blockNotFound
+            }
+            _ = try Block.deleteAll(db, ids: ids)
+            let block = Block(
+                activityId: first.activityId, startedAt: interval.start, endedAt: interval.end, source: first.source)
+            return try Self.insert(Self.wholeSeconds(block), db)
         }
+    }
+
+    /// Books the blocks to another activity, their times stay.
+    public func moveBlocks(_ ids: [Int64], to activityId: Int64) throws {
+        try dbQueue.write { db in
+            _ = try Block.filter(ids: ids).updateAll(db, Column("activityId").set(to: activityId))
+            if let end = try Block.filter(ids: ids).fetchAll(db).map(\.endedAt).max() {
+                try Self.markUsed(activityId, at: end, db)
+            }
+        }
+    }
+
+    public func deleteBlocks(_ ids: [Int64]) throws {
+        _ = try dbQueue.write { db in try Block.deleteAll(db, ids: ids) }
     }
 
     /// Blocks overlapping the interval, sorted by start.
@@ -103,9 +120,30 @@ extension AppDatabase {
         Block.filter(Column("startedAt") < end && Column("endedAt") > start)
     }
 
+    /// Inside a write, the block wins over the stored blocks it overlaps.
+    private static func insert(_ block: Block, _ db: Database) throws -> Block {
+        let overlapping = try overlapping(block.startedAt, block.endedAt).fetchAll(db)
+        let changes = Timeline.changes(inserting: block, into: overlapping)
+        _ = try Block.deleteAll(db, ids: changes.deletedIds)
+        for updated in changes.updated { try updated.update(db) }
+        var inserted = changes.inserted
+        for index in inserted.indices { try inserted[index].insert(db) }
+        try markUsed(block.activityId, at: block.endedAt, db)
+        return inserted[0]
+    }
+
+    private static func markUsed(_ activityId: Int64, at date: Date, _ db: Database) throws {
+        try db.execute(
+            sql: "UPDATE activity SET lastUsedAt = ? WHERE id = ? AND (lastUsedAt IS NULL OR lastUsedAt < ?)",
+            arguments: [date, activityId, date])
+    }
+
     // stored dates keep milliseconds, sub-second fragments could round to empty blocks
-    private static func wholeSecond(_ date: Date) -> Date {
-        Date(timeIntervalSinceReferenceDate: date.timeIntervalSinceReferenceDate.rounded())
+    private static func wholeSeconds(_ block: Block) -> Block {
+        var block = block
+        block.startedAt = Date(timeIntervalSinceReferenceDate: block.startedAt.timeIntervalSinceReferenceDate.rounded())
+        block.endedAt = Date(timeIntervalSinceReferenceDate: block.endedAt.timeIntervalSinceReferenceDate.rounded())
+        return block
     }
 
     private static func validName(_ name: String) throws -> String {

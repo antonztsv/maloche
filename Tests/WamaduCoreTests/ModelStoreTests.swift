@@ -280,4 +280,132 @@ import Testing
         #expect(throws: WamaduError.activityNotFound) { try database.deleteActivity(id: 999) }
         #expect(throws: WamaduError.activityNotFound) { try database.renameActivity(id: 999, to: "Writing") }
     }
+
+    // MARK: Editing an entry
+
+    private func insertedId(_ database: AppDatabase, _ block: Block) throws -> Int64 {
+        try #require(try database.insert(block: block)?.id)
+    }
+
+    @Test func aShorterSpanLeavesTheRestUntrackedAndNeighboursUnchanged() throws {
+        let database = try AppDatabase.inMemory()
+        let writing = try #require(try database.createActivity(name: "Writing").id)
+        let reading = try #require(try database.createActivity(name: "Reading").id)
+        let first = try insertedId(database, block(writing, 0, 60, source: .manual))
+        let second = try insertedId(database, block(writing, 60, 135))
+        _ = try database.insert(block: block(reading, 135, 180))
+
+        let replaced = try database.replaceBlocks([first, second], over: DateInterval(start: at(0), end: at(120)))
+
+        #expect(replaced.activityId == writing)
+        #expect(replaced.source == .manual)
+        let stored = try allBlocks(database)
+        #expect(stored.map(\.activityId) == [writing, reading])
+        #expect(stored.map(\.startedAt) == [at(0), at(135)])
+        #expect(stored.map(\.endedAt) == [at(120), at(180)])
+        #expect(stored[0].id == replaced.id)
+    }
+
+    @Test func aLongerSpanShortensOrRemovesTheBlocksItNowCovers() throws {
+        let database = try AppDatabase.inMemory()
+        let writing = try #require(try database.createActivity(name: "Writing").id)
+        let reading = try #require(try database.createActivity(name: "Reading").id)
+        let review = try #require(try database.createActivity(name: "Code Review").id)
+        let span = try insertedId(database, block(writing, 0, 60))
+        _ = try database.insert(block: block(reading, 60, 90))
+        _ = try database.insert(block: block(review, 90, 150))
+
+        try database.replaceBlocks([span], over: DateInterval(start: at(0), end: at(120)))
+
+        let stored = try allBlocks(database)
+        #expect(stored.map(\.activityId) == [writing, review])
+        #expect(stored.map(\.startedAt) == [at(0), at(120)])
+        #expect(stored.map(\.endedAt) == [at(120), at(150)])
+        expectNoOverlaps(stored)
+    }
+
+    @Test func aSpanMovedIntoAnotherBlockSplitsIt() throws {
+        let database = try AppDatabase.inMemory()
+        let writing = try #require(try database.createActivity(name: "Writing").id)
+        let reading = try #require(try database.createActivity(name: "Reading").id)
+        let span = try insertedId(database, block(writing, 0, 30, source: .split))
+        _ = try database.insert(block: block(reading, 60, 180, source: .continued))
+
+        try database.replaceBlocks([span], over: DateInterval(start: at(90), end: at(120)))
+
+        let stored = try allBlocks(database)
+        #expect(stored.map(\.activityId) == [reading, writing, reading])
+        #expect(stored.map(\.startedAt) == [at(60), at(90), at(120)])
+        #expect(stored.map(\.endedAt) == [at(90), at(120), at(180)])
+        #expect(stored.map(\.source) == [.continued, .split, .continued])
+        expectNoOverlaps(stored)
+    }
+
+    @Test func aReplacedSpanIsStoredInWholeSecondsAndMovesLastUseForward() throws {
+        let database = try AppDatabase.inMemory()
+        let writing = try #require(try database.createActivity(name: "Writing").id)
+        let span = try insertedId(database, block(writing, 0, 60))
+
+        let replaced = try database.replaceBlocks(
+            [span], over: DateInterval(start: at(0).addingTimeInterval(0.4), end: at(90).addingTimeInterval(0.6)))
+
+        #expect(replaced.startedAt == at(0))
+        #expect(replaced.endedAt == at(90).addingTimeInterval(1))
+        #expect(try allBlocks(database).map(\.endedAt) == [at(90).addingTimeInterval(1)])
+        #expect(try database.activities().first { $0.id == writing }?.lastUsedAt == at(90).addingTimeInterval(1))
+    }
+
+    @Test func aReplacementThatRoundsToNothingChangesNothing() throws {
+        let database = try AppDatabase.inMemory()
+        let writing = try #require(try database.createActivity(name: "Writing").id)
+        let reading = try #require(try database.createActivity(name: "Reading").id)
+        let span = try insertedId(database, block(writing, 0, 60))
+        _ = try database.insert(block: block(reading, 60, 120))
+        let before = try allBlocks(database)
+
+        #expect(throws: DatabaseError.self) {
+            try database.replaceBlocks(
+                [span], over: DateInterval(start: at(90).addingTimeInterval(0.2), end: at(90).addingTimeInterval(0.4)))
+        }
+        #expect(throws: WamaduError.blockNotFound) {
+            try database.replaceBlocks([999], over: DateInterval(start: at(0), end: at(60)))
+        }
+
+        #expect(try allBlocks(database) == before)
+    }
+
+    @Test func movingBlocksBooksThemToTheOtherActivity() throws {
+        let database = try AppDatabase.inMemory()
+        let writing = try #require(try database.createActivity(name: "Writing").id)
+        let reading = try #require(try database.createActivity(name: "Reading").id)
+        let breakId = try #require(try database.builtIn(.break).id)
+        let first = try insertedId(database, block(writing, 0, 60))
+        _ = try database.insert(block: block(reading, 60, 90))
+        let second = try insertedId(database, block(writing, 90, 120))
+
+        try database.moveBlocks([first, second], to: breakId)
+
+        let stored = try allBlocks(database)
+        #expect(stored.map(\.activityId) == [breakId, reading, breakId])
+        #expect(stored.map(\.startedAt) == [at(0), at(60), at(90)])
+        #expect(stored.map(\.endedAt) == [at(60), at(90), at(120)])
+        #expect(try database.builtIn(.break).lastUsedAt == at(120))
+        #expect(throws: DatabaseError.self) { try database.moveBlocks([first], to: 999) }
+        #expect(try allBlocks(database) == stored)
+    }
+
+    @Test func deletingBlocksRemovesOnlyThose() throws {
+        let database = try AppDatabase.inMemory()
+        let writing = try #require(try database.createActivity(name: "Writing").id)
+        let reading = try #require(try database.createActivity(name: "Reading").id)
+        let first = try insertedId(database, block(writing, 0, 60))
+        _ = try database.insert(block: block(reading, 60, 90))
+        let second = try insertedId(database, block(writing, 90, 120))
+
+        try database.deleteBlocks([first, second])
+
+        let stored = try allBlocks(database)
+        #expect(stored.map(\.activityId) == [reading])
+        #expect(stored.map(\.startedAt) == [at(60)])
+    }
 }

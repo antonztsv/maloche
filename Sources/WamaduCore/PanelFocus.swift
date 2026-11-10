@@ -21,4 +21,16 @@ public enum PanelFocus {
         case (.shortcut, true): .focus
         }
     }
+
+    public enum Outcome: Equatable, Sendable { case keep, closeEditor, closeAll }
+
+    /// Where the key status went after the dashboard or the entry editor gave it up: the editor closes like a
+    /// transient popover, both close when the key status left the app's panels.
+    public static func afterResignKey<Window: Equatable>(key: Window?, dashboard: Window, editor: Window) -> Outcome {
+        switch key {
+        case editor?: .keep
+        case dashboard?: .closeEditor
+        default: .closeAll
+        }
+    }
 }

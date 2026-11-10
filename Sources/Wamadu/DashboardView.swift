@@ -11,6 +11,8 @@ struct DashboardView: View {
     /// Switches the panel to the check-in, from the Now row and from Check In Now.
     var onCheckIn: () -> Void
     var onKeepTracking: () -> Void
+    /// A row or block was clicked, with its frame in the global coordinate space.
+    var onEdit: (Int64, CGRect) -> Void = { _, _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -18,12 +20,12 @@ struct DashboardView: View {
             periodPicker
             if let timeline = data.timeline, let day = data.day {
                 totals(day)
-                TimelineChart(data: data, timeline: timeline)
+                TimelineChart(data: data, timeline: timeline, onEdit: onEdit)
                     .padding(.horizontal, 4)
                 legend
                 Divider()
                     .padding(.horizontal, 4)
-                DashboardList(data: data)
+                DashboardList(data: data, onEdit: onEdit)
             } else {
                 emptyDay
             }
@@ -257,6 +259,7 @@ struct DashboardView: View {
 /// Work by customer, then project, each activity with its share of the day as a bar.
 struct DashboardList: View {
     var data: DashboardData
+    var onEdit: (Int64, CGRect) -> Void = { _, _ in }
     @State private var collapsed: Set<Int64?> = []
 
     var body: some View {
@@ -313,7 +316,19 @@ struct DashboardList: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func row(_ total: ActivityTotal, customer: Customer?) -> some View {
+    @ViewBuilder private func row(_ total: ActivityTotal, customer: Customer?) -> some View {
+        if let id = total.activity.id, data.editable.contains(id) {
+            EditableRow {
+                onEdit(id, $0)
+            } label: {
+                rowContent(total, customer: customer)
+            }
+        } else {
+            rowContent(total, customer: customer)
+        }
+    }
+
+    private func rowContent(_ total: ActivityTotal, customer: Customer?) -> some View {
         HStack(spacing: 8) {
             Text(total.activity.name)
                 .lineLimit(1)
@@ -328,5 +343,27 @@ struct DashboardList: View {
         }
         .frame(height: 28)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// A row that opens the entry editor beside itself.
+private struct EditableRow<Label: View>: View {
+    let onEdit: (CGRect) -> Void
+    @ViewBuilder var label: Label
+    @State private var frame = CGRect.zero
+
+    var body: some View {
+        Button {
+            onEdit(frame)
+        } label: {
+            label.contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .onGeometryChange(for: CGRect.self) {
+            $0.frame(in: .global)
+        } action: {
+            frame = $0
+        }
+        .accessibilityHint(Text("Change times or activity"))
     }
 }
