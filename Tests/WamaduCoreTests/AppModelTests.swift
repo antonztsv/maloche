@@ -308,6 +308,32 @@ final class TestClock: WallClock, @unchecked Sendable {
         #expect(shownDay(model)?.blocks.map(\.interval) == [Fixture.span("2026-11-10 08:00", "2026-11-10 08:10")])
     }
 
+    /// Away from 08:05 to 08:30 before the first answer, the return closed with Escape.
+    @Test func aDismissedAbsenceBeforeTheFirstAnswerStaysFreeAndTheCheckInNamesWhatItBooks() throws {
+        let model = try makeModel()
+        let writing = try model.database.createActivity(name: "Writing").id!
+        tick(model, at: "08:00")
+        tick(model, at: "08:05")
+        model.send(.systemAway(since: Fixture.at("08:05")))
+        tick(model, at: "08:30")
+        #expect(model.panel == .awayReturn(span: Fixture.span("08:05", "08:30"), prefill: model.builtIns.breakId))
+        model.close()
+        #expect(try timeline(model).isEmpty)
+
+        tick(model, at: "08:35")
+        model.checkIn()
+        #expect(
+            model.panel
+                == .checkIn(CheckIn(mode: .manual, span: Fixture.span("08:00", "08:35"), duration: 600, prefill: nil)))
+        model.close()
+        tick(model, at: "08:45")
+        #expect(
+            model.panel
+                == .checkIn(CheckIn(mode: .timed, span: Fixture.span("08:00", "08:45"), duration: 1200, prefill: nil)))
+        model.log(.existing(writing))
+        #expect(try timeline(model) == ["Writing 08:00-08:05", "Writing 08:30-08:45"])
+    }
+
     @Test func theNowRowFollowsTheTracker() throws {
         let model = try makeModel()
         #expect(model.nowRow == .off)

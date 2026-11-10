@@ -4,8 +4,22 @@ import Testing
 @testable import WamaduCore
 
 @Suite struct TrackerBookingTests {
-    private func checkIn(_ start: String, _ end: String, canSplit: Bool = false) -> TrackerEffect {
-        .showCheckIn(CheckInPrompt(span: Fixture.span(start, end), prefill: Fixture.writing, canSplit: canSplit))
+    /// `minutes` booked by the answer when absences lie in the span.
+    private func checkIn(_ start: String, _ end: String, minutes: Int? = nil, canSplit: Bool = false) -> TrackerEffect {
+        .showCheckIn(
+            CheckInPrompt(
+                span: Fixture.span(start, end), duration: minutes.map { TimeInterval($0 * 60) },
+                prefill: Fixture.writing, canSplit: canSplit))
+    }
+
+    /// The day has no answer yet, away from 08:10 by idling, back at 08:30.
+    private func backBeforeTheFirstAnswer() -> Harness {
+        var h = Harness(answered: false)
+        h.tick()
+        h.pass(to: "08:10")
+        h.pass(to: "08:29", idle: true)
+        h.pass(to: "08:30")
+        return h
     }
 
     @Test func theActivityOfAnEarlierDayIsOnlyThePrefillAndNothingIsBookedBeforeTheFirstAnswer() {
@@ -61,10 +75,74 @@ import Testing
         #expect(h.timeline == ["\(name) 08:10-08:30"])
         #expect(h.tracker.currentActivity == nil)
         h.pass(to: "08:45")
-        #expect(h.takePrompts().last == checkIn("08:30", "08:45"))
+        #expect(h.takePrompts().last == checkIn("08:00", "08:45", minutes: 25))
         h.send(.checkInAnswered(Fixture.reading))
         h.pass(to: "08:50")
         #expect(h.timeline == ["Reading 08:00-08:10", "\(name) 08:10-08:30", "Reading 08:30-08:50"])
+    }
+
+    /// The absence may have been a meeting, so the question shows; dismissed, it books nothing, also no Break.
+    @Test func aDismissedReturnBeforeTheFirstAnswerBooksNothingAndTheAbsenceStaysFree() {
+        var h = backBeforeTheFirstAnswer()
+        #expect(h.takePrompts().last == .showAwayReturn(span: Fixture.span("08:10", "08:30"), prefill: Fixture.breakId))
+        h.pass(to: "08:32")
+        h.send(.awayDismissed)
+        h.pass(to: "08:46")
+        #expect(h.timeline.isEmpty)
+        #expect(h.tracker.currentActivity == nil)
+        h.pass(to: "08:47")
+        #expect(h.takePrompts().last == checkIn("08:00", "08:47", minutes: 27))
+        h.send(.checkInAnswered(Fixture.reading))
+        h.pass(to: "08:50")
+        #expect(h.timeline == ["Reading 08:00-08:10", "Reading 08:30-08:50"])
+    }
+
+    @Test func aReturnSettledByTheNextAbsenceBeforeTheFirstAnswerBooksNothing() {
+        var h = backBeforeTheFirstAnswer()
+        h.pass(to: "08:35")
+        h.pass(to: "08:50", idle: true)
+        #expect(
+            h.takePrompts().suffix(2) == [
+                .showAwayReturn(span: Fixture.span("08:10", "08:30"), prefill: Fixture.breakId), .hidePrompt,
+            ])
+        #expect(h.timeline.isEmpty)
+        h.pass(to: "08:59", idle: true)
+        h.pass(to: "09:00")
+        h.send(.awayAnswered(.break))
+        h.pass(to: "09:15")
+        #expect(h.takePrompts().last == checkIn("08:00", "09:15", minutes: 30))
+        h.send(.checkInAnswered(Fixture.reading))
+        #expect(
+            h.timeline == [
+                "Reading 08:00-08:10", "Reading 08:30-08:35", "Break 08:35-09:00", "Reading 09:00-09:15",
+            ])
+    }
+
+    /// A split of the time since 08:00 would book over the absence.
+    @Test func noSplitBeforeTheFirstAnswerWhileAnAbsenceLiesInTheUnbookedTime() {
+        var h = backBeforeTheFirstAnswer()
+        h.send(.awayDismissed)
+        h.pass(to: "08:45")
+        h.send(.checkInDismissed)
+        h.pass(to: "09:00")
+        #expect(h.takePrompts().last == checkIn("08:00", "09:00", minutes: 40))
+        h.send(.checkInSplit(dividers: [Fixture.at("08:40")], activities: [Fixture.reading, Fixture.meeting]))
+        #expect(h.timeline.isEmpty)
+        h.send(.checkInAnswered(Fixture.meeting))
+        #expect(h.timeline == ["Meeting 08:00-08:10", "Meeting 08:30-09:00"])
+    }
+
+    /// Away from the first input of the day, the unbooked time is one span from the return.
+    @Test func aSplitBeforeTheFirstAnswerCoversTheUnbookedTimeFromTheReturn() {
+        var h = Harness(answered: false)
+        h.tick()
+        h.pass(to: "08:29", idle: true)
+        h.pass(to: "08:32")
+        h.send(.awayDismissed)
+        h.pass(to: "08:47")
+        #expect(h.takePrompts().last == checkIn("08:30", "08:47", canSplit: true))
+        h.send(.checkInSplit(dividers: [Fixture.at("08:40")], activities: [Fixture.reading, Fixture.meeting]))
+        #expect(h.timeline == ["Reading 08:30-08:40", "Meeting 08:40-08:47"])
     }
 
     @Test func anActivityOnTheReturnBeforeTheFirstAnswerIsTheFirstAnswer() {

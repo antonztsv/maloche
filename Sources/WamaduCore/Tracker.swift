@@ -66,14 +66,17 @@ public enum TrackerEvent: Equatable, Sendable {
 }
 
 public struct CheckInPrompt: Equatable, Sendable {
-    /// Since the last answer.
+    /// Since the last answer, before the first answer of a day since the first time not booked yet.
     public var span: DateInterval
+    /// What the answer books, without the absences in the span.
+    public var duration: TimeInterval
     public var prefill: Int64?
-    /// The span is longer than one interval.
+    /// The span is longer than one interval and has no absence in it.
     public var canSplit: Bool
 
-    public init(span: DateInterval, prefill: Int64?, canSplit: Bool) {
+    public init(span: DateInterval, duration: TimeInterval? = nil, prefill: Int64?, canSplit: Bool) {
         self.span = span
+        self.duration = duration ?? span.duration
         self.prefill = prefill
         self.canSplit = canSplit
     }
@@ -232,10 +235,13 @@ public struct Tracker: Sendable {
         case (.checkInDismissed, .tracking):
             state.checkInShown = false
         case (.checkInSplit(let dividers, let activities), .tracking):
-            let span = DateInterval(start: state.spanStart, end: now)
-            guard let parts = try? SpanSplit.blocks(span: span, dividers: dividers, activities: activities)
+            let spans = checkInSpans
+            guard spans.count == 1, let span = spans.first,
+                let parts = try? SpanSplit.blocks(span: span, dividers: dividers, activities: activities)
             else { break }
             bookRun(until: span.start)
+            // the parts cover the unassigned spans, run must not book them again over the parts
+            if running == nil { state.unassigned = [] }
             effects += parts.map(TrackerEffect.book)
             if let work = parts.last(where: { $0.activityId != builtIns.breakId }) {
                 run(work.activityId, from: work.startedAt, source: .split)
@@ -257,7 +263,7 @@ public struct Tracker: Sendable {
         case (.awayAnswered(let answer), .awayReturn(let since, let backAt)):
             answerAway(answer, since: since, backAt: backAt)
         case (.awayDismissed, .awayReturn(let since, let backAt)):
-            answerAway(.break, since: since, backAt: backAt)
+            answerAway(currentActivity == nil ? nil : .break, since: since, backAt: backAt)
         case (.startBreak, .tracking), (.startBreak, .awayReturn), (.startBreak, .continuing):
             leave()
             state.phase = .onBreak(awaySince: nil)
@@ -440,13 +446,13 @@ public struct Tracker: Sendable {
         bookRun(until: now)
     }
 
-    /// Closes the prompt; a pending away question counts as Break, a pending break return ends the break at the
-    /// return and the activity before the break runs on from there.
+    /// Closes the prompt; a pending away question counts as Break once the day has an answer, a pending break return
+    /// ends the break at the return and the activity before the break runs on from there.
     private mutating func settleReturns() {
         closePrompt()
         switch state.phase {
         case .awayReturn(let since, let backAt):
-            book(builtIns.breakId, since, backAt, source: .away)
+            if currentActivity != nil { book(builtIns.breakId, since, backAt, source: .away) }
         case .breakReturn(let returnAt):
             bookRun(until: returnAt)
             state.phase = .tracking
@@ -473,8 +479,31 @@ public struct Tracker: Sendable {
     }
 
     private var checkInPrompt: CheckInPrompt {
-        let span = DateInterval(start: state.spanStart, end: now)
-        return CheckInPrompt(span: span, prefill: state.current, canSplit: span.duration > settings.checkInInterval)
+        let spans = checkInSpans
+        let duration = spans.reduce(0) { $0 + $1.duration }
+        return CheckInPrompt(
+            span: DateInterval(start: spans[0].start, end: now), duration: duration, prefill: state.current,
+            canSplit: spans.count == 1 && duration > settings.checkInInterval)
+    }
+
+    /// What a timed check-in books: the span since the last answer, before the first answer of a day the time not
+    /// booked yet.
+    private var checkInSpans: [DateInterval] {
+        unbooked(until: now) ?? [DateInterval(start: state.spanStart, end: now)]
+    }
+
+    /// Before the first answer of a day while running, the spans no activity was named for up to `end`, merged in
+    /// order; absences and the time answered as Break or Private lie between them.
+    func unbooked(until end: Date) -> [DateInterval]? {
+        guard isRunning, running == nil else { return nil }
+        let spans = state.unassigned + [DateInterval(start: min(state.runStart, end), end: end)]
+        return spans.sorted { $0.start < $1.start }.reduce(into: []) { merged, span in
+            if let last = merged.last, span.start <= last.end {
+                merged[merged.count - 1] = DateInterval(start: last.start, end: max(last.end, span.end))
+            } else {
+                merged.append(span)
+            }
+        }
     }
 
     private mutating func showPendingPrompt() {
@@ -517,7 +546,7 @@ public struct Tracker: Sendable {
             bookRun(until: now)
         } else {
             let span = state.spanStart
-            let cut = running == nil ? span : Self.whole(span + now.timeIntervalSince(span) / 2)
+            let cut = running == nil ? state.runStart : Self.whole(span + now.timeIntervalSince(span) / 2)
             bookRun(until: cut)
             run(id, from: cut, source: .checkIn)
             bookRun(until: now)
@@ -525,7 +554,8 @@ public struct Tracker: Sendable {
         answered()
     }
 
-    private mutating func answerAway(_ answer: AwayAnswer, since: Date, backAt: Date) {
+    /// Without an answer the absence stays free.
+    private mutating func answerAway(_ answer: AwayAnswer?, since: Date, backAt: Date) {
         state.phase = .tracking
         switch answer {
         case .break:
@@ -535,6 +565,8 @@ public struct Tracker: Sendable {
         case .activity(let id):
             book(id, since, backAt, source: .away)
             if id != running { run(id, from: backAt, source: .checkIn) }
+        case nil:
+            break
         }
         bookRun(until: now)
         answered()

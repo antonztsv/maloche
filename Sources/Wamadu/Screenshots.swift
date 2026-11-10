@@ -85,6 +85,16 @@
                                     prefill: sample.writing))))
                 ),
                 (
+                    "checkin-first-answer",
+                    AnyView(
+                        CheckInView(
+                            model: model,
+                            content: .checkIn(
+                                CheckIn(
+                                    mode: .timed, span: DateInterval(start: Sample.at(8, 0), end: Sample.at(8, 45)),
+                                    duration: 20 * 60, prefill: sample.writing))))
+                ),
+                (
                     "newactivity",
                     AnyView(CheckInView(model: model, content: .checkIn(timed), list: typed("Kickoff Relaunch")))
                 ),

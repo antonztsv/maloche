@@ -138,8 +138,18 @@ private final class SimulatedUse {
         try dayEnds(booking: ["Review": "1:32:30", "Writing": "7:12:30", "Break": "1:05:00"])
     }
 
+    /// The return before the first answer is dismissed, its absence stays free.
     private func tuesday() throws {
         wake(at: at("08:10"))
+        work(until: at("08:20"))
+        back(at: at("08:50"))
+        dismiss()
+        work(until: at("09:05"))
+        if case .checkIn(let checkIn) = model.panel {
+            #expect(checkIn.span?.start == at("08:10") && checkIn.duration == 25 * 60 && !checkIn.canSplit)
+        } else {
+            Issue.record("no check-in at 09:05")
+        }
         work(until: at("09:25"), on: "Reading")
         work(until: at("09:30"))
         act { $0.shortcut(.openCheckIn) }
@@ -165,9 +175,10 @@ private final class SimulatedUse {
         lockScreen()
         idle(until: at("18:30"))
         lockScreen()
-        tracked(at("08:10"), at("16:00"))
+        tracked(at("08:10"), at("08:20"))
+        tracked(at("08:50"), at("16:00"))
         tracked(at("16:30"), at("17:40"))
-        try dayEnds(booking: ["Reading": "1:20:00", "Meeting": "0:35:00", "Writing": "6:20:00", "Break": "0:45:00"])
+        try dayEnds(booking: ["Reading": "0:50:00", "Meeting": "0:35:00", "Writing": "6:20:00", "Break": "0:45:00"])
     }
 
     private func wednesday() throws {

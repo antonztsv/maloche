@@ -71,15 +71,21 @@ public struct CheckIn: Equatable, Sendable {
     }
 
     public var mode: Mode
-    /// Since the last answer when timed, since the current activity runs when opened by hand.
+    /// Since the last answer when timed, since the current activity runs when opened by hand; before the first
+    /// answer of a day since the first time not booked yet.
     public var span: DateInterval?
+    /// What the answer books, without the absences in the span.
+    public var duration: TimeInterval
     public var prefill: Int64?
     /// The span is longer than one interval, the check-in offers the split view.
     public var canSplit: Bool
 
-    public init(mode: Mode, span: DateInterval?, prefill: Int64?, canSplit: Bool = false) {
+    public init(
+        mode: Mode, span: DateInterval?, duration: TimeInterval? = nil, prefill: Int64?, canSplit: Bool = false
+    ) {
         self.mode = mode
         self.span = span
+        self.duration = duration ?? span?.duration ?? 0
         self.prefill = prefill
         self.canSplit = canSplit
     }
@@ -175,7 +181,9 @@ public final class AppModel {
             case .showCheckIn(let prompt):
                 present(
                     .checkIn(
-                        CheckIn(mode: .timed, span: prompt.span, prefill: prompt.prefill, canSplit: prompt.canSplit)))
+                        CheckIn(
+                            mode: .timed, span: prompt.span, duration: prompt.duration, prefill: prompt.prefill,
+                            canSplit: prompt.canSplit)))
             case .showAwayReturn(let span, let prefill):
                 present(.awayReturn(span: span, prefill: prefill))
             case .showBreakReturn(let span, let prefill):
@@ -253,8 +261,12 @@ public final class AppModel {
         } else {
             reloadCatalog()
             let now = clock.now
-            let span = tracker.runningSince.map { DateInterval(start: min($0, now), end: now) }
-            showPrompt(.checkIn(CheckIn(mode: .manual, span: span, prefill: tracker.prefill)))
+            let spans =
+                tracker.unbooked(until: now)
+                ?? tracker.runningSince.map { [DateInterval(start: min($0, now), end: now)] }
+            let span = spans.map { DateInterval(start: $0[0].start, end: now) }
+            let duration = spans?.reduce(0) { $0 + $1.duration }
+            showPrompt(.checkIn(CheckIn(mode: .manual, span: span, duration: duration, prefill: tracker.prefill)))
         }
     }
 
@@ -331,8 +343,8 @@ public final class AppModel {
         endPrompt()
     }
 
-    /// A prompt closed without an answer: a timed one counts as dismissed, the away return as Break,
-    /// the break return as still on break.
+    /// A prompt closed without an answer: a timed one counts as dismissed, the away return as Break once the day has
+    /// an answer, the break return as still on break.
     private func dismiss() {
         let closed = panel
         // without a prompt in the panel, the one the tracker ends does not close it

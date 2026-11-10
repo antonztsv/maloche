@@ -120,7 +120,7 @@ struct CheckInView: View {
 
     private func subtitle(spoken: Bool) -> String? {
         switch content {
-        case .checkIn(let checkIn): checkIn.span.map { Self.since($0, spoken: spoken) }
+        case .checkIn(let checkIn): checkIn.span.map { Self.since($0.start, checkIn.duration, spoken: spoken) }
         case .awayReturn(let span, _): Self.away(span, spoken: spoken)
         case .breakReturn(let span, _): Self.onBreak(span, spoken: spoken)
         case .dashboard: nil
@@ -197,19 +197,19 @@ struct CheckInView: View {
     }
 
     /// "1:45" on screen, "1 hour 45 minutes" for VoiceOver.
-    private static func length(_ span: DateInterval, spoken: Bool) -> String? {
-        spoken ? DurationText.spokenSpan(span.duration) : DurationText.span(span.duration)
+    private static func length(_ duration: TimeInterval, spoken: Bool) -> String? {
+        spoken ? DurationText.spokenSpan(duration) : DurationText.span(duration)
     }
 
-    static func since(_ span: DateInterval, spoken: Bool = false) -> String {
-        let time = span.start.formatted(date: .omitted, time: .shortened)
-        guard let length = length(span, spoken: spoken) else { return String(localized: "Since \(time)") }
+    static func since(_ start: Date, _ duration: TimeInterval, spoken: Bool = false) -> String {
+        let time = start.formatted(date: .omitted, time: .shortened)
+        guard let length = length(duration, spoken: spoken) else { return String(localized: "Since \(time)") }
         return String(localized: "Since \(time), \(length)")
     }
 
     static func away(_ span: DateInterval, spoken: Bool = false) -> String {
         let (start, end) = times(span)
-        guard let length = length(span, spoken: spoken) else {
+        guard let length = length(span.duration, spoken: spoken) else {
             return String(localized: "Away from \(start) to \(end)")
         }
         return String(localized: "Away from \(start) to \(end), \(length)")
@@ -217,7 +217,7 @@ struct CheckInView: View {
 
     static func onBreak(_ span: DateInterval, spoken: Bool = false) -> String {
         let (start, end) = times(span)
-        guard let length = length(span, spoken: spoken) else {
+        guard let length = length(span.duration, spoken: spoken) else {
             return String(localized: "Break from \(start) to \(end)")
         }
         return String(localized: "Break from \(start) to \(end), \(length)")
