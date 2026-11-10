@@ -4,6 +4,16 @@
     "%@ comes with the project" : {
 
     },
+    "%@ to %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ to %2$@"
+          }
+        }
+      }
+    },
     "%@, %@" : {
       "localizations" : {
         "en" : {
@@ -14,6 +24,12 @@
         }
       }
     },
+    "A fresh day" : {
+
+    },
+    "A quiet day" : {
+
+    },
     "Activity" : {
 
     },
@@ -21,6 +37,12 @@
 
     },
     "Cancel" : {
+
+    },
+    "Change activity" : {
+
+    },
+    "Check In Now" : {
 
     },
     "Continue without asking" : {
@@ -42,6 +64,12 @@
 
     },
     "Cut" : {
+
+    },
+    "Day" : {
+
+    },
+    "Day timeline" : {
 
     },
     "Done for today" : {
@@ -71,10 +99,19 @@
     "For this session" : {
 
     },
+    "Internal" : {
+
+    },
+    "Keep tracking" : {
+
+    },
     "Log" : {
 
     },
     "Manage Activities…" : {
+
+    },
+    "Month" : {
 
     },
     "More actions" : {
@@ -89,13 +126,25 @@
     "New project…" : {
 
     },
+    "Next day" : {
+
+    },
     "No project" : {
+
+    },
+    "Now" : {
 
     },
     "Paste" : {
 
     },
+    "Period" : {
+
+    },
     "Pick one or type a new customer name." : {
+
+    },
+    "Previous day" : {
 
     },
     "Project" : {
@@ -135,6 +184,9 @@
     "Today" : {
 
     },
+    "Tracking is off" : {
+
+    },
     "Turn off tracking" : {
 
     },
@@ -144,7 +196,19 @@
     "Until I stop it" : {
 
     },
+    "Week" : {
+
+    },
     "What are you working on?" : {
+
+    },
+    "Work" : {
+
+    },
+    "Workday" : {
+
+    },
+    "Your day shows up here as soon as you answer the first check-in." : {
 
     },
     "wamadu, logging without asking" : {

@@ -52,6 +52,10 @@
                             model: model, checkIn: timed, list: typed("Kickoff"),
                             draft: ProjectDraft(name: "Relaunch 2027", customer: "Acme")))
                 ),
+                ("dashboard-day", AnyView(DashboardView.sample(.activity(id: DashboardView.sampleCodeReviewId)))),
+                ("dashboard-break", AnyView(DashboardView.sample(.onBreak))),
+                ("dashboard-off", AnyView(DashboardView.sample(.off))),
+                ("dashboard-empty", AnyView(DashboardView.sample(.none, empty: true))),
             ]
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             for screen in screens {
