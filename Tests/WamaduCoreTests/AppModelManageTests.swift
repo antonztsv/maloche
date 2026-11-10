@@ -85,6 +85,15 @@ import Testing
         #expect(presenter.failures == 0)
     }
 
+    /// K22: the names the app shows for Break and Private reach the database through the model.
+    @Test func theShownNamesAreReservedInTheWindow() throws {
+        let model = try AppModel(
+            database: .inMemory(), stateURL: nil, builtInNames: [.break: "Pause", .private: "Privat"], clock: clock,
+            calendar: Fixture.berlin)
+        #expect(throws: WamaduError.duplicateName) { try model.manage { _ = try $0.createActivity(name: "pause") } }
+        #expect(model.catalog.activities.filter { $0.kind != .regular }.map(\.name) == ["Pause", "Privat"])
+    }
+
     @Test func mergingTheRunningActivityKeepsBookingTheTarget() throws {
         let model = try makeModel()
         let writing = try writingFrom0900(model)

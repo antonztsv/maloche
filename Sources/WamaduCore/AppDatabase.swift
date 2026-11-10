@@ -3,6 +3,8 @@ import GRDB
 
 public struct AppDatabase: Sendable {
     public let dbQueue: DatabaseQueue
+    /// The names the app shows for Break and Private, reserved like the stored ones.
+    public var builtInNames: [ActivityKind: String] = [:]
 
     public init(_ dbQueue: DatabaseQueue) throws {
         self.dbQueue = dbQueue

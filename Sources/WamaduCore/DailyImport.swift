@@ -56,11 +56,12 @@ public struct DailyImport: Sendable {
     public let skippedDays: Int
     private let imported: [Imported]
     private let days: [PlannedDay]
-    /// Break and Private by lowercased name, no short name takes them.
+    /// Break and Private by lowercased stored and shown name, no short name takes them.
     private let reserved: Set<String>
 
     public init(
-        export: DailyExport, activities: [Activity], customers: [Customer], blocks: [Block], calendar: Calendar
+        export: DailyExport, activities: [Activity], builtInNames: [ActivityKind: String] = [:], customers: [Customer],
+        blocks: [Block], calendar: Calendar
     ) {
         var imported: [Imported] = []
         var index: [String: Int] = [:]
@@ -118,7 +119,8 @@ public struct DailyImport: Sendable {
                     }))
         }
 
-        reserved = Set(activities.filter { $0.kind != .regular }.map { $0.name.lowercased() })
+        let builtIns = activities.filter { $0.kind != .regular }.map(\.name) + builtInNames.values
+        reserved = Set(builtIns.map { $0.lowercased() })
         var found: [String: (text: String, count: Int)] = [:]
         for name in imported.compactMap({ Self.split($0.name)?.prefix }) {
             found[name.lowercased(), default: (name, 0)].count += 1

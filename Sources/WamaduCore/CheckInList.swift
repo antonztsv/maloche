@@ -102,7 +102,10 @@ public struct CheckInList: Equatable, Sendable {
             selection = 0
             return
         }
-        guard var best = suggestions.firstIndex(where: { Suggestions.startsWords(of: $0.activity.name, query: query) })
+        guard
+            var best = suggestions.firstIndex(where: {
+                $0.activity.names.contains { Suggestions.startsWords(of: $0, query: query) }
+            })
         else {
             rows = [.create(name: query)] + suggestions.prefix(Self.maxRows - 1).map(row)
             selection = 0

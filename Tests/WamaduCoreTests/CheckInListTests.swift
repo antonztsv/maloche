@@ -133,6 +133,48 @@ import Testing
         }
     }
 
+    /// The catalog as the German app shows it, with a regular Pause from before the translation.
+    private var german: Catalog {
+        var german = catalog
+        german.activities = catalog.activities.map { activity in
+            var activity = activity
+            activity.name = [ActivityKind.break: "Pause", .private: "Privat"][activity.kind] ?? activity.name
+            return activity
+        }
+        german.activities.append(Activity(id: 6, name: "Pause", projectId: 10, lastUsedAt: Fixture.at("10:20")))
+        german.todayBlocks.append(Self.block(6, "10:15", "10:20"))
+        return german
+    }
+
+    /// K22: in German Break and Private are found under both names ahead of a regular namesake, never created.
+    @Test(
+        arguments: [("pause", 100), ("BREAK", 100), (" Pause ", 100), ("privat", 101), ("Private", 101)]
+            as [(String, Int64)])
+    func inGermanTheBuiltInsAreTheBestMatchUnderBothNames(typed: String, id: Int64) {
+        for includingBuiltIns in [false, true] {
+            var list = CheckInList(catalog: german, prefill: 1, includingBuiltIns: includingBuiltIns)
+            list.setText(typed)
+            #expect(list.choice == .existing(id))
+            #expect(!names(list).contains { $0.hasPrefix("+") })
+        }
+    }
+
+    @Test func inGermanTypingTheStartOfBreakSelectsPause() {
+        var list = CheckInList(catalog: german, prefill: 100, includingBuiltIns: true)
+        list.setText("brea")
+        #expect(list.choice == .existing(100))
+        #expect(names(list) == ["Pause", "+brea"])
+    }
+
+    /// English shows the stored names, Pause and Privat stay ordinary names there.
+    @Test func inEnglishPauseIsAnOrdinaryName() {
+        var list = CheckInList(catalog: catalog, prefill: 1, includingBuiltIns: true)
+        list.setText("pause")
+        #expect(names(list) == ["+pause"])
+        list.setText("break")
+        #expect(names(list) == ["Break"])
+    }
+
     @Test func withBuiltInsBreakLeadsAndPrivateClosesTheList() {
         let list = CheckInList(catalog: catalog, prefill: 100, includingBuiltIns: true)
         #expect(list.text == "Break")

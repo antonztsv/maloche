@@ -38,7 +38,7 @@ extension AppDatabase {
         guard projectId == nil || customerId == nil else { throw WamaduError.projectAndCustomer }
         var activity = Activity(name: try Self.validName(name), projectId: projectId, customerId: customerId)
         try dbQueue.write { db in
-            try Self.checkUnique(activity, db)
+            try checkUnique(activity, db)
             try activity.insert(db)
         }
         return activity
@@ -67,7 +67,7 @@ extension AppDatabase {
         try dbQueue.write { db in
             var activity = try Self.regularActivity(db, id: id)
             activity.name = name
-            try Self.checkUnique(activity, db)
+            try checkUnique(activity, db)
             try activity.update(db)
         }
     }
@@ -111,7 +111,7 @@ extension AppDatabase {
             for id in ids {
                 var activity = try Self.regularActivity(db, id: id)
                 (activity.projectId, activity.customerId) = (projectId, customerId)
-                try Self.checkUnique(activity, db)
+                try checkUnique(activity, db)
                 try activity.update(db)
             }
         }
@@ -204,13 +204,14 @@ extension AppDatabase {
     public func dailyImport(_ export: DailyExport, calendar: Calendar) throws -> DailyImport {
         try dbQueue.read { db in
             DailyImport(
-                export: export, activities: try Activity.fetchAll(db), customers: try Customer.fetchAll(db),
-                blocks: try Block.fetchAll(db), calendar: calendar)
+                export: export, activities: try Activity.fetchAll(db), builtInNames: builtInNames,
+                customers: try Customer.fetchAll(db), blocks: try Block.fetchAll(db), calendar: calendar)
         }
     }
 
     /// In one transaction: customers by name and activities by name directly under their customer or at the top level,
-    /// ignoring case, and the blocks of each day that still has no time.
+    /// ignoring case, Break and Private also under their shown names, and the blocks of each day that still has no
+    /// time.
     public func importDaily(_ plan: DailyImport.Plan) throws {
         try dbQueue.write { db in
             var customers = try Customer.fetchAll(db)
@@ -224,14 +225,17 @@ extension AppDatabase {
                 customers.append(customer)
                 return customer.id
             }
-            let activities = try Activity.fetchAll(db)
+            // Break and Private win over a regular activity named like their shown names
+            let activities = try Activity.fetchAll(db).sorted { $0.kind != .regular && $1.kind == .regular }
             var ids: [[String?]: Int64] = [:]
             for planned in plan.activities {
                 let owner = try planned.customer.flatMap(customerId)
                 let key = [planned.customer?.lowercased(), planned.name.lowercased()]
                 if let existing = activities.first(where: {
                     ($0.projectId, $0.customerId) == (nil, owner)
-                        && $0.name.caseInsensitiveCompare(planned.name) == .orderedSame
+                        && ([$0.name] + [builtInNames[$0.kind]].compactMap { $0 }).contains {
+                            $0.caseInsensitiveCompare(planned.name) == .orderedSame
+                        }
                 }), let id = existing.id {
                     if let date = planned.lastUsedAt { try Self.markUsed(id, at: date, db) }
                     ids[key] = id
@@ -299,13 +303,14 @@ extension AppDatabase {
         }
     }
 
-    /// Within its project, else its customer, else the top level; archived ones count, Break and Private everywhere.
-    private static func checkUnique(_ activity: Activity, _ db: Database) throws {
+    /// Within its project, else its customer, else the top level; archived ones count, Break and Private under both
+    /// names everywhere.
+    private func checkUnique(_ activity: Activity, _ db: Database) throws {
         let others = try Activity.fetchAll(db).filter {
             $0.id != activity.id
                 && ($0.kind != .regular || ($0.projectId, $0.customerId) == (activity.projectId, activity.customerId))
         }
-        try checkUnique(activity.name, among: others.map(\.name))
+        try Self.checkUnique(activity.name, among: others.map(\.name) + builtInNames.values)
     }
 
     private static func checkUnique(_ project: Project, _ db: Database) throws {

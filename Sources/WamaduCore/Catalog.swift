@@ -51,11 +51,13 @@ public struct Catalog: Equatable, Sendable {
             customerName: customer(of: activity)?.name)
     }
 
-    /// The activity named like the query ignoring case, Break and Private included: of several the first suggested,
-    /// else the most recently used archived one.
+    /// The activity named like the query ignoring case: Break or Private under either name, else of several the first
+    /// suggested, else the most recently used archived one.
     func match(for query: String) -> Activity? {
-        let named = { (activity: Activity) in activity.name.caseInsensitiveCompare(query) == .orderedSame }
-        return suggestions(for: "", includingBuiltIns: true).map(\.activity).first(where: named)
+        let same = { (name: String) in name.caseInsensitiveCompare(query) == .orderedSame }
+        let named = { (activity: Activity) in same(activity.name) }
+        return activities.first { $0.kind != .regular && $0.names.contains(where: same) }
+            ?? suggestions(for: "").map(\.activity).first(where: named)
             ?? activities.filter { $0.archived && named($0) }.max {
                 ($0.lastUsedAt ?? .distantPast) < ($1.lastUsedAt ?? .distantPast)
             }

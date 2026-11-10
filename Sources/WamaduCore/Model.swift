@@ -39,6 +39,15 @@ public enum ActivityKind: String, Codable, Sendable {
     case regular
     case `break`
     case `private`
+
+    /// The name Break and Private are stored under, the app may show another.
+    var storedName: String? {
+        switch self {
+        case .regular: nil
+        case .break: "Break"
+        case .private: "Private"
+        }
+    }
 }
 
 public struct Activity: Codable, Equatable, Sendable, Identifiable {
@@ -62,6 +71,11 @@ public struct Activity: Codable, Equatable, Sendable, Identifiable {
         self.archived = archived
         self.lastUsedAt = lastUsedAt
     }
+}
+
+extension Activity {
+    /// Its name and, for Break and Private, the stored one.
+    var names: [String] { [name] + [kind.storedName].compactMap { $0 } }
 }
 
 public enum BlockSource: String, Codable, Sendable {

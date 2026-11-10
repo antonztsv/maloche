@@ -68,6 +68,33 @@ import Testing
         #expect(blocks.map { $0.endedAt.timeIntervalSince($0.startedAt) } == [3600, 1800, 900, 1800, 600])
     }
 
+    /// K22: in German an imported Pause or Privat is Break or Private, also next to a regular Pause from before the
+    /// translation, and no customer gets one of these names.
+    @Test func inGermanPauseAndPrivatAreTheBuiltIns() throws {
+        _ = try database.createActivity(name: "Pause")
+        var german = database
+        german.builtInNames = [.break: "Pause", .private: "Privat"]
+        let export = try DailyFixture.export(
+            DailyFixture.names(["pause", "Privat", "nordlicht - Pause", "nordlicht - Review"]),
+            [
+                (
+                    "2026-11-05", "2026-11-05T08:00:00+01:00",
+                    [("pause", 1800), ("Privat", 600), ("nordlicht - Pause", 900), ("nordlicht - Review", 900)]
+                )
+            ])
+        let preview = try german.dailyImport(export, calendar: Fixture.berlin)
+        #expect(preview.keepingFullName == ["nordlicht - Pause"])
+
+        try german.importDaily(preview.plan)
+        let breakId = try database.builtIn(.break).id!
+        let privateId = try database.builtIn(.private).id!
+        #expect(try everything.map(\.activityId).prefix(2) == [breakId, privateId])
+        #expect(
+            try database.activities().filter { $0.kind == .regular }.map(\.name).sorted() == [
+                "Pause", "Review", "nordlicht - Pause",
+            ])
+    }
+
     @Test func existingActivitiesAndCustomersAreReusedAndKeepTheirPlace() throws {
         let nordlicht = try database.createCustomer(name: "NORDLICHT")
         _ = try database.createActivity(name: "code review", customerId: nordlicht.id)

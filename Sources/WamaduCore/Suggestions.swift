@@ -8,7 +8,8 @@ public struct Suggestion: Equatable, Sendable {
 
 public enum Suggestions {
     /// Today's activities first (most recent use today first), then by last use, never used last, ties by name.
-    /// The query matches activity, project or customer names, ignoring case and diacritics.
+    /// The query matches activity, project or customer names, ignoring case and diacritics, Break and Private also
+    /// under their stored names.
     public static func ranked(
         query: String, activities: [Activity], projects: [Project], customers: [Customer], usedToday: [Int64],
         includingBuiltIns: Bool = false
@@ -25,8 +26,10 @@ public enum Suggestions {
                     activity: activity, projectName: activity.projectId.flatMap { projectsById[$0]?.name },
                     customerName: activity.customerId(projects: projectsById).flatMap { customersById[$0]?.name })
             }
-            .filter {
-                matches(needle, name: $0.activity.name, projectName: $0.projectName, customerName: $0.customerName)
+            .filter { found in
+                found.activity.names.contains {
+                    matches(needle, name: $0, projectName: found.projectName, customerName: found.customerName)
+                }
             }
             .sorted { first, second in
                 let (a, b) = (first.activity, second.activity)

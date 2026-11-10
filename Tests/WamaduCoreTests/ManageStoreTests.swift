@@ -59,6 +59,23 @@ import Testing
         #expect(elsewhere.map(\.name) == ["Code Review", "Weekly", "Weekly", "Writing"])
     }
 
+    /// K22: the names the app shows for Break and Private are reserved too, English keeps Pause and Privat free.
+    @Test func theShownNamesOfBreakAndPrivateAreReservedUnderEveryParent() throws {
+        let legacy = try database.createActivity(name: "Pause", customerId: northwind.id).id!
+        var german = database
+        german.builtInNames = [.break: "Pause", .private: "Privat"]
+        #expect(throws: WamaduError.duplicateName) { try german.createActivity(name: "pause") }
+        #expect(throws: WamaduError.duplicateName) { try german.createActivity(name: "PAUSE", projectId: shop.id) }
+        #expect(throws: WamaduError.duplicateName) { try german.createActivity(name: "Privat", customerId: acme.id) }
+        #expect(throws: WamaduError.duplicateName) { try german.createActivity(name: "break") }
+        #expect(throws: WamaduError.duplicateName) { try german.renameActivity(id: review, to: " pause ") }
+        #expect(throws: WamaduError.duplicateName) { try german.renameActivity(id: weekly, to: "PRIVAT") }
+        #expect(throws: WamaduError.duplicateName) {
+            try german.moveActivities([legacy], projectId: shop.id, customerId: nil)
+        }
+        #expect(try database.createActivity(name: "Privat", customerId: acme.id).name == "Privat")
+    }
+
     @Test func breakAndPrivateAreReservedUnderEveryParent() throws {
         #expect(throws: WamaduError.duplicateName) { try database.createActivity(name: "break") }
         #expect(throws: WamaduError.duplicateName) { try database.createActivity(name: "Break", projectId: shop.id) }
