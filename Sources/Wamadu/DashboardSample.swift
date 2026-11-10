@@ -7,7 +7,7 @@
         static let sampleCodeReviewId: Int64 = 1
 
         static func sample(
-            _ current: NowRow, empty: Bool = false, few: Bool = false, done: Bool = false, model: AppModel
+            _ current: NowRow, empty: Bool = false, few: Bool = false, model: AppModel
         ) -> DashboardView {
             let calendar = Calendar.current
             let day = calendar.date(from: DateComponents(year: 2026, month: 11, day: 9))!
@@ -45,7 +45,7 @@
                 schedule: WorkSchedule(plans: [2: .init(start: 9 * 60, end: 17 * 60)]), current: current,
                 now: empty ? at(8, 50) : few ? at(10, 5) : at(17, 30), calendar: calendar)
             return DashboardView(
-                data: data, done: done, moreActions: MoreActionsMenu(model: model), onShowPeriod: { _ in },
+                data: data, moreActions: MoreActionsMenu(model: model), onShowPeriod: { _ in },
                 onCheckIn: {}, onKeepTracking: {})
         }
     }

@@ -26,14 +26,12 @@ public enum PanelContent: Equatable, Sendable {
     /// Back from a break, the answer runs from the end of the span.
     case breakReturn(span: DateInterval, prefill: Int64?)
     case dashboard(DashboardDay)
-    /// "That's it for today" with the values of today.
-    case doneForToday(DashboardDay)
 
     /// A question to the user, as opposed to the dashboard views.
     public var isPrompt: Bool {
         switch self {
         case .checkIn, .awayReturn, .breakReturn: true
-        case .dashboard, .doneForToday: false
+        case .dashboard: false
         }
     }
 }
@@ -54,6 +52,8 @@ public enum NowRow: Equatable, Sendable {
     case activity(id: Int64)
     case onBreak
     case off
+    /// After Done for today, until Keep tracking.
+    case doneForToday
     /// No answer yet, the row stays hidden.
     case none
 }
@@ -163,7 +163,9 @@ public final class AppModel {
     public var nowRow: NowRow {
         switch mode {
         case .onBreak: .onBreak
-        case .off: .off
+        case .off:
+            tracker.state.phase == .waiting && tracker.state.doneDay == calendar.startOfDay(for: now)
+                ? .doneForToday : .off
         case .tracking, .continuing: currentActivity.map { .activity(id: $0) } ?? .none
         }
     }
@@ -180,14 +182,14 @@ public final class AppModel {
             closedByClickOutside = nil
             return
         }
-        reveal(.statusItem) { showToday() }
+        reveal(.statusItem) { showDashboard(today) }
     }
 
-    /// A click outside closes what the user opened (dashboard, done panel, check-in by hand) without booking;
+    /// A click outside closes what the user opened (dashboard, check-in by hand) without booking;
     /// prompts the app showed by itself stay.
     public func panelLostFocus() {
         switch panel {
-        case .dashboard, .doneForToday: break
+        case .dashboard: break
         case .checkIn(let checkIn) where checkIn.mode == .manual: break
         default: return
         }
@@ -211,8 +213,7 @@ public final class AppModel {
             }
         case .openDashboard:
             // a visible prompt stays, closing it would answer it
-            if presenter.isVisible, case .doneForToday = panel { showDashboard(today) }
-            reveal(.shortcut) { showToday() }
+            reveal(.shortcut) { showDashboard(today) }
         }
     }
 
@@ -226,15 +227,6 @@ public final class AppModel {
             let span = tracker.runningSince.map { DateInterval(start: min($0, now), end: now) }
             showPrompt(.checkIn(CheckIn(mode: .manual, span: span, prefill: tracker.currentActivity)))
         }
-    }
-
-    /// Today's dashboard, after Done for today "That's it for today" until tracking resumes.
-    private func showToday() {
-        guard tracker.state.phase == .waiting, tracker.state.doneDay == calendar.startOfDay(for: now),
-            let day = day(today)
-        else { return showDashboard(today) }
-        panel = .doneForToday(day)
-        returnTo = nil
     }
 
     /// Paging through the days.
@@ -267,7 +259,7 @@ public final class AppModel {
         fromMenu(tracker.state.phase == .waiting ? .keepTracking : .turnOn)
     }
 
-    /// The Keep tracking button after Done for today, after Turn off or outside the plan.
+    /// The Keep tracking button of the Now row after Done for today, after Turn off or outside the plan.
     public func keepTracking() {
         act(tracker.state.phase == .waiting ? .keepTracking : .turnOn)
     }
@@ -311,7 +303,7 @@ public final class AppModel {
         case .awayReturn:
             act(.awayAnswered(id == builtIns.breakId ? .break : id == builtIns.privateId ? .private : .activity(id)))
         case .breakReturn: act(.breakReturnAnswered(id))
-        case .dashboard, .doneForToday: break
+        case .dashboard: break
         }
         reloadCatalog()
     }

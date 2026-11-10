@@ -3,10 +3,8 @@ import SwiftUI
 import WamaduCore
 
 /// The day in the panel: Now row, period switcher, totals, timeline and the list by customer and project.
-/// After Done for today: "That's it for today" above the totals and the timeline.
 struct DashboardView: View {
     var data: DashboardData
-    var done = false
     var moreActions: MoreActionsMenu
     /// Previous or next day, or another period kind from the switcher.
     var onShowPeriod: (Period) -> Void
@@ -17,30 +15,18 @@ struct DashboardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            if done {
-                doneMessage
-                if let timeline = data.timeline, let day = data.day {
-                    Divider()
-                        .padding(.horizontal, 4)
-                    totals(day)
-                    TimelineChart(data: data, timeline: timeline, showsAxis: false)
-                        .padding(.horizontal, 4)
-                        .padding(.bottom, 4)
-                }
+            nowRow
+            periodPicker
+            if let timeline = data.timeline, let day = data.day {
+                totals(day)
+                TimelineChart(data: data, timeline: timeline)
+                    .padding(.horizontal, 4)
+                legend
+                Divider()
+                    .padding(.horizontal, 4)
+                DashboardList(data: data)
             } else {
-                nowRow
-                periodPicker
-                if let timeline = data.timeline, let day = data.day {
-                    totals(day)
-                    TimelineChart(data: data, timeline: timeline)
-                        .padding(.horizontal, 4)
-                    legend
-                    Divider()
-                        .padding(.horizontal, 4)
-                    DashboardList(data: data)
-                } else {
-                    emptyDay
-                }
+                emptyDay
             }
         }
         .padding(12)
@@ -63,18 +49,14 @@ struct DashboardView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            if !done {
-                iconButton("chevron.left", Text("Previous day")) {
-                    onShowPeriod(data.period.previous(calendar: data.calendar))
-                }
-                iconButton("chevron.right", Text("Next day"), enabled: !data.isToday) {
-                    onShowPeriod(data.period.next(calendar: data.calendar))
-                }
+            iconButton("chevron.left", Text("Previous day")) {
+                onShowPeriod(data.period.previous(calendar: data.calendar))
+            }
+            iconButton("chevron.right", Text("Next day"), enabled: !data.isToday) {
+                onShowPeriod(data.period.next(calendar: data.calendar))
             }
             moreActions
         }
-        // the height of the day buttons also without them, so the menu keeps its place
-        .frame(minHeight: 28)
         .padding(.leading, 4)
         .padding(.top, 2)
     }
@@ -103,20 +85,23 @@ struct DashboardView: View {
                 swatch: Circle().fill(DashboardData.color(of: customer)).frame(width: 8, height: 8))
         case .onBreak:
             nowButton(name: String(localized: "Break"), customer: nil, swatch: BreakSwatch().clipShape(.circle))
-        case .off:
-            HStack {
-                Text("Tracking is off")
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button("Keep tracking", action: onKeepTracking)
-            }
-            .padding(.leading, 10)
-            .padding(.trailing, 4)
-            .frame(height: 32)
-            .background(Color(nsColor: .quaternarySystemFill), in: .rect(cornerRadius: 8))
-        case .none:
-            EmptyView()
+        case .off: keepTrackingRow(Text("Tracking is off"))
+        case .doneForToday: keepTrackingRow(Text("That’s it for today"))
+        case .none: EmptyView()
         }
+    }
+
+    private func keepTrackingRow(_ message: Text) -> some View {
+        HStack {
+            message
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button("Keep tracking", action: onKeepTracking)
+        }
+        .padding(.leading, 10)
+        .padding(.trailing, 4)
+        .frame(height: 32)
+        .background(Color(nsColor: .quaternarySystemFill), in: .rect(cornerRadius: 8))
     }
 
     private func nowButton(name: String, customer: String?, swatch: some View) -> some View {
@@ -236,24 +221,6 @@ struct DashboardView: View {
             Text(name)
                 .lineLimit(1)
         }
-    }
-
-    private var doneMessage: some View {
-        VStack(spacing: 4) {
-            Text("That’s it for today")
-                .font(.body.weight(.semibold))
-            Text("wamadu checks in again tomorrow.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            Button("Keep tracking", action: onKeepTracking)
-                .keyboardShortcut(.defaultAction)
-                .controlSize(.large)
-                .padding(.top, 8)
-        }
-        .multilineTextAlignment(.center)
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 16)
     }
 
     private var emptyDay: some View {

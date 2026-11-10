@@ -402,7 +402,7 @@ final class TestClock: WallClock, @unchecked Sendable {
 
     // MARK: More menu
 
-    @Test func doneForTodayClosesThePanelAndTheIconShowsThatsItUntilKeepTracking() throws {
+    @Test func doneForTodayClosesThePanelAndTheDashboardSaysThatsItUntilKeepTracking() throws {
         let model = try makeModel()
         let writing = try writingFrom0900(model)
         clock.now = Fixture.at("17:00")
@@ -412,20 +412,16 @@ final class TestClock: WallClock, @unchecked Sendable {
         #expect(model.panel == nil)
         #expect(presenter.calls.last == "hide")
         #expect(model.tracker.mode == .off)
+        #expect(model.nowRow == .doneForToday)
         #expect(try timeline(model) == ["Writing 09:00-17:00"])
 
         clock.now = Fixture.at("17:05")
         model.statusItemClicked()
-        let blocks = try model.database.blocks(in: today.interval)
-        #expect(model.panel == .doneForToday(DashboardDay(period: today, blocks: blocks)))
+        #expect(shownDay(model)?.period == today)
         model.keepTracking()
-        #expect(model.panel == nil)
-        #expect(presenter.calls.last == "hide")
+        #expect(shownDay(model)?.period == today)
         #expect(model.tracker.mode == .tracking)
         #expect(model.nowRow == .activity(id: writing))
-
-        model.statusItemClicked()
-        #expect(shownDay(model)?.period == today)
     }
 
     @Test func afterTurnOffTheDashboardSaysTrackingIsOffAndKeepTrackingKeepsIt() throws {
@@ -603,7 +599,7 @@ final class TestClock: WallClock, @unchecked Sendable {
         #expect(shownDay(model) != nil)
     }
 
-    @Test func dashboardShortcutOnlyFocusesAPromptAndTurnsThatsItIntoTheDashboard() throws {
+    @Test func dashboardShortcutOnlyFocusesAPromptAndOpensTheDashboardAfterDoneForToday() throws {
         let model = try makeModel()
         let writing = try writingFrom0900(model)
         tick(model, at: "09:15")
@@ -615,11 +611,8 @@ final class TestClock: WallClock, @unchecked Sendable {
         clock.now = Fixture.at("12:00")
         model.doneForToday()
         model.shortcut(.openDashboard)
-        if case .doneForToday = model.panel {} else { Issue.record("expected That's it for today") }
-        #expect(presenter.calls.last == "show(focus: true)")
-        model.shortcut(.openDashboard)
         #expect(shownDay(model)?.period == today)
-        #expect(presenter.calls.last == "focus")
+        #expect(presenter.calls.last == "show(focus: true)")
     }
 
     // MARK: Split

@@ -25,7 +25,7 @@ struct CheckInView: View {
         case .awayReturn(_, let prefill):
             initial = CheckInList(catalog: model.catalog, prefill: prefill, includingBuiltIns: true)
         case .breakReturn(_, let prefill): initial = CheckInList(catalog: model.catalog, prefill: prefill)
-        case .dashboard, .doneForToday: initial = CheckInList(catalog: model.catalog, prefill: nil)
+        case .dashboard: initial = CheckInList(catalog: model.catalog, prefill: nil)
         }
         _list = State(initialValue: list ?? initial)
         _split = State(initialValue: split)
@@ -113,7 +113,7 @@ struct CheckInView: View {
         switch content {
         case .checkIn where split != nil: String(localized: "What were you working on?")
         case .checkIn: String(localized: "What are you working on?")
-        case .awayReturn, .breakReturn, .dashboard, .doneForToday: String(localized: "Welcome back")
+        case .awayReturn, .breakReturn, .dashboard: String(localized: "Welcome back")
         }
     }
 
@@ -122,13 +122,13 @@ struct CheckInView: View {
         case .checkIn(let checkIn): checkIn.span.map(Self.since)
         case .awayReturn(let span, _): Self.away(span)
         case .breakReturn(let span, _): Self.onBreak(span)
-        case .dashboard, .doneForToday: nil
+        case .dashboard: nil
         }
     }
 
     private var question: String? {
         switch content {
-        case .checkIn, .dashboard, .doneForToday: nil
+        case .checkIn, .dashboard: nil
         case .awayReturn: String(localized: "What was that time?")
         case .breakReturn: String(localized: "What are you working on now?")
         }
@@ -145,7 +145,7 @@ struct CheckInView: View {
             Spacer(minLength: 0)
             switch content {
             case .checkIn where model.mode != .off: Button("Break", action: model.startBreak)
-            case .checkIn, .awayReturn, .dashboard, .doneForToday: EmptyView()
+            case .checkIn, .awayReturn, .dashboard: EmptyView()
             case .breakReturn: Button("Still on break", action: model.close)
             }
             Button("Log", action: log)

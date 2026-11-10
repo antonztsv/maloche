@@ -62,8 +62,7 @@ struct PanelView: View {
                 CheckInView(model: model, content: .awayReturn(span: span, prefill: prefill))
             case .breakReturn(let span, let prefill):
                 CheckInView(model: model, content: .breakReturn(span: span, prefill: prefill))
-            case .dashboard(let day): dashboard(day, done: false)
-            case .doneForToday(let day): dashboard(day, done: true)
+            case .dashboard(let day): dashboard(day)
             case nil: EmptyView()
             }
         }
@@ -74,14 +73,14 @@ struct PanelView: View {
         }
     }
 
-    private func dashboard(_ day: DashboardDay, done: Bool) -> DashboardView {
+    private func dashboard(_ day: DashboardDay) -> DashboardView {
         let catalog = model.catalog
         return DashboardView(
             data: DashboardData(
                 period: day.period, blocks: day.blocks, activities: catalog.activities, projects: catalog.projects,
                 customers: catalog.customers, schedule: model.schedule, current: model.nowRow,
                 now: model.now, calendar: model.calendar),
-            done: done, moreActions: MoreActionsMenu(model: model), onShowPeriod: model.showDashboard,
+            moreActions: MoreActionsMenu(model: model), onShowPeriod: model.showDashboard,
             onCheckIn: model.checkIn, onKeepTracking: model.keepTracking)
     }
 }

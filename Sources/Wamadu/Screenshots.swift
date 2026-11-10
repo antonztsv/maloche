@@ -112,7 +112,7 @@
                 ("dashboard-break", AnyView(DashboardView.sample(.onBreak, model: model))),
                 ("dashboard-off", AnyView(DashboardView.sample(.off, model: model))),
                 ("dashboard-empty", AnyView(DashboardView.sample(.none, empty: true, model: model))),
-                ("done-for-today", AnyView(DashboardView.sample(.off, done: true, model: model))),
+                ("dashboard-done", AnyView(DashboardView.sample(.doneForToday, model: model))),
             ]
             try MenuBarIcon.writePreviews(to: directory)
             for screen in screens {

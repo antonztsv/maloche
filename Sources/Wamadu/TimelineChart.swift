@@ -6,13 +6,12 @@ import WamaduCore
 struct TimelineChart: View {
     var data: DashboardData
     var timeline: DayTimeline
-    var showsAxis = true
 
     private static let barHeight: CGFloat = 24
     private static let axisTop: CGFloat = barHeight + 4
 
     var body: some View {
-        let ticks = showsAxis ? timeline.hourTicks(calendar: data.calendar) : []
+        let ticks = timeline.hourTicks(calendar: data.calendar)
         Canvas { context, size in
             let track = CGRect(x: 0, y: 0, width: size.width, height: Self.barHeight)
             context.fill(Path(roundedRect: track, cornerRadius: 4), with: .color(Color(nsColor: .quaternarySystemFill)))
@@ -36,7 +35,7 @@ struct TimelineChart: View {
                 context.draw(label, at: CGPoint(x: x, y: Self.axisTop), anchor: .top)
             }
         }
-        .frame(height: showsAxis ? Self.axisTop + 14 : Self.barHeight)
+        .frame(height: Self.axisTop + 14)
         .accessibilityElement()
         .accessibilityLabel(Text("Day timeline"))
         .accessibilityValue(Text(verbatim: accessibilityValue))
