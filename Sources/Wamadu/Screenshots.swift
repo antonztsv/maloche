@@ -68,6 +68,13 @@
                             model: model, content: .checkIn(timed), list: typed("Kickoff Relaunch"),
                             draft: ProjectDraft(name: "Relaunch 2027", customer: "Acme")))
                 ),
+                (
+                    "newproject-customers",
+                    AnyView(
+                        CheckInView(
+                            model: model, content: .checkIn(timed), list: typed("Kickoff Relaunch"),
+                            draft: ProjectDraft(name: "Relaunch 2027")))
+                ),
                 ("checkin-long", AnyView(CheckInView(model: model, content: .checkIn(long)))),
                 (
                     "split",
@@ -118,7 +125,9 @@
             for screen in screens {
                 for (mode, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
                     let url = directory.appending(path: "\(screen.name)-\(mode).png")
-                    try render(screen.view, appearance: NSAppearance(named: appearance)!, to: url)
+                    try render(
+                        screen.view, appearance: NSAppearance(named: appearance)!,
+                        openingList: screen.name == "newproject-customers", to: url)
                     print(url.path(percentEncoded: false))
                 }
             }
@@ -172,7 +181,8 @@
         }
 
         // Glass is composited by the window server and cannot be captured offscreen, the panel background stands in.
-        private static func render(_ view: AnyView, appearance: NSAppearance, to url: URL) throws {
+        /// `openingList` types into the first combo box, its list is a child window and is drawn over the view.
+        private static func render(_ view: AnyView, appearance: NSAppearance, openingList: Bool, to url: URL) throws {
             let hosting = NSHostingView(
                 rootView: view.background(Color(nsColor: .windowBackgroundColor)).clipShape(.rect(cornerRadius: 16)))
             hosting.appearance = appearance
@@ -181,19 +191,46 @@
             window.setContentSize(hosting.frame.size)
             window.appearance = appearance
             window.contentView = hosting
-            window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
+            // above every screen, below one the combo box list would flip above its field
+            window.setFrameOrigin(NSPoint(x: -10_000, y: 10_000))
             window.makeKeyAndOrderFront(nil)
             hosting.layoutSubtreeIfNeeded()
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-            guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else {
-                throw CocoaError(.fileWriteUnknown, userInfo: [NSFilePathErrorKey: url.path])
+            if openingList, let comboBox = firstComboBox(in: hosting) {
+                window.makeFirstResponder(comboBox)
+                for type in [NSEvent.EventType.keyDown, .keyUp] {
+                    window.sendEvent(
+                        NSEvent.keyEvent(
+                            with: type, location: .zero, modifierFlags: [], timestamp: 0,
+                            windowNumber: window.windowNumber, context: nil, characters: "n",
+                            charactersIgnoringModifiers: "n", isARepeat: false, keyCode: 45)!)
+                }
+                RunLoop.current.run(until: Date().addingTimeInterval(0.3))
             }
-            hosting.cacheDisplay(in: hosting.bounds, to: rep)
+            func snapshot(_ view: NSView) throws -> NSBitmapImageRep {
+                guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+                    throw CocoaError(.fileWriteUnknown, userInfo: [NSFilePathErrorKey: url.path])
+                }
+                view.cacheDisplay(in: view.bounds, to: rep)
+                return rep
+            }
+            let rep = try snapshot(hosting)
+            if let list = window.childWindows?.first, let content = list.contentView {
+                let listRep = try snapshot(content)
+                NSGraphicsContext.saveGraphicsState()
+                NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+                listRep.draw(in: window.convertFromScreen(list.frame))
+                NSGraphicsContext.restoreGraphicsState()
+            }
             window.orderOut(nil)
             guard let png = rep.representation(using: .png, properties: [:]) else {
                 throw CocoaError(.fileWriteUnknown, userInfo: [NSFilePathErrorKey: url.path])
             }
             try png.write(to: url)
+        }
+
+        private static func firstComboBox(in view: NSView) -> NSComboBox? {
+            (view as? NSComboBox) ?? view.subviews.lazy.compactMap(firstComboBox).first
         }
     }
 #endif
