@@ -89,10 +89,19 @@ struct DashboardData {
 
     static func duration(_ seconds: TimeInterval) -> String { DurationFormat.hoursMinutes(seconds) }
 
+    static func spoken(_ seconds: TimeInterval) -> String { DurationFormat.spoken(seconds) }
+
     /// Clock time in the system 12 or 24 hour format, without a leading zero.
     static let time = Date.FormatStyle().hour(.defaultDigits(amPM: .abbreviated)).minute(.twoDigits)
 
     private static func byId<T: Identifiable>(_ items: [T]) -> [Int64: T] where T.ID == Int64? {
         Dictionary(items.compactMap { item in item.id.map { ($0, item) } }) { first, _ in first }
+    }
+}
+
+extension Text {
+    /// "7:45" on screen, "7 hours 45 minutes" for VoiceOver.
+    init(duration: TimeInterval) {
+        self = Text(verbatim: DashboardData.duration(duration)).accessibilityLabel(DashboardData.spoken(duration))
     }
 }

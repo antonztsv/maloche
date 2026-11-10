@@ -20,6 +20,18 @@
             let backupRoot = FileManager.default.temporaryDirectory.appending(
                 path: "wamadu-screenshots-\(UUID().uuidString)", directoryHint: .isDirectory)
             defer { try? FileManager.default.removeItem(at: backupRoot) }
+            try MenuBarIcon.writePreviews(to: directory)
+            for screen in try screens(backupRoot: backupRoot) {
+                for (mode, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+                    let url = directory.appending(path: "\(screen.name)-\(mode).png")
+                    try render(screen.view, appearance: NSAppearance(named: appearance)!, to: url)
+                    print(url.path(percentEncoded: false))
+                }
+            }
+        }
+
+        /// Every screen with sample data; the backup settings write into `backupRoot`.
+        static func screens(backupRoot: URL) throws -> [(name: String, view: AnyView)] {
             let sample = try Sample()
             let model = sample.model
             let timed = CheckIn(
@@ -176,14 +188,7 @@
                         ) { _ in })
                 ),
             ]
-            try MenuBarIcon.writePreviews(to: directory)
-            for screen in screens {
-                for (mode, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
-                    let url = directory.appending(path: "\(screen.name)-\(mode).png")
-                    try render(screen.view, appearance: NSAppearance(named: appearance)!, to: url)
-                    print(url.path(percentEncoded: false))
-                }
-            }
+            return screens
         }
 
         /// Synthetic customers, projects, activities and today's blocks in an in-memory database, at 10:30.

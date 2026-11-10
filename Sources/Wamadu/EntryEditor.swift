@@ -125,7 +125,7 @@ struct EntryEditorView: View {
             Text("to")
                 .foregroundStyle(.secondary)
             timeField(Field(span: index, end: true), value: span.interval.end, label: Text("End of part \(index + 1)"))
-            Text(DashboardData.duration(span.interval.duration))
+            Text(duration: span.interval.duration)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .trailing)
             ControlGroup {
@@ -142,6 +142,8 @@ struct EntryEditorView: View {
         .monospacedDigit()
         .padding(.horizontal, 8)
         .frame(minHeight: 36)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text("Part \(index + 1)"))
     }
 
     /// As wide as the widest time of the clock format, centered like the board.
@@ -176,13 +178,11 @@ struct EntryEditorView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Delete “\(name)”?")
                 .font(.body.weight(.semibold))
-            Text(
-                "\(DashboardData.duration(total)) on \(entry.day.start, format: .dateTime.weekday(.wide).month(.wide).day())",
-                comment: "The time of an entry and its day, below the question whether to delete it"
-            )
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            .monospacedDigit()
+            Self.timeOnDay(DashboardData.duration(total), entry.day)
+                .accessibilityLabel(Self.timeOnDay(DashboardData.spoken(total), entry.day))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
         }
         .padding(.horizontal, 2)
         HStack(spacing: 8) {
@@ -193,6 +193,12 @@ struct EntryEditorView: View {
                 .keyboardShortcut(.defaultAction)
         }
         .controlSize(.large)
+    }
+
+    private static func timeOnDay(_ time: String, _ day: DateInterval) -> Text {
+        Text(
+            "\(time) on \(day.start, format: .dateTime.weekday(.wide).month(.wide).day())",
+            comment: "The time of an entry and its day, below the question whether to delete it")
     }
 
     private func done() {

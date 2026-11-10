@@ -191,12 +191,12 @@ struct DashboardView: View {
     private func totals(_ day: DaySummary) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 16) {
             stat(Text("Work"), alignment: .leading) {
-                Text(DashboardData.duration(day.work))
+                Text(duration: day.work)
                     .font(.title2.weight(.semibold))
             }
             if day.breaks > 0 {
                 stat(Text("Break"), alignment: .leading) {
-                    Text(DashboardData.duration(day.breaks))
+                    Text(duration: day.breaks)
                         .font(.title2.weight(.semibold))
                 }
             }
@@ -217,19 +217,19 @@ struct DashboardView: View {
         let summary = data.summary
         return HStack(alignment: .firstTextBaseline, spacing: 16) {
             stat(Text("Work"), alignment: .leading) {
-                Text(DashboardData.duration(summary.work))
+                Text(duration: summary.work)
                     .font(.title2.weight(.semibold))
             }
             if data.period.kind == .week, summary.breaks > 0 {
                 stat(Text("Break"), alignment: .leading) {
-                    Text(DashboardData.duration(summary.breaks))
+                    Text(duration: summary.breaks)
                         .font(.title2.weight(.semibold))
                 }
             }
             Spacer(minLength: 0)
             if data.period.kind == .week {
                 stat(Text("Per day"), alignment: .trailing) {
-                    Text(DashboardData.duration(summary.averageWorkPerDay))
+                    Text(duration: summary.averageWorkPerDay)
                         .font(.title2.weight(.semibold))
                 }
             } else {
@@ -253,7 +253,7 @@ struct DashboardView: View {
                     Text(DashboardData.name(of: total.customer))
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(DashboardData.duration(total.duration))
+                    Text(duration: total.duration)
                         .monospacedDigit()
                 }
                 .frame(height: 28)
@@ -403,7 +403,7 @@ struct DashboardList: View {
             Text(name)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text(DashboardData.duration(duration))
+            Text(duration: duration)
                 .monospacedDigit()
         }
         .font(.subheadline)
@@ -432,7 +432,7 @@ struct DashboardList: View {
                 .tint(DashboardData.color(of: customer))
                 .frame(width: 56)
                 .accessibilityHidden(true)
-            Text(DashboardData.duration(total.duration))
+            Text(duration: total.duration)
                 .monospacedDigit()
                 .frame(minWidth: 36, alignment: .trailing)
         }

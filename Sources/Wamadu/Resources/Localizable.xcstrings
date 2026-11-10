@@ -292,8 +292,15 @@
     "Delete…" : {
 
     },
-    "Divider" : {
-
+    "Divider between %@ and %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Divider between %1$@ and %2$@"
+          }
+        }
+      }
     },
     "Done" : {
 
@@ -549,6 +556,19 @@
     "Orange" : {
 
     },
+    "Part %lld" : {
+
+    },
+    "Part %lld, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Part %1$lld, %2$@"
+          }
+        }
+      }
+    },
     "Paste" : {
 
     },
@@ -803,6 +823,9 @@
 
     },
     "iCloud Drive" : {
+
+    },
+    "part %lld" : {
 
     },
     "to" : {

@@ -22,4 +22,10 @@ import Testing
         #expect(DurationText.span(105 * 60 + 30, locale: english) == "1:45")
         #expect(DurationText.span(10 * 3600 + 5 * 60, locale: english) == "10:05")
     }
+
+    @Test func spokenSpansNameHoursAndMinutesRoundedDown() {
+        #expect(DurationText.spokenSpan(59, locale: english) == nil)
+        #expect(DurationText.spokenSpan(15 * 60 + 40, locale: english) == "15 minutes")
+        #expect(DurationText.spokenSpan(105 * 60 + 30, locale: english) == "1 hour 45 minutes")
+    }
 }

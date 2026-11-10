@@ -59,11 +59,14 @@ struct SplitView: View {
                 label: String(localized: "Activity for \(span)"), onSubmit: onLog, onEscape: onBack,
                 onNewProject: { onNewProject(part) })
             Text(DurationText.span(interval.duration) ?? "")
+                .accessibilityLabel(DurationText.spokenSpan(interval.duration) ?? "")
                 .monospacedDigit()
                 .lineLimit(1)
                 .frame(width: 76, alignment: .trailing)
         }
         .padding(.horizontal, 4)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text("Part \(part + 1), \(span)"))
     }
 
     /// A picked activity fills the field, so the list closes.
@@ -235,15 +238,24 @@ private struct SplitBar: View {
                 onBack()
                 return .handled
             }
-            .accessibilityElement()
-            .accessibilityLabel(String(localized: "Divider"))
-            .accessibilityValue(Text(split.dividers[index], format: DashboardData.time))
-            .accessibilityAdjustableAction { direction in
-                switch direction {
-                case .increment: split.moveDivider(index, by: 1)
-                case .decrement: split.moveDivider(index, by: -1)
-                @unknown default: break
+            .accessibilityRepresentation {
+                Slider(value: minutes(of: index), in: 0...split.span.duration / 60, step: 1) {
+                    Text("Divider between \(partName(index)) and \(partName(index + 1))")
                 }
+                .accessibilityValue(Text(split.dividers[index], format: DashboardData.time))
             }
+    }
+
+    /// The divider's minutes from the start, VoiceOver moves it a minute per step.
+    private func minutes(of index: Int) -> Binding<Double> {
+        Binding {
+            split.dividers[index].timeIntervalSince(split.span.start) / 60
+        } set: { minutes in
+            split.moveDivider(index, to: split.span.start + minutes * 60)
+        }
+    }
+
+    private func partName(_ index: Int) -> String {
+        names[index].isEmpty ? String(localized: "part \(index + 1)") : names[index]
     }
 }

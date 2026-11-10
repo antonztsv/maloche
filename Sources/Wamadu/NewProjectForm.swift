@@ -115,7 +115,7 @@ private struct CustomerField: NSViewRepresentable {
         field.dataSource = context.coordinator
         field.delegate = context.coordinator
         field.stringValue = text
-        field.setAccessibilityLabel(String(localized: "Customer"))
+        field.cell?.setAccessibilityLabel(String(localized: "Customer"))
         return field
     }
 

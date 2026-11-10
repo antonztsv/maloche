@@ -245,7 +245,7 @@ struct ManageActivitiesView: View {
                     .foregroundStyle(.secondary)
             }
             TableColumn("This month") { row in
-                Text(DashboardData.duration(row.thisMonth))
+                Text(duration: row.thisMonth)
                     .monospacedDigit()
             }
             .width(min: 70, ideal: 90, max: 120)
@@ -508,7 +508,6 @@ struct MergeSheet: View {
     }
 
     var body: some View {
-        let time = DashboardData.duration(moving)
         VStack(alignment: .leading, spacing: 12) {
             Group {
                 if names.count == 1 { Text("Merge “\(names[0])”") } else { Text("Merge \(names.count) Activities") }
@@ -521,19 +520,12 @@ struct MergeSheet: View {
                     Text(label(row)).tag(Int64?.some(row.id))
                 }
             }
-            Group {
-                if failed {
-                    Text("The merge did not go through, nothing changed.")
-                } else if let targetName {
-                    Text("\(time) of logged time moves to \(targetName). Afterwards only \(targetName) remains.")
-                } else {
-                    Text("\(time) of logged time moves to the activity you choose.")
-                }
-            }
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            .monospacedDigit()
-            .fixedSize(horizontal: false, vertical: true)
+            message(DashboardData.duration(moving))
+                .accessibilityLabel(message(DashboardData.spoken(moving)))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+                .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
                 Spacer()
                 Button("Merge", role: .destructive, action: run)
@@ -545,6 +537,16 @@ struct MergeSheet: View {
         .padding(20)
         .frame(width: 360)
         .onExitCommand { dismiss() }
+    }
+
+    private func message(_ time: String) -> Text {
+        if failed {
+            Text("The merge did not go through, nothing changed.")
+        } else if let targetName {
+            Text("\(time) of logged time moves to \(targetName). Afterwards only \(targetName) remains.")
+        } else {
+            Text("\(time) of logged time moves to the activity you choose.")
+        }
     }
 
     private func run() {
@@ -568,7 +570,7 @@ private struct SearchField: NSViewRepresentable {
     func makeNSView(context: Context) -> NSSearchField {
         let field = NSSearchField()
         field.placeholderString = String(localized: "Search")
-        field.setAccessibilityLabel(String(localized: "Search activities"))
+        field.cell?.setAccessibilityLabel(String(localized: "Search activities"))
         field.delegate = context.coordinator
         return field
     }

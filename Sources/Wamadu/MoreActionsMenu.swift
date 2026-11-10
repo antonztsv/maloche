@@ -38,9 +38,11 @@ struct MoreActionsMenu: View {
             Divider()
             Button("Quit wamadu") { NSApp.terminate(nil) }.keyboardShortcut("q")
         } label: {
+            // the menu button reads its title from this image
             Image(systemName: "ellipsis")
                 .frame(width: 28, height: 28)
                 .contentShape(.rect)
+                .accessibilityLabel(String(localized: "More actions"))
         }
         .menuStyle(.button)
         .buttonStyle(.borderless)
@@ -48,7 +50,6 @@ struct MoreActionsMenu: View {
         .foregroundStyle(.secondary)
         .fixedSize()
         .help(Text("More actions"))
-        .accessibilityLabel(String(localized: "More actions"))
     }
 
     @ViewBuilder private func durations(_ action: @escaping (TimeInterval) -> Void) -> some View {

@@ -13,7 +13,7 @@ struct WeekChart: View {
             ForEach(summary.days, id: \.interval.start) { day in
                 VStack(spacing: 4) {
                     if day.work > 0 {
-                        Text(DashboardData.duration(day.work))
+                        Text(duration: day.work)
                             .font(.caption)
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
@@ -33,6 +33,7 @@ struct WeekChart: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(Text(day.interval.start, format: .dateTime.weekday(.wide)))
                 .accessibilityValue(spoken(day))
+                .accessibilityAddTraits(.isStaticText)
             }
         }
         .frame(height: Self.plotHeight + 40, alignment: .bottom)
@@ -46,15 +47,15 @@ struct WeekChart: View {
         max(data.summary.share(of: day) * part.duration / day.work * Self.plotHeight - 2, 1)
     }
 
-    /// "8:00, Acme 4:30, Northwind 2:00, Internal 1:30"
+    /// "8 hours, Acme 4 hours 30 minutes, Northwind 2 hours, Internal 1 hour 30 minutes"
     private func spoken(_ day: DaySummary) -> String {
         guard day.work > 0 else { return "" }
         let parts = data.summary.stack(of: day).map { part in
             String(
-                localized: "\(DashboardData.name(of: part.customer)) \(DashboardData.duration(part.duration))",
+                localized: "\(DashboardData.name(of: part.customer)) \(DashboardData.spoken(part.duration))",
                 comment: "A customer and its work, for VoiceOver")
         }
-        return ([DashboardData.duration(day.work)] + parts).formatted(.list(type: .and, width: .narrow))
+        return ([DashboardData.spoken(day.work)] + parts).formatted(.list(type: .and, width: .narrow))
     }
 }
 
@@ -98,7 +99,7 @@ struct MonthGrid: View {
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)
             if day.work > 0 {
-                Text(DashboardData.duration(day.work))
+                Text(duration: day.work)
                     .font(.subheadline.weight(.medium))
                     .monospacedDigit()
                     .frame(maxWidth: .infinity, alignment: .trailing)
@@ -113,6 +114,7 @@ struct MonthGrid: View {
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(day.interval.start, format: .dateTime.month(.wide).day()))
-        .accessibilityValue(day.work > 0 ? DashboardData.duration(day.work) : "")
+        .accessibilityValue(day.work > 0 ? DashboardData.spoken(day.work) : "")
+        .accessibilityAddTraits(.isStaticText)
     }
 }

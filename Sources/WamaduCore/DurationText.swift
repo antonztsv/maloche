@@ -11,4 +11,10 @@ public enum DurationText {
         }
         return duration.formatted(.time(pattern: .hourMinute).locale(locale))
     }
+
+    /// `span` for VoiceOver: "1 hour 45 minutes" from an hour on.
+    public static func spokenSpan(_ seconds: TimeInterval, locale: Locale = .autoupdatingCurrent) -> String? {
+        let minutes = Int(max(seconds, 0) / 60)
+        return minutes > 0 ? DurationFormat.spoken(TimeInterval(minutes * 60), locale: locale) : nil
+    }
 }
