@@ -35,13 +35,16 @@ struct CheckInView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            if let binding = Binding($draft) {
+            // the child may still update after the optional turned nil, a force unwrapping Binding($draft) traps
+            if let current = draft {
                 NewProjectForm(
-                    draft: binding, customers: model.catalog.customers, onCancel: { draft = nil },
-                    onCreate: createProject)
-            } else if let binding = Binding($split) {
+                    draft: Binding(get: { draft ?? current }, set: { if draft != nil { draft = $0 } }),
+                    customers: model.catalog.customers, onCancel: { draft = nil }, onCreate: createProject)
+            } else if let current = split {
                 SplitView(
-                    catalog: model.catalog, split: binding, onLog: logSplit, onBack: { split = nil },
+                    catalog: model.catalog,
+                    split: Binding(get: { split ?? current }, set: { if split != nil { split = $0 } }),
+                    onLog: logSplit, onBack: { split = nil },
                     onNewProject: { part in
                         draftPart = part
                         draft = ProjectDraft()

@@ -18,5 +18,6 @@ let package = Package(
             name: "WamaduCoreTests",
             dependencies: ["WamaduCore", .product(name: "GRDB", package: "GRDB.swift")]
         ),
+        .testTarget(name: "WamaduTests", dependencies: ["Wamadu", "WamaduCore"]),
     ]
 )
