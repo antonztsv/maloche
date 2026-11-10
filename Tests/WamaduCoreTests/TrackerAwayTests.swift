@@ -301,6 +301,22 @@ import Testing
         #expect(away.timeline == ["Writing 08:00-10:00", "Break 10:00-10:40", "Writing 10:40-10:50"])
     }
 
+    @Test(arguments: [
+        TrackerEvent.switchActivity(Fixture.reading), .continueWithoutAsking(Fixture.reading, for: nil), .startBreak,
+        .checkInAnswered(Fixture.reading), .breakReturnAnswered(Fixture.reading), .stopContinuing,
+    ])
+    func userActionsWhileAwayOnlyCountAsInput(event: TrackerEvent) {
+        var h = working()
+        h.pass(to: "10:20", idle: true)
+        var before = h.tracker.state
+        let bookings = h.bookings
+        h.send(event)
+        before.lastInput = h.now
+        #expect(h.tracker.state == before)
+        #expect(h.bookings == bookings)
+        #expect(h.prompts.isEmpty)
+    }
+
     @Test func lockShorterThanTheThresholdEndsTheBreakWithTheNextInput() {
         var h = working(until: "12:00")
         h.send(.startBreak)

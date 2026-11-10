@@ -10,6 +10,7 @@ final class FakePresenter: PanelPresenter {
     var isVisible = false
     var isKey = false
     var calls: [String] = []
+    var failures = 0
 
     func show(focus: Bool) {
         isVisible = true
@@ -29,6 +30,8 @@ final class FakePresenter: PanelPresenter {
         isKey = false
         calls.append("hide")
     }
+
+    func signalFailure() { failures += 1 }
 }
 
 final class TestClock: WallClock, @unchecked Sendable {
@@ -352,14 +355,49 @@ final class TestClock: WallClock, @unchecked Sendable {
         #expect(shownDay(model)?.blocks.map(\.endedAt) == [Fixture.at("09:15")])
     }
 
-    @Test func escapeClosesACheckInOpenedFromTheDashboard() throws {
+    @Test func escapeOnACheckInOpenedFromTheDashboardGoesBackToIt() throws {
         let model = try makeModel()
         _ = try writingFrom0900(model)
         model.statusItemClicked()
         model.checkIn()
         model.close()
+        #expect(shownDay(model)?.period == today)
+        #expect(presenter.isVisible)
+    }
+
+    @Test func escapeOnATimedCheckInOverTheDashboardDismissesItAndGoesBack() throws {
+        let model = try makeModel()
+        _ = try writingFrom0900(model)
+        clock.now = Fixture.at("09:14")
+        model.statusItemClicked()
+        tick(model, at: "09:15")
+        model.close()
+        #expect(shownDay(model)?.period == today)
+        #expect(presenter.isVisible)
+        #expect(!model.tracker.state.checkInShown)
+    }
+
+    @Test func iconClickOnAFocusedPromptOverTheDashboardClosesThePanel() throws {
+        let model = try makeModel()
+        _ = try writingFrom0900(model)
+        model.statusItemClicked()
+        model.checkIn()
+        model.statusItemClicked()
         #expect(model.panel == nil)
         #expect(presenter.calls.last == "hide")
+    }
+
+    @Test func aPromptTheTrackerEndsGoesBackToTheDashboard() throws {
+        let model = try makeModel()
+        _ = try writingFrom0900(model)
+        clock.now = Fixture.at("09:14")
+        model.statusItemClicked()
+        tick(model, at: "09:15")
+        #expect(model.panel?.isPrompt == true)
+        clock.now = Fixture.at("09:16")
+        model.send(.systemAway(since: Fixture.at("09:15")))
+        #expect(shownDay(model)?.blocks.map(\.endedAt) == [Fixture.at("09:15")])
+        #expect(presenter.isVisible)
     }
 
     // MARK: More menu
@@ -568,6 +606,35 @@ final class TestClock: WallClock, @unchecked Sendable {
         #expect(try timeline(model) == ["Writing 09:00-09:15", "Reading 09:15-09:22", "Offsite 09:22-09:32"])
     }
 
+    @Test func aSplitEndingInBreakStartsTheBreak() throws {
+        let model = try makeModel()
+        let writing = try longSpan(model)
+        var pause = CheckInList(catalog: model.catalog, prefill: nil)
+        pause.setText("Break")
+        model.log(
+            SplitDraft(
+                span: Fixture.span("09:00", "09:30"), first: CheckInList(catalog: model.catalog, prefill: writing),
+                second: pause))
+        #expect(model.mode == .onBreak)
+        #expect(model.nowRow == .onBreak)
+        tick(model, at: "09:45")
+        #expect(model.panel == nil)
+        #expect(try timeline(model) == ["Writing 09:00-09:15", "Break 09:15-09:45"])
+    }
+
+    @Test func returnWithAnEmptySplitPartSignalsAndKeepsTheSplit() throws {
+        let model = try makeModel()
+        let writing = try longSpan(model)
+        let shown = model.panel
+        model.log(
+            SplitDraft(
+                span: Fixture.span("09:00", "09:30"), first: CheckInList(catalog: model.catalog, prefill: writing),
+                second: CheckInList(catalog: model.catalog, prefill: nil)))
+        #expect(presenter.failures == 1)
+        #expect(model.panel == shown)
+        #expect(model.tracker.state.checkInShown)
+    }
+
     @Test func aNewNameInTwoPartsCreatesOneActivity() throws {
         let model = try makeModel()
         let writing = try longSpan(model)
@@ -581,6 +648,62 @@ final class TestClock: WallClock, @unchecked Sendable {
         model.log(split)
         #expect(try model.database.activities().filter { $0.name.lowercased() == "offsite" }.count == 1)
         #expect(try timeline(model) == ["Offsite 09:00-09:15", "Writing 09:15-09:22", "Offsite 09:22-09:30"])
+    }
+
+    // MARK: Ignored actions and failures
+
+    @Test func breakOnACheckInOpenedWhileOffKeepsItAndSignals() throws {
+        let model = try makeModel()
+        _ = try writingFrom0900(model)
+        clock.now = Fixture.at("09:10")
+        model.turnOff(for: nil)
+        model.shortcut(.openCheckIn)
+        let shown = model.panel
+        model.startBreak()
+        #expect(model.panel == shown)
+        #expect(presenter.isVisible)
+        #expect(presenter.failures == 1)
+        #expect(model.mode == .off)
+    }
+
+    @Test func aSwitchBeforeTheTrackerNoticesTheReturnKeepsTheCheckInAndSignals() throws {
+        let model = try makeModel()
+        let writing = try writingFrom0900(model)
+        let reading = try model.database.createActivity(name: "Reading").id!
+        clock.now = Fixture.at("09:05")
+        model.send(.systemAway(since: Fixture.at("09:05")))
+        clock.now = Fixture.at("09:40")
+        model.shortcut(.openCheckIn)
+        let shown = model.panel
+        model.log(.existing(reading))
+        #expect(model.panel == shown)
+        #expect(presenter.isVisible)
+        #expect(presenter.failures == 1)
+        #expect(model.currentActivity == writing)
+        tick(model, at: "09:41")
+        #expect(model.panel == .awayReturn(span: Fixture.span("09:05", "09:41"), prefill: model.builtIns.breakId))
+    }
+
+    @Test func aFailedBookingSignals() throws {
+        let model = try makeModel()
+        model.apply([
+            .book(
+                Block(activityId: 9999, startedAt: Fixture.at("09:00"), endedAt: Fixture.at("09:10"), source: .checkIn))
+        ])
+        #expect(presenter.failures == 1)
+        #expect(try timeline(model).isEmpty)
+    }
+
+    @Test func aFailedActivityCreationKeepsTheCheckInAndSignals() throws {
+        let model = try makeModel()
+        tick(model, at: "09:00")
+        model.shortcut(.openCheckIn)
+        let shown = model.panel
+        model.log(.create(name: "Kickoff", projectId: 9999))
+        #expect(presenter.failures == 1)
+        #expect(model.panel == shown)
+        #expect(presenter.isVisible)
+        #expect(try model.database.activities().allSatisfy { $0.name != "Kickoff" })
     }
 
     // MARK: Returns

@@ -63,6 +63,33 @@ import Testing
         #expect(h.timeline.last == "Writing 08:45-09:10")
     }
 
+    @Test func splitEndingInBreakStartsTheBreakAtThatPart() {
+        var h = Harness(settings: Fixture.noCheckIns)
+        h.tick()
+        h.pass(to: "08:15")
+        h.send(.checkInAnswered(Fixture.writing))
+        h.pass(to: "09:00")
+        h.send(.checkInSplit(dividers: [Fixture.at("08:40")], activities: [Fixture.reading, Fixture.breakId]))
+        #expect(h.tracker.mode == .onBreak)
+        h.pass(to: "09:29", idle: true)
+        h.pass(to: "09:30")
+        #expect(h.takePrompts() == [.showBreakReturn(span: Fixture.span("08:40", "09:30"), prefill: Fixture.reading)])
+        #expect(h.timeline == ["Writing 08:00-08:15", "Reading 08:15-08:40", "Break 08:40-09:30"])
+    }
+
+    @Test func splitEndingInPrivateRunsPrivateLikeAnActivity() {
+        var h = Harness(settings: Fixture.noCheckIns)
+        h.tick()
+        h.pass(to: "08:15")
+        h.send(.checkInAnswered(Fixture.writing))
+        h.pass(to: "09:00")
+        h.send(.checkInSplit(dividers: [Fixture.at("08:40")], activities: [Fixture.breakId, Fixture.privateId]))
+        #expect(h.tracker.mode == .tracking)
+        #expect(h.tracker.currentActivity == Fixture.privateId)
+        h.pass(to: "09:10")
+        #expect(h.timeline == ["Writing 08:00-08:15", "Break 08:15-08:40", "Private 08:40-09:10"])
+    }
+
     @Test func invalidSplitChangesNothing() {
         var h = Harness()
         h.tick()

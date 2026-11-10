@@ -214,7 +214,14 @@ public struct Tracker: Sendable {
             else { break }
             bookRun(until: span.start)
             effects += parts.map(TrackerEffect.book)
-            run(parts[parts.count - 1].activityId, from: parts[parts.count - 1].startedAt, source: .split)
+            if let work = parts.last(where: { $0.activityId != builtIns.breakId }) {
+                run(work.activityId, from: work.startedAt, source: .split)
+            }
+            if let last = parts.last, last.activityId == builtIns.breakId {
+                state.phase = .onBreak(awaySince: nil)
+                state.runStart = last.startedAt
+                state.runSource = .split
+            }
             answered()
         case (.switchActivity, .away), (.continueWithoutAsking, .away):
             break
@@ -382,24 +389,15 @@ public struct Tracker: Sendable {
         state.override = false
     }
 
-    /// At the plan end the day ends with the last input; a pending away question counts as Break.
+    /// At the plan end the day ends with the last input.
     private mutating func endDay() {
-        settleAway()
-        closePrompt()
+        settleReturns()
         bookRun(until: min(runEnd, planEnd ?? runEnd))
         state.phase = .waiting
     }
 
-    /// An unanswered break return ends the break at the return, the activity before the break runs until the absence.
     private mutating func goAway(since: Date) {
-        settleAway()
-        closePrompt()
-        if case .breakReturn(let returnAt) = state.phase {
-            bookRun(until: returnAt)
-            state.phase = .tracking
-            state.runStart = returnAt
-            state.runSource = .checkIn
-        }
+        settleReturns()
         let since = max(since, state.runStart)
         bookRun(until: since)
         state.phase = .away(since: since)
@@ -411,16 +409,27 @@ public struct Tracker: Sendable {
             .showBreakReturn(span: DateInterval(start: state.runStart, end: returnAt), prefill: state.current))
     }
 
-    /// Ends the running phase for a user action: a pending away question counts as Break.
+    /// Ends the running phase for a user action.
     private mutating func leave() {
-        settleAway()
-        closePrompt()
+        settleReturns()
         bookRun(until: now)
     }
 
-    private mutating func settleAway() {
-        guard case .awayReturn(let since, let backAt) = state.phase else { return }
-        book(builtIns.breakId, since, backAt, source: .away)
+    /// Closes the prompt; a pending away question counts as Break, a pending break return ends the break at the
+    /// return and the activity before the break runs on from there.
+    private mutating func settleReturns() {
+        closePrompt()
+        switch state.phase {
+        case .awayReturn(let since, let backAt):
+            book(builtIns.breakId, since, backAt, source: .away)
+        case .breakReturn(let returnAt):
+            bookRun(until: returnAt)
+            state.phase = .tracking
+            state.runStart = returnAt
+            state.runSource = .checkIn
+        default:
+            break
+        }
     }
 
     private mutating func closePrompt() {

@@ -15,6 +15,8 @@ public protocol PanelPresenter: AnyObject {
     func update()
     func focus()
     func hide()
+    /// An action did not go through, the panel keeps its content.
+    func signalFailure()
 }
 
 public enum PanelContent: Equatable, Sendable {
@@ -138,6 +140,7 @@ public final class AppModel {
                     booked = true
                 } catch {
                     logger.error("booking failed: \(String(describing: error), privacy: .public)")
+                    presenter?.signalFailure()
                 }
             case .showCheckIn(let prompt):
                 present(
@@ -148,7 +151,7 @@ public final class AppModel {
             case .showBreakReturn(let span, let prefill):
                 present(.breakReturn(span: span, prefill: prefill))
             case .hidePrompt:
-                if panel?.isPrompt == true { hidePanel() }
+                if panel?.isPrompt == true { endPrompt() }
             }
         }
         guard booked else { return }
@@ -244,11 +247,18 @@ public final class AppModel {
         act(.startBreak)
     }
 
-    /// Escape, or a click on the icon while the panel has the focus: a timed prompt counts as dismissed,
-    /// the away return as Break, the break return as still on break.
+    /// Escape: a prompt goes back to the dashboard it replaced, anything else closes.
     public func close() {
+        dismiss()
+        endPrompt()
+    }
+
+    /// A prompt closed without an answer: a timed one counts as dismissed, the away return as Break,
+    /// the break return as still on break.
+    private func dismiss() {
         let closed = panel
-        hidePanel()
+        // without a prompt in the panel, the one the tracker ends does not close it
+        panel = nil
         switch closed {
         case .checkIn(let checkIn) where checkIn.mode == .timed: send(.checkInDismissed)
         case .awayReturn: send(.awayDismissed)
@@ -273,7 +283,11 @@ public final class AppModel {
 
     /// Books the parts of a timed span, the last part runs on.
     public func log(_ split: SplitDraft) {
-        guard case .checkIn(let checkIn) = panel, checkIn.mode == .timed, let choices = split.choices else { return }
+        guard case .checkIn(let checkIn) = panel, checkIn.mode == .timed else { return }
+        guard let choices = split.choices else {
+            presenter?.signalFailure()
+            return
+        }
         let ids = choices.compactMap(resolve)
         guard ids.count == choices.count else { return }
         act(.checkInSplit(dividers: split.dividers, activities: ids))
@@ -309,6 +323,7 @@ public final class AppModel {
                 return try database.createActivity(name: name, projectId: projectId).id
             } catch {
                 logger.error("creating an activity failed: \(String(describing: error), privacy: .public)")
+                presenter?.signalFailure()
                 return nil
             }
         }
@@ -335,25 +350,37 @@ public final class AppModel {
             if panel != nil { presenter.show(focus: focus) }
         case .update: presenter.update()
         case .focus: presenter.focus()
-        case .close: close()
+        case .close:
+            dismiss()
+            hidePanel()
         }
     }
 
     /// A user action: a dashboard stays and shows it, a prompt counts as answered and goes back to its dashboard or closes.
+    /// An action the tracker ignores keeps the panel and signals it.
     private func act(_ event: TrackerEvent) {
-        switch panel {
-        case .dashboard(let day):
-            send(event)
-            showDashboard(day.period)
-        case nil:
-            send(event)
-        default:
-            let back = returnTo
-            // without a prompt in the panel, the one the tracker ends does not close it
-            panel = nil
-            send(event)
-            if let back { showDashboard(back) } else { hidePanel() }
+        let content = panel
+        var unchanged = tracker.state
+        // without a prompt in the panel, the one the tracker ends does not close it
+        if content?.isPrompt == true { panel = nil }
+        send(event)
+        // every user action counts as input, also one the tracker ignores
+        unchanged.lastInput = tracker.state.lastInput
+        guard tracker.state != unchanged else {
+            panel = content
+            presenter?.signalFailure()
+            return
         }
+        switch content {
+        case .dashboard(let day): showDashboard(day.period)
+        case nil: break
+        case .some: endPrompt()
+        }
+    }
+
+    /// Back to the dashboard the prompt replaced, else the panel closes.
+    private func endPrompt() {
+        if let back = returnTo { showDashboard(back) } else { hidePanel() }
     }
 
     private var today: Period { Period(.day, containing: now, calendar: calendar) }

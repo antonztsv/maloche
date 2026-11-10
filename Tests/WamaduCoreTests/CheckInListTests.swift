@@ -133,6 +133,20 @@ import Testing
         list.setText("")
         #expect(names(list) == ["Code Review", "Weekly", "Writing", "Planning"])
         #expect(list.showsSections)
+        #expect(list.choice == nil)
+    }
+
+    @Test func anEmptyFieldSelectsNothingUntilAnArrowKey() {
+        var list = CheckInList(catalog: catalog, prefill: nil)
+        #expect(list.text == "")
+        #expect(names(list) == ["Code Review", "Weekly", "Writing", "Planning"])
+        #expect(list.selection == nil)
+        #expect(list.choice == nil)
+        list.moveSelection(by: 1)
+        #expect(list.choice == .existing(1))
+        list.setText("  ")
+        #expect(list.choice == nil)
+        list.moveSelection(by: -1)
         #expect(list.choice == .existing(1))
     }
 

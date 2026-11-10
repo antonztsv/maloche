@@ -42,9 +42,10 @@ public struct CheckInList: Equatable, Sendable {
         fill(top: query.isEmpty ? nil : catalog.match(for: query), query: query)
     }
 
+    /// Without a selection either arrow selects the first row.
     public mutating func moveSelection(by offset: Int) {
-        guard let selection else { return }
-        self.selection = min(max(selection + offset, 0), rows.count - 1)
+        guard !rows.isEmpty else { return }
+        selection = min(max((selection ?? -1) + offset, 0), rows.count - 1)
     }
 
     public mutating func select(_ index: Int) {
@@ -72,7 +73,7 @@ public struct CheckInList: Equatable, Sendable {
         return suggestion
     }
 
-    /// Ranked suggestions for the query with `top` moved to the first row, which is selected.
+    /// Ranked suggestions for the query with `top` moved to the first row, which is selected; an empty field selects nothing.
     /// Without `top` a query also offers Create: last below the first name it starts words of, else selected on top.
     private mutating func fill(top: Activity?, query: String) {
         let usedToday = Set(catalog.usedToday)
@@ -89,7 +90,7 @@ public struct CheckInList: Equatable, Sendable {
         }
         guard !query.isEmpty, top == nil else {
             rows = suggestions.prefix(Self.maxRows).map(row)
-            selection = rows.isEmpty ? nil : 0
+            selection = rows.isEmpty || top == nil ? nil : 0
             return
         }
         guard var best = suggestions.firstIndex(where: { Suggestions.startsWords(of: $0.activity.name, query: query) })

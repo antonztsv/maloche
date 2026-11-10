@@ -137,8 +137,8 @@ struct CheckInView: View {
             }
             Spacer(minLength: 0)
             switch content {
-            case .checkIn: Button("Break", action: model.startBreak)
-            case .awayReturn, .dashboard, .doneForToday: EmptyView()
+            case .checkIn where model.mode != .off: Button("Break", action: model.startBreak)
+            case .checkIn, .awayReturn, .dashboard, .doneForToday: EmptyView()
             case .breakReturn: Button("Still on break", action: model.close)
             }
             Button("Log", action: log)
@@ -157,7 +157,8 @@ struct CheckInView: View {
     }
 
     private func log() {
-        if let choice = list.choice { model.log(choice) }
+        guard let choice = list.choice else { return NSSound.beep() }
+        model.log(choice)
     }
 
     /// The first part keeps the activity before, the second takes the field unless it still names that one.

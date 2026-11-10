@@ -124,6 +124,10 @@ final class CheckInPanelController: PanelPresenter {
         panel.orderOut(nil)
     }
 
+    func signalFailure() {
+        NSSound.beep()
+    }
+
     private func contentResized() {
         if panel.isVisible { position() }
     }

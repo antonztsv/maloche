@@ -113,6 +113,54 @@ import Testing
         #expect(h.timeline == ["Writing 17:00-17:30", "Break 17:30-17:35", "Writing 11-10 08:05-11-10 08:10"])
     }
 
+    /// Back from a break at 12:30, the break return stays unanswered.
+    private func breakReturnPending() -> Harness {
+        var h = Harness(at: "11:00", settings: Fixture.noCheckIns)
+        h.tick()
+        h.pass(to: "12:00")
+        h.send(.startBreak)
+        h.pass(to: "12:29", idle: true)
+        h.pass(to: "12:30")
+        #expect(h.takePrompts() == [.showBreakReturn(span: Fixture.span("12:00", "12:30"), prefill: Fixture.writing)])
+        return h
+    }
+
+    @Test func planEndDuringAPendingBreakReturnEndsTheBreakAtTheReturn() {
+        var h = breakReturnPending()
+        h.pass(to: "18:30")
+        #expect(h.takePrompts() == [.hidePrompt])
+        #expect(h.timeline == ["Writing 11:00-12:00", "Break 12:00-12:30", "Writing 12:30-18:00"])
+        #expect(h.tracker.mode == .off)
+    }
+
+    @Test func doneDuringAPendingBreakReturnEndsTheBreakAtTheReturn() {
+        var h = breakReturnPending()
+        h.pass(to: "13:00")
+        h.send(.doneForToday)
+        #expect(h.takePrompts() == [.hidePrompt])
+        #expect(h.timeline == ["Writing 11:00-12:00", "Break 12:00-12:30", "Writing 12:30-13:00"])
+    }
+
+    @Test(arguments: [
+        TrackerEvent.startBreak, .checkInAnswered(Fixture.reading), .checkInDismissed, .stopContinuing,
+        .checkInSplit(dividers: [Fixture.at("10:10")], activities: [Fixture.reading, Fixture.meeting]),
+        .awayAnswered(.break), .breakReturnAnswered(Fixture.reading), .openedDuringBreak, .stillOnBreak,
+    ])
+    func userActionsWhileOffOnlyCountAsInput(event: TrackerEvent) {
+        var h = Harness(at: "10:00", settings: Fixture.noCheckIns)
+        h.tick()
+        h.pass(to: "10:20")
+        h.send(.turnOff(for: nil))
+        h.pass(to: "10:30")
+        var before = h.tracker.state
+        let bookings = h.bookings
+        h.send(event)
+        before.lastInput = h.now
+        #expect(h.tracker.state == before)
+        #expect(h.bookings == bookings)
+        #expect(h.prompts.isEmpty)
+    }
+
     @Test func doneForTodayStopsUntilTheNextDay() {
         var h = Harness(at: "14:00", settings: Fixture.noCheckIns)
         h.tick()
