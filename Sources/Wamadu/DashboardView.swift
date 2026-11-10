@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import WamaduCore
 
-/// The day in the panel: Now row, period switcher, totals, timeline and the list by customer and project.
+/// The day in the panel: period switcher, totals, timeline, the list by customer and project, and the Now row.
 struct DashboardView: View {
     var data: DashboardData
     var moreActions: MoreActionsMenu
@@ -15,7 +15,6 @@ struct DashboardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
-            nowRow
             periodPicker
             if let timeline = data.timeline, let day = data.day {
                 totals(day)
@@ -28,6 +27,7 @@ struct DashboardView: View {
             } else {
                 emptyDay
             }
+            nowRow
         }
         .padding(12)
         .frame(width: 380)
