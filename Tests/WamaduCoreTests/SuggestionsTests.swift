@@ -102,10 +102,10 @@ import Testing
         #expect(names("", usedToday: [], activities: tied) == ["Gamma", "alpha", "Beta", "charlie", "Delta"])
     }
 
-    @Test func exactMatchIgnoresCaseAndWhitespaceButNotArchived() {
+    @Test func exactMatchIgnoresCaseAndWhitespaceAndFindsArchived() {
         #expect(Suggestions.exactMatch(for: "  writing ", in: activities)?.id == 1)
         #expect(Suggestions.exactMatch(for: "Writ", in: activities) == nil)
-        #expect(Suggestions.exactMatch(for: "old stuff", in: activities) == nil)
+        #expect(Suggestions.exactMatch(for: "old stuff", in: activities)?.id == 5)
         #expect(Suggestions.exactMatch(for: "", in: activities) == nil)
     }
 

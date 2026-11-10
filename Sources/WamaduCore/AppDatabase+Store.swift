@@ -8,12 +8,14 @@ public enum WamaduError: Error, Equatable {
     case activityHasBlocks
     case builtInActivity
     case blockNotFound
+    case duplicateName
 }
 
 extension AppDatabase {
     public func createCustomer(name: String) throws -> Customer {
         let name = try Self.validName(name)
         return try dbQueue.write { db in
+            try Self.checkUnique(name, among: Customer.fetchAll(db).map(\.name))
             let used = try Int.fetchAll(db, sql: "SELECT colorIndex FROM customer")
             var customer = Customer(name: name, colorIndex: CustomerColor.nextIndex(used: used))
             try customer.insert(db)
@@ -30,7 +32,10 @@ extension AppDatabase {
     public func createActivity(name: String, projectId: Int64? = nil, customerId: Int64? = nil) throws -> Activity {
         guard projectId == nil || customerId == nil else { throw WamaduError.projectAndCustomer }
         var activity = Activity(name: try Self.validName(name), projectId: projectId, customerId: customerId)
-        try dbQueue.write { db in try activity.insert(db) }
+        try dbQueue.write { db in
+            try Self.checkUnique(activity.name, among: Activity.fetchAll(db).map(\.name))
+            try activity.insert(db)
+        }
         return activity
     }
 
@@ -52,12 +57,75 @@ extension AppDatabase {
         return activity
     }
 
+    /// Activity names are unique ignoring case, archived activities, Break and Private included.
     public func renameActivity(id: Int64, to name: String) throws {
         let name = try Self.validName(name)
         try dbQueue.write { db in
             var activity = try Self.regularActivity(db, id: id)
+            try Self.checkUnique(name, among: Activity.filter(Column("id") != id).fetchAll(db).map(\.name))
             activity.name = name
             try activity.update(db)
+        }
+    }
+
+    public func renameProject(id: Int64, to name: String) throws {
+        let name = try Self.validName(name)
+        _ = try dbQueue.write { db in try Project.filter(id: id).updateAll(db, Column("name").set(to: name)) }
+    }
+
+    public func renameCustomer(id: Int64, to name: String) throws {
+        let name = try Self.validName(name)
+        _ = try dbQueue.write { db in
+            try Self.checkUnique(name, among: Customer.filter(Column("id") != id).fetchAll(db).map(\.name))
+            return try Customer.filter(id: id).updateAll(db, Column("name").set(to: name))
+        }
+    }
+
+    public func setColor(_ color: CustomerColor, ofCustomer id: Int64) throws {
+        _ = try dbQueue.write { db in
+            try Customer.filter(id: id).updateAll(db, Column("colorIndex").set(to: color.rawValue))
+        }
+    }
+
+    /// Archived activities leave the check-in suggestions, their time stays in every report.
+    public func setArchived(_ archived: Bool, activities ids: [Int64]) throws {
+        try dbQueue.write { db in
+            for id in ids { _ = try Self.regularActivity(db, id: id) }
+            _ = try Activity.filter(ids: ids).updateAll(db, Column("archived").set(to: archived))
+        }
+    }
+
+    /// The project, the customer directly or neither; it applies to all time of the activities, past included.
+    public func moveActivities(_ ids: [Int64], projectId: Int64?, customerId: Int64?) throws {
+        guard projectId == nil || customerId == nil else { throw WamaduError.projectAndCustomer }
+        try dbQueue.write { db in
+            for id in ids { _ = try Self.regularActivity(db, id: id) }
+            _ = try Activity.filter(ids: ids).updateAll(
+                db, Column("projectId").set(to: projectId), Column("customerId").set(to: customerId))
+        }
+    }
+
+    /// Books every block of the activities to the target, their times stay, then deletes them; returns the moved
+    /// block count.
+    @discardableResult
+    public func mergeActivities(_ ids: [Int64], into target: Int64) throws -> Int {
+        let ids = ids.filter { $0 != target }
+        return try dbQueue.write { db in
+            _ = try Self.regularActivity(db, id: target)
+            for id in ids { _ = try Self.regularActivity(db, id: id) }
+            let blocks = Block.filter(ids.contains(Column("activityId")))
+            let end = try blocks.fetchAll(db).map(\.endedAt).max()
+            let moved = try blocks.updateAll(db, Column("activityId").set(to: target))
+            _ = try Activity.deleteAll(db, ids: ids)
+            if let end { try Self.markUsed(target, at: end, db) }
+            return moved
+        }
+    }
+
+    /// Blocks of the activities, sorted by start.
+    public func blocks(ofActivities ids: [Int64]) throws -> [Block] {
+        try dbQueue.read { db in
+            try Block.filter(ids.contains(Column("activityId"))).order(Column("startedAt")).fetchAll(db)
         }
     }
 
@@ -150,6 +218,13 @@ extension AppDatabase {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw WamaduError.emptyName }
         return trimmed
+    }
+
+    /// Compared like the check-in matches names.
+    private static func checkUnique(_ name: String, among names: [String]) throws {
+        if names.contains(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) {
+            throw WamaduError.duplicateName
+        }
     }
 
     private static func regularActivity(_ db: Database, id: Int64) throws -> Activity {

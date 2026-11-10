@@ -19,6 +19,8 @@ public protocol PanelPresenter: AnyObject {
     func signalFailure()
     /// Opens the settings window, after the panel closed.
     func showSettings()
+    /// Opens the Manage Activities window, after the panel closed.
+    func showManageActivities()
 }
 
 public enum PanelContent: Equatable, Sendable {
@@ -403,14 +405,43 @@ public final class AppModel {
 
     private func edit(_ change: () throws -> Void) {
         do {
-            try change()
+            try manage { _ in try change() }
         } catch {
             logger.error("editing an entry failed: \(String(describing: error), privacy: .public)")
             presenter?.signalFailure()
-            return
         }
+    }
+
+    // MARK: Manage Activities
+
+    public func openManageActivities() {
+        dismiss()
+        hidePanel()
+        presenter?.showManageActivities()
+    }
+
+    /// A change to activities, projects or customers; the catalog and the shown day follow it.
+    public func manage(_ change: (AppDatabase) throws -> Void) throws {
+        try change(database)
         reloadCatalog()
         if case .dashboard(let day) = panel { showDashboard(day.period) }
+    }
+
+    /// Books the activities' time to the target and deletes them; a merged running activity runs on as the target.
+    public func merge(_ ids: [Int64], into target: Int64) throws {
+        try manage { try $0.mergeActivities(ids, into: target) }
+        tracker.replaceActivities(Set(ids), with: target)
+        publish()
+        saveState()
+    }
+
+    /// The window's sidebar and table, with the work of the current calendar month.
+    public func activityOverview() throws -> ActivityOverview {
+        let month = Period(.month, containing: now, calendar: calendar)
+        let summary = Reports.summary(
+            of: month, blocks: try database.blocks(in: month.interval), activities: catalog.activities,
+            projects: catalog.projects, customers: catalog.customers, calendar: calendar)
+        return ActivityOverview(catalog: catalog, thisMonth: summary.activities)
     }
 
     /// Uses the customer of that name or creates it; an empty customer name means none.
@@ -429,22 +460,28 @@ public final class AppModel {
         return project
     }
 
-    /// A new name creates the activity, unless an earlier part of a split just did.
+    /// A new name creates the activity unless one has it, e.g. after an earlier part of a split; an archived activity
+    /// comes back, one merged away since the prompt showed is refused.
     private func resolve(_ choice: CheckInList.Choice) -> Int64? {
-        switch choice {
-        case .existing(let id):
-            return id
-        case .create(let name, let projectId):
-            do {
-                if let existing = Suggestions.exactMatch(for: name, in: try database.activities()) {
-                    return existing.id
+        do {
+            let activities = try database.activities()
+            let activity =
+                switch choice {
+                case .existing(let id): activities.first { $0.id == id }
+                case .create(let name, let projectId):
+                    try Suggestions.exactMatch(for: name, in: activities)
+                        ?? database.createActivity(name: name, projectId: projectId)
                 }
-                return try database.createActivity(name: name, projectId: projectId).id
-            } catch {
-                logger.error("creating an activity failed: \(String(describing: error), privacy: .public)")
+            guard let activity, let id = activity.id else {
                 presenter?.signalFailure()
                 return nil
             }
+            if activity.archived { try database.setArchived(false, activities: [id]) }
+            return id
+        } catch {
+            logger.error("choosing an activity failed: \(String(describing: error), privacy: .public)")
+            presenter?.signalFailure()
+            return nil
         }
     }
 

@@ -160,6 +160,11 @@ public struct Tracker: Sendable {
     /// The running activity, before the first answer of a day the prefill.
     public var currentActivity: Int64? { state.current }
 
+    /// After a merge, the running activity runs on as the target.
+    public mutating func replaceActivities(_ ids: Set<Int64>, with target: Int64) {
+        if let current = state.current, ids.contains(current) { state.current = target }
+    }
+
     /// Since when the current activity or the break runs, nil while off or away.
     public var runningSince: Date? { isRunning ? state.runStart : nil }
 

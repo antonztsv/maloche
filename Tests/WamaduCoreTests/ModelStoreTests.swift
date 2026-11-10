@@ -60,7 +60,12 @@ import Testing
     @Test func customerNameIsUniqueIgnoringCase() throws {
         let database = try AppDatabase.inMemory()
         _ = try database.createCustomer(name: "Acme")
-        #expect(throws: DatabaseError.self) { try database.createCustomer(name: "ACME") }
+        #expect(throws: WamaduError.duplicateName) { try database.createCustomer(name: "ACME") }
+        try database.dbQueue.write { db in
+            #expect(throws: DatabaseError.self) {
+                try db.execute(sql: "INSERT INTO customer (name, colorIndex) VALUES ('ACME', 1)")
+            }
+        }
     }
 
     @Test func emptyNamesAreRejected() throws {

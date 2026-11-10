@@ -15,6 +15,19 @@
     "%@ comes with the project" : {
 
     },
+    "%@ of logged time moves to %@. Afterwards only %@ remains." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ of logged time moves to %2$@. Afterwards only %3$@ remains."
+          }
+        }
+      }
+    },
+    "%@ of logged time moves to the activity you choose." : {
+
+    },
     "%@ on %@" : {
       "comment" : "The time of an entry and its day, below the question whether to delete it",
       "localizations" : {
@@ -46,7 +59,13 @@
         }
       }
     },
+    "%lld selected." : {
+
+    },
     "+15" : {
+
+    },
+    "1 selected. Double-click to rename." : {
 
     },
     "15 minutes less" : {
@@ -79,13 +98,28 @@
     "Activity for %@" : {
 
     },
+    "Add" : {
+
+    },
     "Add another part" : {
+
+    },
+    "All Activities" : {
+
+    },
+    "All logged time moves along, past entries included" : {
 
     },
     "Always up" : {
 
     },
     "Apply to" : {
+
+    },
+    "Archive" : {
+
+    },
+    "Archived" : {
 
     },
     "Away after" : {
@@ -111,6 +145,9 @@
         }
       }
     },
+    "Blue" : {
+
+    },
     "Break" : {
 
     },
@@ -134,6 +171,9 @@
         }
       }
     },
+    "Brown" : {
+
+    },
     "Cancel" : {
 
     },
@@ -149,10 +189,16 @@
     "Check in every" : {
 
     },
+    "Choose an Activity" : {
+
+    },
     "Click and press the new keys. Escape cancels, Delete clears the shortcut." : {
 
     },
     "Close" : {
+
+    },
+    "Color" : {
 
     },
     "Continue without asking" : {
@@ -168,6 +214,9 @@
 
     },
     "Customer" : {
+
+    },
+    "Customers" : {
 
     },
     "Cut" : {
@@ -200,6 +249,9 @@
     "Done for today" : {
 
     },
+    "Double-click an activity to rename it." : {
+
+    },
     "Drag the divider to adjust" : {
 
     },
@@ -227,6 +279,9 @@
     "End on %@" : {
 
     },
+    "For %@" : {
+
+    },
     "For 1 hour" : {
 
     },
@@ -248,7 +303,19 @@
     "General" : {
 
     },
+    "Green" : {
+
+    },
+    "In %@" : {
+
+    },
+    "Indigo" : {
+
+    },
     "Internal" : {
+
+    },
+    "Into" : {
 
     },
     "Keep logging %@" : {
@@ -260,22 +327,64 @@
     "Keyboard shortcuts" : {
 
     },
+    "Last used" : {
+
+    },
     "Last week" : {
 
     },
     "Log" : {
 
     },
+    "Manage Activities" : {
+
+    },
     "Manage Activities…" : {
+
+    },
+    "Merge" : {
+
+    },
+    "Merge %lld Activities" : {
+
+    },
+    "Merge Into…" : {
+
+    },
+    "Merge “%@”" : {
 
     },
     "Month" : {
 
     },
+    "More" : {
+
+    },
     "More actions" : {
 
     },
+    "Move to Project" : {
+
+    },
     "Name" : {
+
+    },
+    "New Activity" : {
+
+    },
+    "New Activity…" : {
+
+    },
+    "New Customer" : {
+
+    },
+    "New Customer…" : {
+
+    },
+    "New Project" : {
+
+    },
+    "New Project…" : {
 
     },
     "New project" : {
@@ -291,6 +400,9 @@
 
     },
     "Next week" : {
+
+    },
+    "No customer" : {
 
     },
     "No project" : {
@@ -317,6 +429,9 @@
     "Open dashboard" : {
 
     },
+    "Orange" : {
+
+    },
     "Paste" : {
 
     },
@@ -327,6 +442,9 @@
 
     },
     "Pick one or type a new customer name." : {
+
+    },
+    "Pink" : {
 
     },
     "Previous day" : {
@@ -341,6 +459,12 @@
     "Project" : {
 
     },
+    "Projects" : {
+
+    },
+    "Purple" : {
+
+    },
     "Quit wamadu" : {
 
     },
@@ -348,6 +472,21 @@
 
     },
     "Redo" : {
+
+    },
+    "Rename" : {
+
+    },
+    "Rename Activity" : {
+
+    },
+    "Rename Customer" : {
+
+    },
+    "Rename Project" : {
+
+    },
+    "Rename…" : {
 
     },
     "Round to" : {
@@ -360,6 +499,12 @@
 
     },
     "Schedule" : {
+
+    },
+    "Search" : {
+
+    },
+    "Search activities" : {
 
     },
     "Select All" : {
@@ -405,7 +550,19 @@
     "Tab picks a project" : {
 
     },
+    "Teal" : {
+
+    },
     "That’s it for today" : {
+
+    },
+    "The merge did not go through, nothing changed." : {
+
+    },
+    "The name was not saved, try again." : {
+
+    },
+    "This month" : {
 
     },
     "This week" : {
@@ -427,6 +584,9 @@
 
     },
     "Type Shortcut" : {
+
+    },
+    "Unarchive" : {
 
     },
     "Undo" : {
@@ -487,6 +647,9 @@
 
     },
     "wamadu, tracking" : {
+
+    },
+    "“%@” is already in use, choose another name." : {
 
     },
     "−15" : {

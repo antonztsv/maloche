@@ -53,6 +53,10 @@
                 model.update(settings)
                 return model
             }
+            let managing = try Sample.managing()
+            let mergeTargets = try managing.model.activityOverview().rows(.all)
+                .filter { $0.id != managing.abstimmung }
+                .sorted { $0.activity.name.localizedStandardCompare($1.activity.name) == .orderedAscending }
             let screens: [(name: String, view: AnyView)] = [
                 ("checkin", AnyView(CheckInView(model: model, content: .checkIn(timed)))),
                 (
@@ -138,6 +142,33 @@
                     "settings-rounding",
                     AnyView(RoundingSettingsView(model: try settings { $0.rounding.stepMinutes = 15 }))
                 ),
+                (
+                    "manage-activities",
+                    AnyView(
+                        ManageActivitiesView(
+                            model: managing.model, filter: .customer(managing.nordlicht),
+                            selection: [managing.abstimmung]
+                        )
+                        .frame(
+                            width: ManageActivitiesWindowController.size.width,
+                            height: ManageActivitiesWindowController.size.height))
+                ),
+                (
+                    "manage-merge",
+                    AnyView(
+                        MergeSheet(
+                            names: ["Abstimmung"], moving: 90 * 60, targets: mergeTargets, target: managing.review
+                        ) { _ in })
+                ),
+                (
+                    "manage-new-activity",
+                    AnyView(
+                        NameSheet(
+                            title: Text("New Activity"), detail: Text("In \("Relaunch 2026")"), action: Text("Create"),
+                            name: "Code Review",
+                            note: Text("“\("Code Review")” is already in use, choose another name.")
+                        ) { _ in })
+                ),
             ]
             try MenuBarIcon.writePreviews(to: directory)
             for screen in screens {
@@ -193,6 +224,46 @@
                             source: .checkIn))
                 }
                 model = try AppModel(database: database, stateURL: nil, clock: FixedClock(now: Self.at(10, 30)))
+            }
+
+            /// Two customers with projects and activities, time in this and the last month, Old Stuff archived, at 17:30.
+            static func managing() throws -> (model: AppModel, nordlicht: Int64, abstimmung: Int64, review: Int64) {
+                let database = try AppDatabase.inMemory()
+                let nordlicht = try database.createCustomer(name: "Nordlicht GmbH")
+                let hafenwerk = try database.createCustomer(name: "Hafenwerk AG")
+                let relaunch = try database.createProject(name: "Relaunch 2026", customerId: nordlicht.id)
+                let maintenance = try database.createProject(name: "Maintenance", customerId: nordlicht.id)
+                let shop = try database.createProject(name: "Shop 2.0", customerId: hafenwerk.id)
+                func activity(_ name: String, _ project: Project? = nil, customer: Customer? = nil) throws -> Int64 {
+                    try database.createActivity(name: name, projectId: project?.id, customerId: customer?.id).id!
+                }
+                let review = try activity("Code Review", relaunch)
+                let abstimmung = try activity("Abstimmung", relaunch)
+                let templates = try activity("Frontend Templates", relaunch)
+                let kickoff = try activity("Kickoff", relaunch)
+                let backups = try activity("Backups prüfen", maintenance)
+                let update = try activity("Server-Update", maintenance)
+                _ = try activity("Checkout", shop)
+                let weekly = try activity("Weekly", customer: hafenwerk)
+                let writing = try activity("Writing")
+                let old = try activity("Old Stuff", relaunch)
+                let bookings: [(Int64, Int, (Int, Int), (Int, Int))] = [
+                    (review, 0, (8, 0), (10, 15)), (abstimmung, 0, (10, 15), (11, 45)), (writing, 0, (13, 0), (14, 0)),
+                    (templates, 1, (9, 0), (12, 30)), (review, 1, (13, 0), (16, 0)), (weekly, 2, (9, 0), (9, 30)),
+                    (backups, 6, (9, 0), (10, 15)), (update, 12, (9, 0), (11, 30)), (kickoff, 39, (9, 0), (12, 0)),
+                    (old, 60, (9, 0), (10, 0)),
+                ]
+                for (id, daysAgo, start, end) in bookings {
+                    let day = Calendar.current.date(byAdding: .day, value: -daysAgo, to: today)!
+                    func time(_ clock: (Int, Int)) -> Date {
+                        Calendar.current.date(bySettingHour: clock.0, minute: clock.1, second: 0, of: day)!
+                    }
+                    try database.insert(
+                        block: Block(activityId: id, startedAt: time(start), endedAt: time(end), source: .checkIn))
+                }
+                try database.setArchived(true, activities: [old])
+                let model = try AppModel(database: database, stateURL: nil, clock: FixedClock(now: at(17, 30)))
+                return (model, nordlicht.id!, abstimmung, review)
             }
 
             /// Code Review 10:00 to 12:15 and 16:00 to 17:00, today's dashboard shown at 17:30.

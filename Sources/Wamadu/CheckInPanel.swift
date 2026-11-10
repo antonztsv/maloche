@@ -106,6 +106,7 @@ struct PanelView: View {
 final class CheckInPanelController: PanelPresenter {
     weak var statusItem: NSStatusItem?
     var onShowSettings: (() -> Void)?
+    var onShowManageActivities: (() -> Void)?
     let panel = CheckInPanel()
     private let model: AppModel
     private let editor: EntryEditorController
@@ -206,6 +207,10 @@ final class CheckInPanelController: PanelPresenter {
 
     func showSettings() {
         onShowSettings?()
+    }
+
+    func showManageActivities() {
+        onShowManageActivities?()
     }
 
     /// Highlighted while the panel shows, like a menu bar extra with its menu open.

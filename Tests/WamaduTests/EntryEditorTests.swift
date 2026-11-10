@@ -21,6 +21,7 @@ import WamaduCore
         func hide() {}
         func signalFailure() { failures += 1 }
         func showSettings() {}
+        func showManageActivities() {}
     }
 
     private final class Closed {

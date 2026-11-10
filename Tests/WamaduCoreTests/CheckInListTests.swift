@@ -224,6 +224,16 @@ import Testing
         #expect(list.choice == .existing(2))
     }
 
+    @Test func theExactNameOfAnArchivedActivityChoosesItInsteadOfCreatingADuplicate() {
+        var list = CheckInList(catalog: catalog, prefill: 1)
+        list.setText("old stuff")
+        #expect(names(list).first == "Old Stuff")
+        #expect(!names(list).contains("+old stuff"))
+        #expect(list.choice == .existing(5))
+        list.setText("old")
+        #expect(names(list) == ["+old"])
+    }
+
     @Test func anArchivedPrefillStaysSelectable() {
         let list = CheckInList(catalog: catalog, prefill: 5)
         #expect(names(list).first == "Old Stuff")

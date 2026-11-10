@@ -25,12 +25,8 @@ public enum Suggestions {
                     activity: activity, projectName: activity.projectId.flatMap { projectsById[$0]?.name },
                     customerName: activity.customerId(projects: projectsById).flatMap { customersById[$0]?.name })
             }
-            .filter { suggestion in
-                needle.isEmpty
-                    || [suggestion.activity.name, suggestion.projectName, suggestion.customerName].contains {
-                        $0?.range(of: needle, options: [.caseInsensitive, .diacriticInsensitive]) != nil
-                    }
-                    || startsWords(of: suggestion.activity.name, query: needle)
+            .filter {
+                matches(needle, name: $0.activity.name, projectName: $0.projectName, customerName: $0.customerName)
             }
             .sorted { first, second in
                 let (a, b) = (first.activity, second.activity)
@@ -40,6 +36,15 @@ public enum Suggestions {
                 if usedA != usedB { return usedA > usedB }
                 return a.name.localizedStandardCompare(b.name) == .orderedAscending
             }
+    }
+
+    /// The trimmed query is part of one of the names, ignoring case and diacritics, or starts the words of the name.
+    static func matches(_ query: String, name: String, projectName: String?, customerName: String?) -> Bool {
+        query.isEmpty
+            || [name, projectName, customerName].contains {
+                $0?.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+            }
+            || startsWords(of: name, query: query)
     }
 
     /// Every word of the query starts a word of the name, ignoring case and diacritics, like Spotlight.
@@ -54,11 +59,10 @@ public enum Suggestions {
             }
     }
 
-    /// The non-archived regular activity named like the trimmed query, ignoring case; nil means the UI offers "Create".
+    /// The regular activity named like the trimmed query ignoring case, archived ones included so a name comes back
+    /// instead of a duplicate; nil means the UI offers "Create".
     public static func exactMatch(for query: String, in activities: [Activity]) -> Activity? {
         let name = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        return activities.first {
-            !$0.archived && $0.kind == .regular && $0.name.caseInsensitiveCompare(name) == .orderedSame
-        }
+        return activities.first { $0.kind == .regular && $0.name.caseInsensitiveCompare(name) == .orderedSame }
     }
 }

@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var presence: PresenceMonitor?
     private var shortcuts: GlobalShortcuts?
     private var settingsWindow: SettingsWindowController?
+    private var manageWindow: ManageActivitiesWindowController?
     private var iconMode: TrackerMode?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -57,6 +58,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let settingsWindow = SettingsWindowController(model: model) { [weak shortcuts] in shortcuts?.isPaused = $0 }
         controller.onShowSettings = { settingsWindow.show() }
         self.settingsWindow = settingsWindow
+        let manageWindow = ManageActivitiesWindowController(model: model)
+        controller.onShowManageActivities = { manageWindow.show() }
+        self.manageWindow = manageWindow
     }
 
     /// The hotkeys follow the settings.
