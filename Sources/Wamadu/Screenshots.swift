@@ -46,7 +46,7 @@
                 AnyView(
                     EntryEditorView(
                         model: editing.model, activityId: editing.activityId, period: editing.period,
-                        confirmingDelete: confirmingDelete, onClose: {}))
+                        confirmingDelete: confirmingDelete, onClose: { _ in }))
             }
             /// Default settings, changed by `edit`, never stored.
             func settings(_ edit: (inout AppSettings) -> Void = { _ in }) throws -> AppModel {

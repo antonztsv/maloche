@@ -159,6 +159,8 @@ final class CheckInPanelController: PanelPresenter {
     }
 
     func update() {
+        // the editor belongs to the dashboard, the prompt in its place must not get the key status from it
+        if model.panel?.isPrompt == true { editor.close(focusDashboard: false) }
         position()
         panel.orderFrontRegardless()
         highlightStatusItem()

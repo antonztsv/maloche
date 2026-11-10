@@ -24,8 +24,10 @@ import WamaduCore
         func showManageActivities() {}
     }
 
+    /// Whether each close handed the key status back to the dashboard.
     private final class Closed {
-        var count = 0
+        var focusDashboard: [Bool] = []
+        var count: Int { focusDashboard.count }
     }
 
     private let calendar = Calendar.current
@@ -53,7 +55,9 @@ import WamaduCore
         let period = Period(.day, containing: day, calendar: calendar)
         model.showDashboard(period)
         let closed = closed
-        let view = EntryEditorView(model: model, activityId: writing, period: period) { closed.count += 1 }
+        let view = EntryEditorView(model: model, activityId: writing, period: period) {
+            closed.focusDashboard.append($0)
+        }
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 300), styleMask: .borderless, backing: .buffered,
             defer: false)
@@ -90,10 +94,31 @@ import WamaduCore
         }
     }
 
-    /// Return for the default button, Command-Delete for Delete.
-    private func shortcut(_ characters: String, keyCode: UInt16, command: Bool = false, in window: NSWindow) {
+    /// Command-Delete as NSApplication dispatches it: the window's key equivalents first, then the first responder.
+    /// The Delete key types U+007F, SwiftUI's `.delete` shortcut is U+0008, the key equivalents get both.
+    private func commandDelete(in window: NSWindow) {
+        func event(_ type: NSEvent.EventType, _ characters: String) -> NSEvent {
+            NSEvent.keyEvent(
+                with: type, location: .zero, modifierFlags: .command, timestamp: 0, windowNumber: window.windowNumber,
+                context: nil, characters: characters, charactersIgnoringModifiers: characters, isARepeat: false,
+                keyCode: 51)!
+        }
+        for characters in ["\u{8}", "\u{7f}"] where window.performKeyEquivalent(with: event(.keyDown, characters)) {
+            return
+        }
+        window.sendEvent(event(.keyDown, "\u{7f}"))
+        window.sendEvent(event(.keyUp, "\u{7f}"))
+    }
+
+    /// The borderless Delete… is the editor's only AppKit button.
+    private func deleteButton(in view: NSView) -> NSButton? {
+        (view as? NSButton) ?? view.subviews.lazy.compactMap { deleteButton(in: $0) }.first
+    }
+
+    /// Return for the default button.
+    private func shortcut(_ characters: String, keyCode: UInt16, in window: NSWindow) {
         let event = NSEvent.keyEvent(
-            with: .keyDown, location: .zero, modifierFlags: command ? .command : [], timestamp: 0,
+            with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
             windowNumber: window.windowNumber, context: nil, characters: characters,
             charactersIgnoringModifiers: characters, isARepeat: false, keyCode: keyCode)
         #expect(window.performKeyEquivalent(with: event!))
@@ -189,24 +214,56 @@ import WamaduCore
         #expect(closed.count == 0)
     }
 
-    @Test func deleteAsksFirstThenDeletesTheEntryAndCloses() throws {
+    @Test func deleteAsksFirstAndCancelIsTheDefault() throws {
         let (model, writing, window, hosting) = try makeEditor()
 
-        shortcut("\u{8}", keyCode: 51, command: true, in: window)
+        try #require(deleteButton(in: hosting)).performClick(nil)
+        settle(hosting)
+        #expect(textField(in: hosting, value: time(12, 15)) == nil)
+        commandDelete(in: window)
         settle(hosting)
         #expect(spans(model, writing)?.count == 2)
-        #expect(textField(in: hosting, value: time(12, 15)) == nil)
+
         shortcut("\r", keyCode: 36, in: window)
         settle(hosting)
         #expect(textField(in: hosting, value: time(12, 15)) != nil)
+        #expect(spans(model, writing)?.count == 2)
         #expect(closed.count == 0)
+    }
 
-        shortcut("\u{8}", keyCode: 51, command: true, in: window)
+    @Test func commandDeleteInATimeFieldNeverAsksOrDeletes() throws {
+        let (model, writing, window, hosting) = try makeEditor()
+        let end = try #require(textField(in: hosting, value: time(12, 15)))
+        window.makeFirstResponder(end)
+
+        for _ in 0..<2 {
+            commandDelete(in: window)
+            settle(hosting)
+        }
+
+        #expect(spans(model, writing)?.count == 2)
+        #expect(textField(in: hosting, value: time(16, 0)) != nil)
+        #expect(closed.count == 0)
+    }
+
+    @Test func aDeletedEntryClosesTheEditorAndTheDashboardTakesTheKeyStatusBack() throws {
+        let (model, writing, _, hosting) = try makeEditor()
+
+        // the action of the confirmation's Delete
+        model.deleteEntry(try #require(model.entry(activityId: writing)))
         settle(hosting)
-        shortcut("\u{8}", keyCode: 51, command: true, in: window)
+
+        #expect(closed.focusDashboard == [true])
+    }
+
+    @Test func aPromptInPlaceOfTheDashboardClosesTheEditorAndLeavesTheKeyStatus() throws {
+        let (model, writing, _, hosting) = try makeEditor()
+
+        model.checkIn()
         settle(hosting)
-        #expect(model.entry(activityId: writing) == nil)
-        #expect(closed.count == 1)
+
+        #expect(spans(model, writing) == nil)
+        #expect(closed.focusDashboard == [false])
     }
 
     @Test func doneClosesOnlyTheEditor() throws {
@@ -215,7 +272,7 @@ import WamaduCore
         shortcut("\r", keyCode: 36, in: window)
         settle(hosting)
 
-        #expect(closed.count == 1)
+        #expect(closed.focusDashboard == [true])
         #expect(spans(model, writing)?.count == 2)
     }
 }

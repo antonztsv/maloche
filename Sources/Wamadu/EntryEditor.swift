@@ -7,8 +7,9 @@ struct EntryEditorView: View {
     let model: AppModel
     let activityId: Int64
     let period: Period
-    /// Done, Escape, and once the entry is gone after a move or a delete.
-    let onClose: () -> Void
+    /// Done, Escape, and once the entry is gone after a move, a delete or a prompt in place of the dashboard;
+    /// true hands the key status back to the dashboard.
+    let onClose: (_ focusDashboard: Bool) -> Void
     @State private var confirmingDelete: Bool
     /// Typed times not yet committed.
     @State private var drafts: [Field: String] = [:]
@@ -21,7 +22,7 @@ struct EntryEditorView: View {
 
     init(
         model: AppModel, activityId: Int64, period: Period, confirmingDelete: Bool = false,
-        onClose: @escaping () -> Void
+        onClose: @escaping (_ focusDashboard: Bool) -> Void
     ) {
         self.model = model
         self.activityId = activityId
@@ -49,7 +50,8 @@ struct EntryEditorView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text("Edit \(name)"))
         .onChange(of: entry == nil) { _, gone in
-            if gone { onClose() }
+            // only a dashboard still shown takes the key status back, never a prompt in its place
+            if gone { onClose(model.panel?.isPrompt == false) }
         }
         .onChange(of: focus) { left, _ in
             if let left { commit(left) }
@@ -75,7 +77,6 @@ struct EntryEditorView: View {
                 drafts = [:]
                 confirmingDelete = true
             }
-            .keyboardShortcut(.delete)
             .buttonStyle(.borderless)
             .foregroundStyle(.red)
             Spacer()
@@ -181,7 +182,6 @@ struct EntryEditorView: View {
         HStack(spacing: 8) {
             Spacer()
             Button("Delete", role: .destructive) { model.deleteEntry(entry) }
-                .keyboardShortcut(.delete)
                 .foregroundStyle(.red)
             Button("Cancel") { confirmingDelete = false }
                 .keyboardShortcut(.defaultAction)
@@ -190,12 +190,12 @@ struct EntryEditorView: View {
     }
 
     private func done() {
-        if commitDrafts() { onClose() }
+        if commitDrafts() { onClose(true) }
     }
 
     private func cancel() {
         drafts = [:]
-        onClose()
+        onClose(true)
     }
 
     private func extend(_ index: Int, by seconds: TimeInterval) {
@@ -254,7 +254,7 @@ final class EntryEditorController {
         close(focusDashboard: false)
         let view = NSHostingView(
             rootView: EntryEditorView(model: model, activityId: activityId, period: day.period) { [weak self] in
-                self?.close()
+                self?.close(focusDashboard: $0)
             }
             .onGeometryChange(for: CGSize.self) {
                 $0.size
