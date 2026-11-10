@@ -73,6 +73,7 @@ final class CheckInPanelController: PanelPresenter {
     private let glass = NSGlassEffectView()
     private var hosting: NSView?
     private var activationObserver: NSObjectProtocol?
+    private var resignKeyObserver: NSObjectProtocol?
 
     init(model: AppModel) {
         self.model = model
@@ -80,6 +81,11 @@ final class CheckInPanelController: PanelPresenter {
         glass.cornerRadius = 16
         panel.contentView = glass
         panel.onCancel = { [weak model] in model?.close() }
+        resignKeyObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
+        ) { [weak model] _ in
+            MainActor.assumeIsolated { model?.panelLostFocus() }
+        }
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
         ) { [weak self] _ in

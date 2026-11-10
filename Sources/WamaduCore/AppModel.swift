@@ -99,6 +99,7 @@ public final class AppModel {
     @ObservationIgnored private let stateURL: URL?
     /// The dashboard a prompt replaced, the panel goes back to it once the prompt is answered.
     @ObservationIgnored private var returnTo: Period?
+    @ObservationIgnored private var closedByClickOutside: Date?
 
     public init(
         database: AppDatabase, stateURL: URL?, settings: TrackerSettings = TrackerSettings(),
@@ -174,7 +175,24 @@ public final class AppModel {
 
     /// Today's dashboard, or focus or close the visible panel.
     public func statusItemClicked() {
+        // the click on the icon itself took the focus and closed the panel, it must not reopen it
+        if let closed = closedByClickOutside, clock.now.timeIntervalSince(closed) < 0.5 {
+            closedByClickOutside = nil
+            return
+        }
         reveal(.statusItem) { showDashboard(today) }
+    }
+
+    /// A click outside closes what the user opened (dashboard, done panel, check-in by hand) without booking;
+    /// prompts the app showed by itself stay.
+    public func panelLostFocus() {
+        switch panel {
+        case .dashboard, .doneForToday: break
+        case .checkIn(let checkIn) where checkIn.mode == .manual: break
+        default: return
+        }
+        hidePanel()
+        closedByClickOutside = clock.now
     }
 
     public func shortcut(_ action: ShortcutAction) {
