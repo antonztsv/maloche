@@ -110,14 +110,14 @@ public final class AppModel {
     /// The dashboard a prompt replaced, the panel goes back to it once the prompt is answered.
     @ObservationIgnored private var returnTo: Period?
     @ObservationIgnored private var closedByClickOutside: Date?
-    @ObservationIgnored private let settingsStore: UserDefaults?
+    @ObservationIgnored private let settingsStore: (any SettingsStore)?
     @ObservationIgnored private let adjustTracker: (inout TrackerSettings) -> Void
     @ObservationIgnored private let defaultBackupFolder: URL?
 
     /// Settings come from the store, `adjustTracker` overrides them for the tracker only and is never stored.
     /// `backups` is the backup folder unless the settings name one; without either nothing is backed up.
     public init(
-        database: AppDatabase, stateURL: URL?, settingsStore: UserDefaults? = nil, backups: URL? = nil,
+        database: AppDatabase, stateURL: URL?, settingsStore: (any SettingsStore)? = nil, backups: URL? = nil,
         adjustTracker: @escaping (inout TrackerSettings) -> Void = { _ in },
         clock: any WallClock = SystemWallClock(), calendar: Calendar = .autoupdatingCurrent
     ) throws {

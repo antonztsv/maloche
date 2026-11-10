@@ -109,7 +109,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             bundleIdentifier: Bundle.main.bundleIdentifier ?? "io.github.antonztsv.wamadu.dev")
         return try AppModel(
             database: .open(at: url), stateURL: url.deletingLastPathComponent().appending(path: "tracker-state.json"),
-            settingsStore: .standard,
+            settingsStore: UserDefaults.standard,
             backups: url.deletingLastPathComponent().appending(path: "Backups", directoryHint: .isDirectory),
             adjustTracker: { settings in
                 #if DEBUG

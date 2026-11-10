@@ -37,15 +37,27 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public static let defaultsKey = "settings"
 
     /// The defaults when nothing is stored or the stored value is unreadable.
-    public static func load(from defaults: UserDefaults) -> AppSettings {
-        defaults.data(forKey: defaultsKey).flatMap { try? JSONDecoder().decode(AppSettings.self, from: $0) }
-            ?? AppSettings()
+    public static func load(from store: any SettingsStore) -> AppSettings {
+        store.storedSettings().flatMap { try? JSONDecoder().decode(AppSettings.self, from: $0) } ?? AppSettings()
     }
 
-    public func save(to defaults: UserDefaults) {
+    public func save(to store: any SettingsStore) {
         guard let data = try? JSONEncoder().encode(self) else { return }
-        defaults.set(data, forKey: Self.defaultsKey)
+        store.storeSettings(data)
     }
+}
+
+/// Keeps the encoded settings value.
+public protocol SettingsStore {
+    /// Nil when nothing is stored.
+    func storedSettings() -> Data?
+    func storeSettings(_ data: Data)
+}
+
+extension UserDefaults: SettingsStore {
+    public func storedSettings() -> Data? { data(forKey: AppSettings.defaultsKey) }
+
+    public func storeSettings(_ data: Data) { set(data, forKey: AppSettings.defaultsKey) }
 }
 
 /// S14: daily backups into a folder, a fixed number of them kept.

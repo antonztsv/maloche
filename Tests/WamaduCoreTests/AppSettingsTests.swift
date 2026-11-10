@@ -3,18 +3,17 @@ import Testing
 
 @testable import WamaduCore
 
-/// A uniquely named defaults suite, removed again when the test ends.
-final class TestDefaults: @unchecked Sendable {
-    private let name = "wamadu-tests-\(UUID().uuidString)"
-    let defaults: UserDefaults
+/// Settings kept in memory, nothing reaches the user defaults.
+final class MemorySettingsStore: SettingsStore {
+    var data: Data?
 
-    init() { defaults = UserDefaults(suiteName: name)! }
+    func storedSettings() -> Data? { data }
 
-    deinit { defaults.removePersistentDomain(forName: name) }
+    func storeSettings(_ data: Data) { self.data = data }
 }
 
 @Suite struct AppSettingsTests {
-    private let store = TestDefaults()
+    private let store = MemorySettingsStore()
 
     @Test func defaults() {
         let settings = AppSettings()
@@ -40,28 +39,26 @@ final class TestDefaults: @unchecked Sendable {
         settings.shortcuts[.toggleBreak] = nil
         settings.shortcuts[.openDashboard] = Shortcut(keyCode: 0x7A, modifiers: [.control, .shift])
         settings.backup = BackupSettings(automatic: false, folder: "/Volumes/Archive/wamadu", keep: 7)
-        settings.save(to: store.defaults)
-        #expect(AppSettings.load(from: store.defaults) == settings)
-        #expect(AppSettings.load(from: store.defaults).shortcuts[.toggleBreak] == nil)
+        settings.save(to: store)
+        #expect(AppSettings.load(from: store) == settings)
+        #expect(AppSettings.load(from: store).shortcuts[.toggleBreak] == nil)
     }
 
     @Test func nothingStoredGivesTheDefaults() {
-        #expect(AppSettings.load(from: store.defaults) == AppSettings())
+        #expect(AppSettings.load(from: store) == AppSettings())
     }
 
     @Test func anUnreadableValueGivesTheDefaults() {
-        store.defaults.set(Data("not json".utf8), forKey: AppSettings.defaultsKey)
-        #expect(AppSettings.load(from: store.defaults) == AppSettings())
-        store.defaults.set("a string", forKey: AppSettings.defaultsKey)
-        #expect(AppSettings.load(from: store.defaults) == AppSettings())
+        store.data = Data("not json".utf8)
+        #expect(AppSettings.load(from: store) == AppSettings())
     }
 
     @Test func readableFieldsStayWhenOthersAreMissingOrDamaged() {
         let json = #"{"checkInInterval": 1800, "rounding": 42, "laterSetting": true}"#
-        store.defaults.set(Data(json.utf8), forKey: AppSettings.defaultsKey)
+        store.data = Data(json.utf8)
         var expected = AppSettings()
         expected.checkInInterval = 1800
         expected.welcomeDone = true
-        #expect(AppSettings.load(from: store.defaults) == expected)
+        #expect(AppSettings.load(from: store) == expected)
     }
 }

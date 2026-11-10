@@ -6,11 +6,11 @@ import Testing
 @MainActor @Suite struct AppModelSettingsTests {
     private let clock = TestClock("09:00")
     private let presenter = FakePresenter()
-    private let store = TestDefaults()
+    private let store = MemorySettingsStore()
 
     private func makeModel(adjust: @escaping (inout TrackerSettings) -> Void = { _ in }) throws -> AppModel {
         let model = try AppModel(
-            database: .inMemory(), stateURL: nil, settingsStore: store.defaults, adjustTracker: adjust, clock: clock,
+            database: .inMemory(), stateURL: nil, settingsStore: store, adjustTracker: adjust, clock: clock,
             calendar: Fixture.berlin)
         model.presenter = presenter
         return model
@@ -50,7 +50,7 @@ import Testing
         var stored = AppSettings()
         stored.checkInInterval = 30 * 60
         stored.rounding = RoundingSettings(stepMinutes: 15, mode: .up, level: .entry)
-        stored.save(to: store.defaults)
+        stored.save(to: store)
 
         let model = try makeModel()
         #expect(model.settings == stored)
@@ -58,8 +58,8 @@ import Testing
 
         change(model) { $0.awayThreshold = 5 * 60 }
         #expect(model.tracker.settings.awayThreshold == 5 * 60)
-        #expect(AppSettings.load(from: store.defaults) == model.settings)
-        #expect(AppSettings.load(from: store.defaults).awayThreshold == 5 * 60)
+        #expect(AppSettings.load(from: store) == model.settings)
+        #expect(AppSettings.load(from: store).awayThreshold == 5 * 60)
     }
 
     @Test func aLongerIntervalMidSpanAsksLaterAndBooksTheSpanOnce() throws {
@@ -137,7 +137,7 @@ import Testing
         change(model) { $0.awayThreshold = 10 * 60 }
         #expect(model.tracker.settings.checkInInterval == 60)
         #expect(model.tracker.settings.awayThreshold == 10 * 60)
-        #expect(AppSettings.load(from: store.defaults).checkInInterval == 15 * 60)
+        #expect(AppSettings.load(from: store).checkInInterval == 15 * 60)
     }
 
     @Test func settingsFromTheMoreMenuClosesThePanelFirst() throws {

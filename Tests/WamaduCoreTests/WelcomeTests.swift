@@ -4,7 +4,7 @@ import Testing
 @testable import WamaduCore
 
 @MainActor @Suite struct WelcomeTests {
-    private let store = TestDefaults()
+    private let store = MemorySettingsStore()
 
     private static func calendar(firstWeekday: Int) -> Calendar {
         var calendar = Fixture.berlin
@@ -14,7 +14,7 @@ import Testing
 
     private func makeModel(calendar: Calendar = calendar(firstWeekday: 2)) throws -> AppModel {
         try AppModel(
-            database: .inMemory(), stateURL: nil, settingsStore: store.defaults, clock: TestClock("09:00"),
+            database: .inMemory(), stateURL: nil, settingsStore: store, clock: TestClock("09:00"),
             calendar: calendar)
     }
 
@@ -23,7 +23,7 @@ import Testing
     }
 
     @Test func settingsStoredBeforeTheWelcomeExistedCountAsDone() throws {
-        store.defaults.set(Data(#"{"checkInInterval": 1800}"#.utf8), forKey: AppSettings.defaultsKey)
+        store.data = Data(#"{"checkInInterval": 1800}"#.utf8)
         let model = try makeModel()
         #expect(model.settings.welcomeDone)
         #expect(model.settings.checkInInterval == 1800)
