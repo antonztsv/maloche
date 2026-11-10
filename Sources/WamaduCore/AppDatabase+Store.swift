@@ -184,6 +184,57 @@ extension AppDatabase {
         }
     }
 
+    /// The preview of importing the export into what wamadu has.
+    public func dailyImport(_ export: DailyExport, calendar: Calendar) throws -> DailyImport {
+        try dbQueue.read { db in
+            DailyImport(
+                export: export, activities: try Activity.fetchAll(db), projects: try Project.fetchAll(db),
+                customers: try Customer.fetchAll(db), blocks: try Block.fetchAll(db), calendar: calendar)
+        }
+    }
+
+    /// In one transaction: customers and activities by name ignoring case, existing ones keep their place, and the
+    /// blocks of each day that still has no time.
+    public func importDaily(_ plan: DailyImport.Plan) throws {
+        try dbQueue.write { db in
+            var customers = try Customer.fetchAll(db)
+            func customerId(_ name: String) throws -> Int64? {
+                if let customer = customers.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+                    return customer.id
+                }
+                var customer = Customer(
+                    name: name, colorIndex: CustomerColor.nextIndex(used: customers.map(\.colorIndex)))
+                try customer.insert(db)
+                customers.append(customer)
+                return customer.id
+            }
+            let activities = try Activity.fetchAll(db)
+            var ids: [String: Int64] = [:]
+            for planned in plan.activities {
+                if let existing = activities.first(where: {
+                    $0.name.caseInsensitiveCompare(planned.name) == .orderedSame
+                }), let id = existing.id {
+                    if let date = planned.lastUsedAt { try Self.markUsed(id, at: date, db) }
+                    ids[planned.name.lowercased()] = id
+                } else {
+                    var activity = Activity(
+                        name: planned.name, customerId: try planned.customer.flatMap(customerId),
+                        archived: planned.archived, lastUsedAt: planned.lastUsedAt)
+                    try activity.insert(db)
+                    ids[planned.name.lowercased()] = activity.id
+                }
+            }
+            for day in plan.days {
+                guard try Self.overlapping(day.interval.start, day.interval.end).isEmpty(db) else { continue }
+                for planned in day.blocks {
+                    guard let id = ids[planned.activity.lowercased()] else { throw WamaduError.activityNotFound }
+                    var block = Block(activityId: id, startedAt: planned.start, endedAt: planned.end, source: .imported)
+                    try block.insert(db)
+                }
+            }
+        }
+    }
+
     private static func overlapping(_ start: Date, _ end: Date) -> QueryInterfaceRequest<Block> {
         Block.filter(Column("startedAt") < end && Column("endedAt") > start)
     }

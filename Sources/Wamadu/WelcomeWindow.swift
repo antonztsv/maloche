@@ -66,13 +66,16 @@ private final class WelcomeWindow: NSWindow {
 
 /// The principle, work days and hours, check-in interval and login item; Start applies them.
 struct WelcomeView: View {
-    let calendar: Calendar
+    let model: AppModel
     let onStart: (Welcome, Bool) -> Void
     @State private var welcome: Welcome
     @State private var openAtLogin: Bool
+    @State private var importFlow = DailyImportFlow()
+
+    private var calendar: Calendar { model.calendar }
 
     init(model: AppModel, openAtLogin: Bool, onStart: @escaping (Welcome, Bool) -> Void) {
-        calendar = model.calendar
+        self.model = model
         _welcome = State(initialValue: Welcome(settings: model.settings, calendar: model.calendar))
         _openAtLogin = State(initialValue: openAtLogin)
         self.onStart = onStart
@@ -118,9 +121,17 @@ struct WelcomeView: View {
                     }
                     Toggle("Open at login", isOn: $openAtLogin)
                 } footer: {
-                    Text("You can change all of this later in Settings.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Text("Coming from Daily?")
+                                .foregroundStyle(.secondary)
+                            Button("Import your data") { importFlow.choose(model: model) }
+                                .buttonStyle(.link)
+                        }
+                        Text("You can change all of this later in Settings.")
+                            .foregroundStyle(.secondary)
+                    }
+                    .font(.subheadline)
                 }
             }
             .formStyle(.grouped)
@@ -136,6 +147,7 @@ struct WelcomeView: View {
         .frame(width: WelcomeWindowController.width)
         // the header sits under the transparent title bar
         .ignoresSafeArea(edges: .top)
+        .dailyImport(importFlow, model: model)
     }
 
     private func day(_ weekday: Int) -> some View {

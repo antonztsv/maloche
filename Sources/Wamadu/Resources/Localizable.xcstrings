@@ -145,6 +145,9 @@
         }
       }
     },
+    "Backup" : {
+
+    },
     "Blue" : {
 
     },
@@ -192,6 +195,12 @@
     "Choose an Activity" : {
 
     },
+    "Choose the folder from the Daily export with activities.json and timesheet.json." : {
+
+    },
+    "Choose the folder with activities.json and timesheet.json, or both files." : {
+
+    },
     "Click and press the new keys. Escape cancels, Delete clears the shortcut." : {
 
     },
@@ -199,6 +208,9 @@
 
     },
     "Color" : {
+
+    },
+    "Coming from Daily?" : {
 
     },
     "Continue without asking" : {
@@ -210,16 +222,28 @@
     "Create" : {
 
     },
+    "Create customer from %@" : {
+
+    },
     "Create “%@”" : {
 
     },
     "Customer" : {
 
     },
+    "Customer name for %@" : {
+
+    },
     "Customers" : {
 
     },
+    "Customers in your activity names" : {
+
+    },
     "Cut" : {
+
+    },
+    "Daily stores totals per day, not exact times. Imported days keep their totals, start and end of the day." : {
 
     },
     "Day" : {
@@ -306,6 +330,29 @@
     "For this session" : {
 
     },
+    "Found ^[%lld activity](inflect: true) and ^[%lld day](inflect: true), %@ to %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Found ^[%1$lld activity](inflect: true) and ^[%2$lld day](inflect: true), %3$@ to %4$@."
+          }
+        }
+      }
+    },
+    "Found ^[%lld activity](inflect: true) and ^[%lld day](inflect: true), %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Found ^[%1$lld activity](inflect: true) and ^[%2$lld day](inflect: true), %3$@."
+          }
+        }
+      }
+    },
+    "Found ^[%lld activity](inflect: true) and no days with time." : {
+
+    },
     "From" : {
 
     },
@@ -313,6 +360,18 @@
 
     },
     "Green" : {
+
+    },
+    "Import" : {
+
+    },
+    "Import from Daily" : {
+
+    },
+    "Import your data" : {
+
+    },
+    "Import…" : {
 
     },
     "In %@" : {
@@ -331,6 +390,12 @@
 
     },
     "Keep tracking" : {
+
+    },
+    "Keeps the full name for ^[%lld activity](inflect: true) whose short name is already in use." : {
+
+    },
+    "Keeps your time on ^[%lld day](inflect: true) as it is." : {
 
     },
     "Keyboard shortcuts" : {
@@ -376,6 +441,9 @@
 
     },
     "Name" : {
+
+    },
+    "Names like “Customer - Task” start with a customer. Pick the ones wamadu should create." : {
 
     },
     "New Activity" : {
@@ -483,6 +551,9 @@
     "Redo" : {
 
     },
+    "Remove the customer part from activity names" : {
+
+    },
     "Rename" : {
 
     },
@@ -535,6 +606,9 @@
         }
       }
     },
+    "Skips ^[%lld day](inflect: true) without a start time or with more than 24 hours." : {
+
+    },
     "Split" : {
 
     },
@@ -569,6 +643,9 @@
 
     },
     "That’s it for today" : {
+
+    },
+    "The import did not go through, nothing changed." : {
 
     },
     "The merge did not go through, nothing changed." : {
@@ -608,6 +685,9 @@
 
     },
     "Until I stop it" : {
+
+    },
+    "Uses the JSON export of activities and timesheet." : {
 
     },
     "Week" : {
@@ -655,6 +735,9 @@
     "Your day shows up here as soon as you answer the first check-in." : {
 
     },
+    "^[%lld activity](inflect: true)" : {
+
+    },
     "to" : {
 
     },
@@ -674,6 +757,9 @@
 
     },
     "wamadu, tracking" : {
+
+    },
+    "“%@” could not be read. Choose the files from the Daily export." : {
 
     },
     "“%@” is already in use, choose another name." : {

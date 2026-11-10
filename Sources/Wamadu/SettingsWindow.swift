@@ -35,6 +35,7 @@ final class SettingsWindowController {
             ),
             (String(localized: "Schedule"), "calendar", AnyView(ScheduleSettingsView(model: model))),
             (String(localized: "Rounding"), "clock", AnyView(RoundingSettingsView(model: model))),
+            (String(localized: "Backup"), "archivebox", AnyView(BackupSettingsView(model: model))),
         ]
         for (label, symbol, view) in panes {
             let hosting = NSHostingController(rootView: view)

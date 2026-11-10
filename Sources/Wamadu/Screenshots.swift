@@ -142,6 +142,8 @@
                     "settings-rounding",
                     AnyView(RoundingSettingsView(model: try settings { $0.rounding.stepMinutes = 15 }))
                 ),
+                ("settings-backup", AnyView(BackupSettingsView(model: try settings()))),
+                ("import-preview", AnyView(DailyImportView(preview: try Sample.dailyImport()) { _ in })),
                 ("welcome", AnyView(WelcomeView(model: try settings(), openAtLogin: true) { _, _ in })),
                 (
                     "manage-activities",
@@ -265,6 +267,36 @@
                 try database.setArchived(true, activities: [old])
                 let model = try AppModel(database: database, stateURL: nil, clock: FixedClock(now: at(17, 30)))
                 return (model, nordlicht.id!, abstimmung, review)
+            }
+
+            /// Prefixes and counts like the board, 556 activities and 70 days from September 1, an empty database.
+            static func dailyImport() throws -> DailyImport {
+                let prefixed = [("nordlicht", 42), ("hafenwerk", 18), ("kanzlei-b", 11), ("intern", 9), ("pf", 3)]
+                let names =
+                    prefixed.flatMap { prefix, count in Array(repeating: prefix, count: count) }.enumerated()
+                    .map { "\($1) - Task \($0 + 1)" } + (1...473).map { "Topic \($0)" }
+                func json(_ items: [String]) -> Data { Data("[\(items.joined(separator: ", "))]".utf8) }
+                let activities = names.map {
+                    #"{"name": "\#($0)", "group": null, "archived": false, "lastUsed": "2026-11-09T17:00:00Z"}"#
+                }
+                let first = Calendar.current.date(from: DateComponents(year: 2026, month: 9, day: 1))!
+                let days = (0..<70).map { offset in
+                    let day = Calendar.current.date(byAdding: .day, value: offset, to: first)!
+                    let parts = Calendar.current.dateComponents([.year, .month, .day], from: day)
+                    let date = String(format: "%04d-%02d-%02d", parts.year!, parts.month!, parts.day!)
+                    let started = (day + 8 * 3600).formatted(.iso8601)
+                    return #"""
+                        {"date": "\#(date)", "activities": [{"activity": "\#(names[offset])", "group": null, \#
+                        "duration": 3600}], "info": {"started": "\#(started)"}}
+                        """#
+                }
+                let export = try DailyExport(activities: json(activities), timesheet: json(days))
+                var preview = try AppDatabase.inMemory().dailyImport(export, calendar: .current)
+                for (index, name) in ["Nordlicht GmbH", "Hafenwerk AG", "Kanzlei Berger", "Intern", "Pf"].enumerated() {
+                    preview.prefixes[index].customerName = name
+                    preview.prefixes[index].isOn = index < 3
+                }
+                return preview
             }
 
             /// Code Review 10:00 to 12:15 and 16:00 to 17:00, today's dashboard shown at 17:30.

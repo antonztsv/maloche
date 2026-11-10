@@ -11,7 +11,7 @@ import WamaduCore
         let window = SettingsWindowController(model: model) { _ in }.window
         let tabs = try #require(window.contentViewController as? NSTabViewController)
         #expect(tabs.tabStyle == .toolbar)
-        #expect(tabs.tabViewItems.map(\.label) == ["General", "Schedule", "Rounding"])
+        #expect(tabs.tabViewItems.map(\.label) == ["General", "Schedule", "Rounding", "Backup"])
 
         var heights: [CGFloat] = []
         for index in tabs.tabViewItems.indices.reversed() {
@@ -22,7 +22,7 @@ import WamaduCore
             #expect(abs(content.height - pane.height) < 1, "pane \(index)")
             heights.append(content.height)
         }
-        #expect(heights.allSatisfy { $0 > 150 })
+        #expect(heights.allSatisfy { $0 > 80 }, "\(heights)")
         #expect(!window.isVisible)
         #expect(NSApplication.shared.keyWindow == nil)
     }

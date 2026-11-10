@@ -201,3 +201,27 @@ struct RoundingSettingsView: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 }
+
+/// The import from Daily.
+struct BackupSettingsView: View {
+    let model: AppModel
+    @State private var importFlow = DailyImportFlow()
+
+    var body: some View {
+        Form {
+            Section("Import") {
+                LabeledContent {
+                    Button("Import…") { importFlow.choose(model: model) }
+                } label: {
+                    Text("Import from Daily")
+                    Text("Uses the JSON export of activities and timesheet.")
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .scrollDisabled(true)
+        .frame(width: SettingsWindowController.width)
+        .fixedSize(horizontal: false, vertical: true)
+        .dailyImport(importFlow, model: model)
+    }
+}
