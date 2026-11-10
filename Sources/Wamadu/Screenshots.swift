@@ -120,6 +120,8 @@
                 ("dashboard-off", AnyView(DashboardView.sample(.off, model: model))),
                 ("dashboard-empty", AnyView(DashboardView.sample(.none, empty: true, model: model))),
                 ("dashboard-done", AnyView(DashboardView.sample(.doneForToday, model: model))),
+                ("dashboard-week", AnyView(DashboardView.sample(.week, model: model))),
+                ("dashboard-month", AnyView(DashboardView.sample(.month, model: model))),
                 ("edit-entry", editor()),
                 ("edit-entry-delete", editor(confirmingDelete: true)),
             ]

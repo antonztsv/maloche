@@ -2,7 +2,7 @@
   "sourceLanguage" : "en",
   "strings" : {
     "%@ %@" : {
-      "comment" : "A time span and what it was spent on, for VoiceOver",
+      "comment" : "A customer and its work, for VoiceOver\nA time span and what it was spent on, for VoiceOver",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -58,7 +58,19 @@
     "A fresh day" : {
 
     },
+    "A fresh month" : {
+
+    },
+    "A fresh week" : {
+
+    },
     "A quiet day" : {
+
+    },
+    "A quiet month" : {
+
+    },
+    "A quiet week" : {
 
     },
     "Activity" : {
@@ -149,6 +161,9 @@
     "Day timeline" : {
 
     },
+    "Days" : {
+
+    },
     "Delete" : {
 
     },
@@ -209,6 +224,9 @@
     "Keep tracking" : {
 
     },
+    "Last week" : {
+
+    },
     "Log" : {
 
     },
@@ -233,6 +251,12 @@
     "Next day" : {
 
     },
+    "Next month" : {
+
+    },
+    "Next week" : {
+
+    },
     "No project" : {
 
     },
@@ -248,6 +272,9 @@
     "Paste" : {
 
     },
+    "Per day" : {
+
+    },
     "Period" : {
 
     },
@@ -255,6 +282,12 @@
 
     },
     "Previous day" : {
+
+    },
+    "Previous month" : {
+
+    },
+    "Previous week" : {
 
     },
     "Project" : {
@@ -306,6 +339,9 @@
     "That’s it for today" : {
 
     },
+    "This week" : {
+
+    },
     "Today" : {
 
     },
@@ -343,6 +379,9 @@
 
     },
     "Work" : {
+
+    },
+    "Work per day" : {
 
     },
     "Workday" : {

@@ -178,3 +178,48 @@ extension Array where Element: Identifiable, Element.ID == Int64? {
         Dictionary(compactMap { item in item.id.map { ($0, item) } }) { first, _ in first }
     }
 }
+
+/// One customer's part of a day's work.
+public struct CustomerWork: Equatable, Sendable {
+    public var customer: Customer?
+    public var duration: TimeInterval
+}
+
+extension PeriodSummary {
+    /// The day's work per customer, bottom to top in the order of `customers`.
+    public func stack(of day: DaySummary) -> [CustomerWork] {
+        customers.compactMap { total in
+            day.workByCustomer[total.customer?.id].map { CustomerWork(customer: total.customer, duration: $0) }
+        }
+    }
+
+    /// The day's work relative to the longest day of the period, 0 to 1.
+    public func share(of day: DaySummary) -> Double {
+        let longest = days.map(\.work).max() ?? 0
+        return longest > 0 ? day.work / longest : 0
+    }
+
+    /// The days in rows of seven from the calendar's first weekday, nil before the first and after the last day.
+    public func weeks(calendar: Calendar) -> [[DaySummary?]] {
+        guard let first = days.first else { return [] }
+        let leading = (calendar.component(.weekday, from: first.interval.start) - calendar.firstWeekday + 7) % 7
+        var cells: [DaySummary?] = Array(repeating: nil, count: leading) + days
+        cells += Array(repeating: nil, count: (7 - cells.count % 7) % 7)
+        return stride(from: 0, to: cells.count, by: 7).map { Array(cells[$0..<$0 + 7]) }
+    }
+}
+
+extension Period {
+    /// The period of another kind around now when this one contains now, otherwise around its start.
+    public func switched(to kind: PeriodKind, now: Date, calendar: Calendar) -> Period {
+        Period(kind, containing: interval.contains(now) ? now : interval.start, calendar: calendar)
+    }
+}
+
+extension Calendar {
+    /// Short weekday names from the first weekday on.
+    public var orderedShortWeekdaySymbols: [String] {
+        let symbols = shortStandaloneWeekdaySymbols
+        return Array(symbols[(firstWeekday - 1)...] + symbols[..<(firstWeekday - 1)])
+    }
+}

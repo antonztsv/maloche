@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import WamaduCore
 
-/// Everything the day dashboard shows, built from database values.
+/// Everything the dashboard shows of a day, week or month, built from database values.
 struct DashboardData {
     /// Timeline colors: work per customer, nil for activities without customer.
     enum Lane: Equatable, Sendable {
@@ -13,7 +13,9 @@ struct DashboardData {
     var period: Period
     var summary: PeriodSummary
     var current: NowRow
-    var isToday: Bool
+    var now: Date
+    /// The period contains now.
+    var isCurrent: Bool
     var calendar: Calendar
     /// Nil on a day without work or break.
     var timeline: DayTimeline?
@@ -33,8 +35,9 @@ struct DashboardData {
     ) {
         self.period = period
         self.current = current
+        self.now = now
         self.calendar = calendar
-        self.isToday = period.interval.contains(now)
+        self.isCurrent = period.interval.contains(now)
         self.activities = Self.byId(activities)
         self.projects = Self.byId(projects)
         self.customers = Self.byId(customers)
@@ -51,6 +54,9 @@ struct DashboardData {
     }
 
     var day: DaySummary? { summary.days.first }
+
+    /// The period right before the current one.
+    var isPrevious: Bool { !isCurrent && period.next(calendar: calendar).interval.contains(now) }
 
     func isBreak(_ activityId: Int64) -> Bool { activities[activityId]?.kind == .break }
 

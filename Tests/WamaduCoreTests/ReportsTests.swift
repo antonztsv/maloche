@@ -283,4 +283,117 @@ import Testing
         #expect(week.daysWithWork == 2)
         #expect(week.averageWorkPerDay == 16200 / 2)
     }
+
+    // MARK: Week and month
+
+    @Test func weekStacksFollowTheCustomerTotalsWithoutBreaks() {
+        let blocks = [
+            block(review, local(2026, 11, 9, 8), local(2026, 11, 9, 9)),
+            block(writing, local(2026, 11, 9, 9), local(2026, 11, 9, 11)),
+            block(breakActivity, local(2026, 11, 9, 11), local(2026, 11, 9, 12)),
+            block(reading, local(2026, 11, 9, 12), local(2026, 11, 9, 12, 30)),
+            block(privateActivity, local(2026, 11, 9, 18), local(2026, 11, 9, 22)),
+            block(planning, local(2026, 11, 10, 8), local(2026, 11, 10, 10)),
+            block(review, local(2026, 11, 10, 10), local(2026, 11, 10, 10, 30)),
+        ]
+        let week = summary(Period(.week, containing: local(2026, 11, 9), calendar: calendar), blocks)
+        #expect(week.customers.map(\.customer?.id) == [nil, 1, 2])
+        #expect(
+            week.stack(of: week.days[0]) == [
+                CustomerWork(customer: nil, duration: 1800), CustomerWork(customer: acme, duration: 7200),
+                CustomerWork(customer: globex, duration: 3600),
+            ])
+        #expect(
+            week.stack(of: week.days[1]) == [
+                CustomerWork(customer: nil, duration: 7200), CustomerWork(customer: globex, duration: 1800),
+            ])
+        #expect(week.stack(of: week.days[2]).isEmpty)
+        #expect(week.days.map(\.work) == [12600, 9000, 0, 0, 0, 0, 0] as [TimeInterval])
+        #expect(week.share(of: week.days[0]) == 1)
+        #expect(week.share(of: week.days[1]) == 9000.0 / 12600)
+        #expect(week.share(of: week.days[2]) == 0)
+        #expect(week.breaks == 3600)
+        #expect(week.daysWithWork == 2)
+        #expect(week.averageWorkPerDay == 21600 / 2)
+    }
+
+    @Test func weekAcrossFallBackCountsTheLongDayAndSplitsAtMidnight() {
+        let blocks = [
+            block(writing, local(2026, 10, 23, 9), local(2026, 10, 23, 17)),
+            block(writing, local(2026, 10, 24, 20), local(2026, 10, 26, 4)),
+        ]
+        let week = summary(Period(.week, containing: local(2026, 10, 25, 12), calendar: calendar), blocks)
+        let hours: [TimeInterval] = [0, 0, 0, 0, 8, 4, 25]
+        #expect(week.days.map(\.work) == hours.map { $0 * 3600 })
+        #expect(week.stack(of: week.days[6]) == [CustomerWork(customer: acme, duration: 25 * 3600)])
+        #expect(week.stack(of: week.days[5]) == [CustomerWork(customer: acme, duration: 4 * 3600)])
+        #expect(week.share(of: week.days[6]) == 1)
+        #expect(week.share(of: week.days[4]) == 8.0 / 25)
+        #expect(week.daysWithWork == 3)
+        #expect(week.averageWorkPerDay == 37 * 3600 / 3)
+    }
+
+    @Test func emptyWeekHasNoStacksAndNoShares() {
+        let week = summary(Period(.week, containing: local(2026, 11, 9), calendar: calendar), [])
+        #expect(week.days.allSatisfy { week.stack(of: $0).isEmpty && week.share(of: $0) == 0 })
+    }
+
+    @Test func monthGridStartsMidWeekOnTheCalendarsFirstWeekday() {
+        let blocks = [
+            block(writing, local(2026, 10, 1, 9), local(2026, 10, 1, 12)),
+            block(review, local(2026, 10, 31, 22), local(2026, 11, 1, 1)),
+        ]
+        let october = summary(Period(.month, containing: local(2026, 10, 15), calendar: calendar), blocks)
+        let weeks = october.weeks(calendar: calendar)
+        #expect(weeks.count == 5)
+        #expect(weeks.allSatisfy { $0.count == 7 })
+        #expect(weeks[0].prefix(3).allSatisfy { $0 == nil })
+        #expect(weeks[0][3]?.interval.start == local(2026, 10, 1))
+        #expect(weeks[4][5]?.interval.start == local(2026, 10, 31))
+        #expect(weeks[4][6] == nil)
+        #expect(weeks.joined().compactMap { $0 } == october.days)
+        #expect(october.work == 5 * 3600)
+        #expect(october.daysWithWork == 2)
+        #expect(october.share(of: october.days[0]) == 1)
+        #expect(october.share(of: october.days[30]) == 2.0 / 3)
+        #expect(october.share(of: october.days[1]) == 0)
+        #expect(october.customers.map(\.duration) == [3 * 3600, 2 * 3600])
+
+        var sundayFirst = Fixture.berlin
+        sundayFirst.firstWeekday = 1
+        let usWeeks = october.weeks(calendar: sundayFirst)
+        #expect(usWeeks.count == 5)
+        #expect(usWeeks[0].prefix(4).allSatisfy { $0 == nil })
+        #expect(usWeeks[0][4]?.interval.start == local(2026, 10, 1))
+        #expect(usWeeks[4][6]?.interval.start == local(2026, 10, 31))
+
+        let november = summary(october.period.next(calendar: calendar), blocks)
+        let novemberWeeks = november.weeks(calendar: calendar)
+        #expect(novemberWeeks.count == 6)
+        #expect(novemberWeeks[0].prefix(6).allSatisfy { $0 == nil })
+        #expect(novemberWeeks[0][6]?.work == 3600)
+        #expect(novemberWeeks[5][0]?.interval.start == local(2026, 11, 30))
+        #expect(novemberWeeks[5].dropFirst().allSatisfy { $0 == nil })
+    }
+
+    @Test func weekdaySymbolsStartOnTheFirstWeekday() {
+        var calendar = Fixture.berlin
+        calendar.locale = Locale(identifier: "en_US_POSIX")
+        calendar.firstWeekday = 2
+        #expect(calendar.orderedShortWeekdaySymbols == ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
+        calendar.firstWeekday = 1
+        #expect(calendar.orderedShortWeekdaySymbols == ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"])
+    }
+
+    @Test func switchingKindStaysAroundNowOrTheStart() {
+        let now = local(2026, 11, 11, 15)
+        let thisWeek = Period(.week, containing: now, calendar: calendar)
+        #expect(thisWeek.switched(to: .day, now: now, calendar: calendar) == day(2026, 11, 11))
+        #expect(
+            thisWeek.switched(to: .month, now: now, calendar: calendar)
+                == Period(.month, containing: now, calendar: calendar))
+        let october = Period(.month, containing: local(2026, 10, 15), calendar: calendar)
+        #expect(october.switched(to: .week, now: now, calendar: calendar).interval.start == local(2026, 9, 28))
+        #expect(october.switched(to: .day, now: now, calendar: calendar) == day(2026, 10, 1))
+    }
 }

@@ -2,11 +2,11 @@ import AppKit
 import SwiftUI
 import WamaduCore
 
-/// The day in the panel: period switcher, totals, timeline, the list by customer and project, and the Now row.
+/// The day, week or month in the panel: period switcher, totals, chart, the list by customer, and the Now row.
 struct DashboardView: View {
     var data: DashboardData
     var moreActions: MoreActionsMenu
-    /// Previous or next day, or another period kind from the switcher.
+    /// Previous or next period, or another period kind from the switcher.
     var onShowPeriod: (Period) -> Void
     /// Switches the panel to the check-in, from the Now row and from Check In Now.
     var onCheckIn: () -> Void
@@ -18,7 +18,7 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 12) {
             header
             periodPicker
-            if let timeline = data.timeline, let day = data.day {
+            if data.period.kind == .day, let timeline = data.timeline, let day = data.day {
                 totals(day)
                 TimelineChart(data: data, timeline: timeline, onEdit: onEdit)
                     .padding(.horizontal, 4)
@@ -26,8 +26,14 @@ struct DashboardView: View {
                 Divider()
                     .padding(.horizontal, 4)
                 DashboardList(data: data, onEdit: onEdit)
+            } else if data.period.kind != .day, data.summary.work > 0 || data.summary.breaks > 0 {
+                periodTotals
+                if data.period.kind == .week { WeekChart(data: data) } else { MonthGrid(data: data) }
+                Divider()
+                    .padding(.horizontal, 4)
+                customerTotals
             } else {
-                emptyDay
+                emptyPeriod
             }
             nowRow
         }
@@ -38,29 +44,56 @@ struct DashboardView: View {
     private var header: some View {
         HStack(spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                let date = data.period.interval.start.formatted(.dateTime.weekday(.wide).month(.wide).day())
-                if data.isToday {
-                    Text("Today")
+                let title = title
+                if let relative = title.relative {
+                    relative
                         .font(.title3.weight(.semibold))
-                    Text(date)
+                    Text(title.date)
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 } else {
-                    Text(date)
+                    Text(title.date)
                         .font(.title3.weight(.semibold))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            iconButton("chevron.left", Text("Previous day")) {
+            let paging = pagingLabels
+            iconButton("chevron.left", paging.previous) {
                 onShowPeriod(data.period.previous(calendar: data.calendar))
             }
-            iconButton("chevron.right", Text("Next day"), enabled: !data.isToday) {
+            iconButton("chevron.right", paging.next, enabled: !data.isCurrent) {
                 onShowPeriod(data.period.next(calendar: data.calendar))
             }
             moreActions
         }
         .padding(.leading, 4)
         .padding(.top, 2)
+    }
+
+    /// "Today" or "This week" beside the date, otherwise the date alone.
+    private var title: (relative: Text?, date: String) {
+        let start = data.period.interval.start
+        switch data.period.kind {
+        case .day:
+            return (data.isCurrent ? Text("Today") : nil, start.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+        case .week:
+            let last = data.summary.days.last?.interval.start ?? start
+            let sameMonth = data.calendar.isDate(start, equalTo: last, toGranularity: .month)
+            let lastStyle: Date.FormatStyle = sameMonth ? .dateTime.day() : .dateTime.month(.wide).day()
+            let range = String(
+                localized: "\(start, format: .dateTime.month(.wide).day()) to \(last, format: lastStyle)")
+            return (data.isCurrent ? Text("This week") : data.isPrevious ? Text("Last week") : nil, range)
+        case .month:
+            return (nil, start.formatted(.dateTime.month(.wide).year()))
+        }
+    }
+
+    private var pagingLabels: (previous: Text, next: Text) {
+        switch data.period.kind {
+        case .day: (Text("Previous day"), Text("Next day"))
+        case .week: (Text("Previous week"), Text("Next week"))
+        case .month: (Text("Previous month"), Text("Next month"))
+        }
     }
 
     private func iconButton(
@@ -143,14 +176,12 @@ struct DashboardView: View {
             selection: Binding(
                 get: { data.period.kind },
                 set: { kind in
-                    // TODO: enable week and month once their views exist, the day layout cannot show them
-                    guard kind == .day else { return }
-                    onShowPeriod(Period(kind, containing: data.period.interval.start, calendar: data.calendar))
+                    onShowPeriod(data.period.switched(to: kind, now: data.now, calendar: data.calendar))
                 })
         ) {
             Text("Day").tag(PeriodKind.day)
-            Text("Week").tag(PeriodKind.week).selectionDisabled()
-            Text("Month").tag(PeriodKind.month).selectionDisabled()
+            Text("Week").tag(PeriodKind.week)
+            Text("Month").tag(PeriodKind.month)
         }
         .pickerStyle(.segmented)
         .labelsHidden()
@@ -179,6 +210,57 @@ struct DashboardView: View {
         }
         .padding(.horizontal, 4)
         .padding(.top, 4)
+    }
+
+    /// Week: work, break and the average per day with work. Month: work and the days with work.
+    private var periodTotals: some View {
+        let summary = data.summary
+        return HStack(alignment: .firstTextBaseline, spacing: 16) {
+            stat(Text("Work"), alignment: .leading) {
+                Text(DashboardData.duration(summary.work))
+                    .font(.title2.weight(.semibold))
+            }
+            if data.period.kind == .week, summary.breaks > 0 {
+                stat(Text("Break"), alignment: .leading) {
+                    Text(DashboardData.duration(summary.breaks))
+                        .font(.title2.weight(.semibold))
+                }
+            }
+            Spacer(minLength: 0)
+            if data.period.kind == .week {
+                stat(Text("Per day"), alignment: .trailing) {
+                    Text(DashboardData.duration(summary.averageWorkPerDay))
+                        .font(.title2.weight(.semibold))
+                }
+            } else {
+                stat(Text("Days"), alignment: .trailing) {
+                    Text(summary.daysWithWork, format: .number)
+                        .font(.title2.weight(.semibold))
+                }
+            }
+        }
+        .padding(.horizontal, 4)
+        .padding(.top, 4)
+    }
+
+    private var customerTotals: some View {
+        VStack(spacing: 0) {
+            ForEach(data.summary.customers, id: \.customer?.id) { total in
+                HStack(spacing: 8) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(DashboardData.color(of: total.customer))
+                        .frame(width: 8, height: 8)
+                    Text(DashboardData.name(of: total.customer))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(DashboardData.duration(total.duration))
+                        .monospacedDigit()
+                }
+                .frame(height: 28)
+                .accessibilityElement(children: .combine)
+            }
+        }
+        .padding(.horizontal, 4)
     }
 
     private func stat(
@@ -225,14 +307,15 @@ struct DashboardView: View {
         }
     }
 
-    private var emptyDay: some View {
+    private var emptyPeriod: some View {
         VStack(spacing: 6) {
             Image(systemName: "clock")
                 .font(.largeTitle)
                 .imageScale(.large)
                 .foregroundStyle(.tertiary)
                 .accessibilityHidden(true)
-            if data.isToday {
+            switch (data.period.kind, data.isCurrent) {
+            case (.day, true):
                 Text("A fresh day")
                     .font(.body.weight(.semibold))
                 Text("Your day shows up here as soon as you answer the first check-in.")
@@ -244,8 +327,20 @@ struct DashboardView: View {
                     .keyboardShortcut(.defaultAction)
                     .controlSize(.large)
                     .padding(.top, 10)
-            } else {
+            case (.day, false):
                 Text("A quiet day")
+                    .font(.body.weight(.semibold))
+            case (.week, true):
+                Text("A fresh week")
+                    .font(.body.weight(.semibold))
+            case (.week, false):
+                Text("A quiet week")
+                    .font(.body.weight(.semibold))
+            case (.month, true):
+                Text("A fresh month")
+                    .font(.body.weight(.semibold))
+            case (.month, false):
+                Text("A quiet month")
                     .font(.body.weight(.semibold))
             }
         }
