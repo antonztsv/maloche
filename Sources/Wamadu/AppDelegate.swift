@@ -50,7 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let interval = UserDefaults.standard.double(forKey: "SpikeCheckInInterval")
         if interval > 0 {
             let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
-                MainActor.assumeIsolated { self?.panelController.show(reason: "timer") }
+                MainActor.assumeIsolated { self?.panelController.open(.timer) }
             }
             RunLoop.main.add(timer, forMode: .common)
             spikeTimer = timer
@@ -68,6 +68,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             statusItem?.menu = nil
             return
         }
-        panelController.toggle()
+        panelController.open(.statusItem)
     }
 }

@@ -53,33 +53,39 @@ final class CheckInPanelController {
         func runSelfTest() async { await SpikeSelfTest.run(self, panel: panel) }
     #endif
 
-    func toggle() {
-        panel.isVisible ? panel.orderOut(nil) : show(reason: "status item")
-    }
-
-    func show(reason: String) {
-        // keeps what the user is typing when a timed check-in arrives while the panel is open
-        if panel.isVisible {
+    func open(_ trigger: PanelFocus.Trigger) {
+        switch PanelFocus.action(for: trigger, visible: panel.isVisible, key: panel.isKeyWindow) {
+        case .show(let focus):
+            // a fresh hosting view per check-in resets the field and its focus
+            let view = NSHostingView(
+                rootView: CheckInView(onLog: { [weak self] text in
+                    spikeLog.info("logged \(text, privacy: .private)")
+                    self?.panel.orderOut(nil)
+                }))
+            glass.contentView = view
+            hosting = view
+            position()
+            if focus { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
+        case .update:
+            // keeps what the user is typing and who has the focus
+            position()
+            panel.orderFrontRegardless()
+        case .focus:
             position()
             panel.makeKeyAndOrderFront(nil)
-            return
+        case .close:
+            panel.orderOut(nil)
         }
-        // a fresh hosting view per check-in resets the field and its focus
-        let view = NSHostingView(
-            rootView: CheckInView(onLog: { [weak self] text in
-                spikeLog.info("logged \(text, privacy: .private)")
-                self?.panel.orderOut(nil)
-            }))
-        glass.contentView = view
-        hosting = view
-        position()
-        panel.makeKeyAndOrderFront(nil)
+        logState(trigger)
+    }
+
+    private func logState(_ trigger: PanelFocus.Trigger) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [panel] in
             let editor = panel.firstResponder as? NSTextView
             spikeLog.info(
                 """
-                panel shown (\(reason, privacy: .public)): key=\(panel.isKeyWindow) \
-                visible=\(panel.isOnActiveSpace) screen=\(panel.screen?.localizedName ?? "?", privacy: .public) \
+                panel \(String(describing: trigger), privacy: .public): visible=\(panel.isVisible) \
+                key=\(panel.isKeyWindow) screen=\(panel.screen?.localizedName ?? "?", privacy: .public) \
                 frontmost=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?", privacy: .public) \
                 fieldEditor=\(editor != nil) selection=\(editor.map { NSStringFromRange($0.selectedRange()) } ?? "-", privacy: .public)
                 """)

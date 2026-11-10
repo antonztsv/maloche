@@ -17,13 +17,22 @@
             }
             func pause() async { try? await Task.sleep(for: .milliseconds(400)) }
 
-            controller.show(reason: "self-test")
+            controller.open(.timer)
             await pause()
+            spikeLog.info("self-test timer: key=\(panel.isKeyWindow) visible=\(panel.isVisible)")
+            controller.open(.shortcut)
+            await pause()
+            let focused = panel.firstResponder as? NSTextView
+            spikeLog.info(
+                """
+                self-test shortcut focuses: key=\(panel.isKeyWindow) \
+                selection=\(focused.map { NSStringFromRange($0.selectedRange()) } ?? "-", privacy: .public)
+                """)
             key("\u{1b}", 53)
             await pause()
             spikeLog.info("self-test escape: visible=\(panel.isVisible)")
 
-            controller.show(reason: "self-test")
+            controller.open(.statusItem)
             await pause()
             key("x", 7)
             spikeLog.info(
