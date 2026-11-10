@@ -73,6 +73,8 @@ struct DashboardView: View {
             }
             moreActions
         }
+        // the height of the day buttons also without them, so the menu keeps its place
+        .frame(minHeight: 28)
         .padding(.leading, 4)
         .padding(.top, 2)
     }

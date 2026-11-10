@@ -73,7 +73,7 @@ struct CheckInView: View {
             }
         }
         .padding(12)
-        .padding(.top, 4)
+        .padding(.top, 6)
         .frame(width: 380)
     }
 
@@ -90,14 +90,19 @@ struct CheckInView: View {
                 }
             }
             Spacer(minLength: 0)
-            if case .checkIn(let checkIn) = content, checkIn.canSplit, draft == nil {
-                Toggle("Split", isOn: Binding(get: { split != nil }, set: toggleSplit))
-                    .toggleStyle(.button)
-                    .buttonStyle(.accessoryBar)
-                    .controlSize(.small)
+            if case .checkIn(let checkIn) = content, draft == nil {
+                HStack(spacing: 4) {
+                    if checkIn.canSplit {
+                        Toggle("Split", isOn: Binding(get: { split != nil }, set: toggleSplit))
+                            .toggleStyle(.button)
+                            .buttonStyle(.accessoryBar)
+                            .controlSize(.small)
+                    }
+                    MoreActionsMenu(model: model)
+                }
             }
         }
-        .padding(.horizontal, 4)
+        .padding(.leading, 4)
     }
 
     private var isCheckIn: Bool {
@@ -131,7 +136,6 @@ struct CheckInView: View {
 
     private var buttons: some View {
         HStack(spacing: 8) {
-            if isCheckIn { MoreActionsMenu(model: model) }
             if let hint {
                 Text(hint)
                     .font(.subheadline)
