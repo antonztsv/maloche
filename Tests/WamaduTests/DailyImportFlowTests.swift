@@ -35,6 +35,13 @@ import WamaduCore
         #expect(NSApplication.shared.windows.allSatisfy { !$0.isVisible })
     }
 
+    @Test func thePreviewNoteNamesWhatImportedDaysKeep() {
+        #expect(
+            DailyImportView.note
+                == "Daily stores totals per day, not exact times. Imported days keep their totals and the start of the day."
+        )
+    }
+
     @Test func anUnreadableFileOrAnotherFolderShowsANote() throws {
         defer { try? FileManager.default.removeItem(at: folder) }
         try write(activities: "[]", timesheet: "{")

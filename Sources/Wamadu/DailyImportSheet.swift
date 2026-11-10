@@ -59,6 +59,13 @@ extension View {
 /// Counts, the customers found in "x - y" names and the choice to shorten the names; nothing is written before Import.
 struct DailyImportView: View {
     static let size = CGSize(width: 560, height: 520)
+    static var note: String {
+        String(
+            localized: """
+                Daily stores totals per day, not exact times. \
+                Imported days keep their totals and the start of the day.
+                """)
+    }
 
     @State var preview: DailyImport
     let commit: (DailyImport.Plan) throws -> Void
@@ -125,11 +132,7 @@ struct DailyImportView: View {
                 if failed {
                     Text("The import did not go through, nothing changed.")
                 } else {
-                    Text(
-                        """
-                        Daily stores totals per day, not exact times. \
-                        Imported days keep their totals, start and end of the day.
-                        """)
+                    Text(Self.note)
                 }
             }
             .font(.subheadline)

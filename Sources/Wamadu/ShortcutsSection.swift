@@ -86,7 +86,7 @@ extension ShortcutAction {
     var title: String {
         switch self {
         case .openCheckIn: String(localized: "Open check-in")
-        case .toggleBreak: String(localized: "Start break")
+        case .toggleBreak: String(localized: "Start or end break")
         case .openDashboard: String(localized: "Open dashboard")
         }
     }

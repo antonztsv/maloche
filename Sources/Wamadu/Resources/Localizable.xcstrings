@@ -261,7 +261,7 @@
     "Cut" : {
 
     },
-    "Daily stores totals per day, not exact times. Imported days keep their totals, start and end of the day." : {
+    "Daily stores totals per day, not exact times. Imported days keep their totals and the start of the day." : {
 
     },
     "Day" : {
@@ -657,9 +657,6 @@
     "Start" : {
 
     },
-    "Start break" : {
-
-    },
     "Start of part %lld" : {
 
     },
@@ -667,6 +664,9 @@
 
     },
     "Start on %@" : {
+
+    },
+    "Start or end break" : {
 
     },
     "Still on break" : {

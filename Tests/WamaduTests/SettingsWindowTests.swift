@@ -27,6 +27,10 @@ import WamaduCore
         #expect(NSApplication.shared.keyWindow == nil)
     }
 
+    @Test func theBreakShortcutSaysItStartsAndEndsTheBreak() {
+        #expect(ShortcutAction.toggleBreak.title == "Start or end break")
+    }
+
     @Test func recordedModifiersKeepOnlyTheFourShortcutKeys() {
         #expect(Shortcut.Modifiers([.command, .option, .capsLock, .function]) == [.command, .option])
         #expect(Shortcut.Modifiers([.control, .shift, .numericPad]) == [.control, .shift])
