@@ -133,13 +133,19 @@ final class CheckInPanelController: PanelPresenter {
     }
 
     private func logState(_ action: String) {
+        #if DEBUG
+            logPanel(action)
+        #endif
+    }
+
+    private func logPanel(_ action: String) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [panel] in
             let editor = panel.firstResponder as? NSTextView
             appLog.info(
                 """
                 panel \(action, privacy: .public): visible=\(panel.isVisible) \
                 key=\(panel.isKeyWindow) screen=\(panel.screen?.localizedName ?? "?", privacy: .public) \
-                frontmost=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?", privacy: .public) \
+                frontmost=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?", privacy: .private) \
                 fieldEditor=\(editor != nil) selection=\(editor.map { NSStringFromRange($0.selectedRange()) } ?? "-", privacy: .public)
                 """)
         }
