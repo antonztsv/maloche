@@ -17,6 +17,8 @@ public protocol PanelPresenter: AnyObject {
     func hide()
     /// An action did not go through, the panel keeps its content.
     func signalFailure()
+    /// Opens the settings window, after the panel closed.
+    func showSettings()
 }
 
 public enum PanelContent: Equatable, Sendable {
@@ -93,6 +95,8 @@ public final class AppModel {
     public private(set) var schedule = WorkSchedule.standard
     public private(set) var catalog = Catalog()
     public private(set) var panel: PanelContent?
+    /// As stored and shown in the settings window.
+    public private(set) var settings: AppSettings
     @ObservationIgnored public weak var presenter: (any PanelPresenter)?
     public let calendar: Calendar
     @ObservationIgnored private let clock: any WallClock
@@ -100,19 +104,29 @@ public final class AppModel {
     /// The dashboard a prompt replaced, the panel goes back to it once the prompt is answered.
     @ObservationIgnored private var returnTo: Period?
     @ObservationIgnored private var closedByClickOutside: Date?
+    @ObservationIgnored private let settingsStore: UserDefaults?
+    @ObservationIgnored private let adjustTracker: (inout TrackerSettings) -> Void
 
+    /// Settings come from the store, `adjustTracker` overrides them for the tracker only and is never stored.
     public init(
-        database: AppDatabase, stateURL: URL?, settings: TrackerSettings = TrackerSettings(),
+        database: AppDatabase, stateURL: URL?, settingsStore: UserDefaults? = nil,
+        adjustTracker: @escaping (inout TrackerSettings) -> Void = { _ in },
         clock: any WallClock = SystemWallClock(), calendar: Calendar = .autoupdatingCurrent
     ) throws {
         self.database = database
         self.stateURL = stateURL
         self.clock = clock
         self.calendar = calendar
+        self.settingsStore = settingsStore
+        self.adjustTracker = adjustTracker
+        let settings = settingsStore.map(AppSettings.load) ?? AppSettings()
+        self.settings = settings
         builtIns = BuiltInActivities(
             breakId: try database.builtIn(.break).id!, privateId: try database.builtIn(.private).id!)
+        var trackerSettings = settings.tracker
+        adjustTracker(&trackerSettings)
         tracker = Tracker(
-            settings: settings, calendar: calendar, builtIns: builtIns, state: Self.loadState(from: stateURL))
+            settings: trackerSettings, calendar: calendar, builtIns: builtIns, state: Self.loadState(from: stateURL))
         reloadCatalog()
         publish()
     }
@@ -268,6 +282,23 @@ public final class AppModel {
         dismiss()
         send(event)
         hidePanel()
+    }
+
+    public func openSettings() {
+        dismiss()
+        hidePanel()
+        presenter?.showSettings()
+    }
+
+    /// Stores the settings and applies them from the next tick, the running span stays.
+    public func update(_ settings: AppSettings) {
+        guard settings != self.settings else { return }
+        self.settings = settings
+        var trackerSettings = settings.tracker
+        adjustTracker(&trackerSettings)
+        tracker.settings = trackerSettings
+        publish()
+        if let settingsStore { settings.save(to: settingsStore) }
     }
 
     public func startBreak() {

@@ -32,6 +32,8 @@ final class FakePresenter: PanelPresenter {
     }
 
     func signalFailure() { failures += 1 }
+
+    func showSettings() { calls.append("showSettings") }
 }
 
 final class TestClock: WallClock, @unchecked Sendable {

@@ -74,3 +74,54 @@ import Testing
         #expect(try JSONDecoder().decode(Shortcut.self, from: data) == shortcut)
     }
 }
+
+@Suite struct ShortcutRecordingTests {
+    private let defaults = ShortcutAction.defaultShortcuts
+
+    private func press(
+        _ keyCode: Int, _ modifiers: Shortcut.Modifiers, for action: ShortcutAction = .openCheckIn,
+        in shortcuts: [ShortcutAction: Shortcut]? = nil
+    ) -> ShortcutRecording {
+        ShortcutRecording(
+            keyCode: UInt32(keyCode), modifiers: modifiers, for: action, in: shortcuts ?? defaults)
+    }
+
+    @Test func takesAKeyWithCommandOrControl() {
+        #expect(
+            press(kVK_ANSI_K, [.control, .option]) == .record(Shortcut(keyCode: 0x28, modifiers: [.control, .option])))
+        #expect(press(kVK_F5, [.command]) == .record(Shortcut(keyCode: 0x60, modifiers: [.command])))
+    }
+
+    @Test func refusesAKeyWithoutCommandOrControl() {
+        for modifiers: Shortcut.Modifiers in [[], [.shift], [.option], [.option, .shift]] {
+            #expect(press(kVK_ANSI_K, modifiers) == .refuse)
+        }
+    }
+
+    @Test func refusesAKeyWithoutName() {
+        #expect(press(kVK_ANSI_KeypadEnter, [.command]) == .refuse)
+    }
+
+    @Test func refusesTheKeysOfAnotherActionAndKeepsItsOwn() {
+        #expect(press(kVK_ANSI_B, [.control, .option, .command]) == .refuse)
+        #expect(
+            press(kVK_ANSI_C, [.control, .option, .command]) == .record(ShortcutAction.openCheckIn.defaultShortcut))
+        var cleared = defaults
+        cleared[.toggleBreak] = nil
+        #expect(
+            press(kVK_ANSI_B, [.control, .option, .command], in: cleared)
+                == .record(ShortcutAction.toggleBreak.defaultShortcut))
+    }
+
+    @Test func escapeCancelsAndDeleteClears() {
+        #expect(press(kVK_Escape, []) == .cancel)
+        #expect(press(kVK_Escape, [.command]) == .cancel)
+        #expect(press(kVK_Delete, []) == .clear)
+        #expect(press(kVK_ForwardDelete, []) == .clear)
+    }
+
+    @Test func defaultShortcutsCoverEveryAction() {
+        #expect(defaults.count == ShortcutAction.allCases.count)
+        #expect(ShortcutAction.allCases.allSatisfy { defaults[$0] == $0.defaultShortcut })
+    }
+}

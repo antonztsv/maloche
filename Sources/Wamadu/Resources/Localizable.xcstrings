@@ -82,6 +82,15 @@
     "Add another part" : {
 
     },
+    "Always up" : {
+
+    },
+    "Apply to" : {
+
+    },
+    "Away after" : {
+
+    },
     "Away from %@ to %@" : {
       "localizations" : {
         "en" : {
@@ -137,6 +146,15 @@
     "Check In Now" : {
 
     },
+    "Check in every" : {
+
+    },
+    "Click and press the new keys. Escape cancels, Delete clears the shortcut." : {
+
+    },
+    "Close" : {
+
+    },
     "Continue without asking" : {
 
     },
@@ -185,6 +203,15 @@
     "Drag the divider to adjust" : {
 
     },
+    "Each day per activity" : {
+
+    },
+    "Each entry" : {
+
+    },
+    "Each week or month per activity" : {
+
+    },
     "Earlier" : {
 
     },
@@ -195,6 +222,9 @@
 
     },
     "End of part %lld" : {
+
+    },
+    "End on %@" : {
 
     },
     "For 1 hour" : {
@@ -215,6 +245,9 @@
     "For this session" : {
 
     },
+    "General" : {
+
+    },
     "Internal" : {
 
     },
@@ -222,6 +255,9 @@
 
     },
     "Keep tracking" : {
+
+    },
+    "Keyboard shortcuts" : {
 
     },
     "Last week" : {
@@ -260,6 +296,9 @@
     "No project" : {
 
     },
+    "No rounding" : {
+
+    },
     "Not counted" : {
 
     },
@@ -267,6 +306,15 @@
 
     },
     "Now" : {
+
+    },
+    "Open at login" : {
+
+    },
+    "Open check-in" : {
+
+    },
+    "Open dashboard" : {
 
     },
     "Paste" : {
@@ -296,7 +344,22 @@
     "Quit wamadu" : {
 
     },
+    "Record Shortcut" : {
+
+    },
     "Redo" : {
+
+    },
+    "Round to" : {
+
+    },
+    "Rounding" : {
+
+    },
+    "Rounding only changes how times are shown and exported. Your recorded times stay exact." : {
+
+    },
+    "Schedule" : {
 
     },
     "Select All" : {
@@ -321,7 +384,13 @@
     "Split" : {
 
     },
+    "Start break" : {
+
+    },
     "Start of part %lld" : {
+
+    },
+    "Start on %@" : {
 
     },
     "Still on break" : {
@@ -342,6 +411,9 @@
     "This week" : {
 
     },
+    "To nearest" : {
+
+    },
     "Today" : {
 
     },
@@ -352,6 +424,9 @@
 
     },
     "Turn on tracking" : {
+
+    },
+    "Type Shortcut" : {
 
     },
     "Undo" : {
@@ -378,6 +453,9 @@
     "What were you working on?" : {
 
     },
+    "When you come back, wamadu asks what you did." : {
+
+    },
     "Work" : {
 
     },
@@ -391,6 +469,12 @@
 
     },
     "to" : {
+
+    },
+    "wamadu asks what you are working on." : {
+
+    },
+    "wamadu only checks in during these hours. You can always start tracking from the menu bar." : {
 
     },
     "wamadu, logging without asking" : {

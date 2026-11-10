@@ -27,12 +27,15 @@ public struct Shortcut: Codable, Hashable, Sendable {
     public var carbonModifiers: UInt32 { modifiers.rawValue }
 
     /// Modifiers in the order macOS shows them (Control, Option, Shift, Command), then the key, e.g. "⌃⌥⌘C".
-    public var displayString: String {
+    public var displayString: String { displayString(keyName: nil) }
+
+    /// With the key's name on the active keyboard layout, the US name when nil.
+    public func displayString(keyName: String?) -> String {
         let symbols: [(Modifiers, String)] = [(.control, "⌃"), (.option, "⌥"), (.shift, "⇧"), (.command, "⌘")]
-        return symbols.filter { modifiers.contains($0.0) }.map(\.1).joined() + (Self.keyNames[keyCode] ?? "")
+        return symbols.filter { modifiers.contains($0.0) }.map(\.1).joined() + (keyName ?? Self.keyNames[keyCode] ?? "")
     }
 
-    // shortcut: fixed US key names, translate with UCKeyTranslate for the active layout once shortcuts are recordable
+    /// The keys a shortcut may use, named as on a US keyboard.
     static let keyNames: [UInt32: String] = [
         0x00: "A", 0x01: "S", 0x02: "D", 0x03: "F", 0x04: "H", 0x05: "G", 0x06: "Z", 0x07: "X", 0x08: "C",
         0x09: "V", 0x0B: "B", 0x0C: "Q", 0x0D: "W", 0x0E: "E", 0x0F: "R", 0x10: "Y", 0x11: "T", 0x1F: "O",
@@ -44,7 +47,7 @@ public struct Shortcut: Codable, Hashable, Sendable {
     ]
 }
 
-public enum ShortcutAction: String, CaseIterable, Codable, Sendable {
+public enum ShortcutAction: String, CaseIterable, Codable, CodingKeyRepresentable, Sendable {
     case openCheckIn, toggleBreak, openDashboard
 
     /// Control, Option and Command together, since Option-Command-D toggles the Dock.
@@ -56,5 +59,34 @@ public enum ShortcutAction: String, CaseIterable, Codable, Sendable {
             case .openDashboard: 0x02
             }
         return Shortcut(keyCode: keyCode, modifiers: [.control, .option, .command])
+    }
+}
+
+extension ShortcutAction {
+    public static let defaultShortcuts = Dictionary(uniqueKeysWithValues: allCases.map { ($0, $0.defaultShortcut) })
+}
+
+/// What a key pressed while recording the shortcut of an action does.
+public enum ShortcutRecording: Equatable, Sendable {
+    /// Escape, the shortcut stays.
+    case cancel
+    /// Delete, the action has no shortcut.
+    case clear
+    case record(Shortcut)
+    /// Without Command or Control, a key without a name, or the keys of another action.
+    case refuse
+
+    public init(
+        keyCode: UInt32, modifiers: Shortcut.Modifiers, for action: ShortcutAction,
+        in shortcuts: [ShortcutAction: Shortcut]
+    ) {
+        let shortcut = Shortcut(keyCode: keyCode, modifiers: modifiers)
+        switch keyCode {
+        case 0x35: self = .cancel
+        case 0x33, 0x75: self = .clear
+        default:
+            let taken = shortcuts.contains { $0.key != action && $0.value == shortcut }
+            self = shortcut.isValid && !taken ? .record(shortcut) : .refuse
+        }
     }
 }

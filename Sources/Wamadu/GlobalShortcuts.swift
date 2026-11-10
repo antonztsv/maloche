@@ -10,6 +10,12 @@ final class GlobalShortcuts {
     private let onAction: (ShortcutAction) -> Void
     private var handler: EventHandlerRef?
     private var hotKeys: [EventHotKeyRef] = []
+    private var shortcuts: [ShortcutAction: Shortcut] = [:]
+
+    /// While a shortcut is being recorded, its keys reach the settings window instead of firing.
+    var isPaused = false {
+        didSet { if isPaused { unregisterAll() } else { register(shortcuts) } }
+    }
 
     init(onAction: @escaping (ShortcutAction) -> Void) {
         self.onAction = onAction
@@ -38,8 +44,10 @@ final class GlobalShortcuts {
     /// Replaces all registered hotkeys; returns the actions whose combo is invalid or taken by another app.
     @discardableResult
     func register(_ shortcuts: [ShortcutAction: Shortcut]) -> Set<ShortcutAction> {
+        self.shortcuts = shortcuts
         unregisterAll()
         var failed = Set<ShortcutAction>()
+        guard !isPaused else { return failed }
         for (index, action) in ShortcutAction.allCases.enumerated() {
             guard let shortcut = shortcuts[action] else { continue }
             var ref: EventHotKeyRef?

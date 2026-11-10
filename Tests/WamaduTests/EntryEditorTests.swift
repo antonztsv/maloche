@@ -20,6 +20,7 @@ import WamaduCore
         func focus() {}
         func hide() {}
         func signalFailure() { failures += 1 }
+        func showSettings() {}
     }
 
     private final class Closed {

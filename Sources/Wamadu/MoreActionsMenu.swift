@@ -33,9 +33,9 @@ struct MoreActionsMenu: View {
                 }
             }
             Divider()
-            // TODO: wire Manage Activities and Settings, their windows do not exist yet
+            // TODO: wire Manage Activities, its window does not exist yet
             Button("Manage Activities…") {}.disabled(true)
-            Button("Settings…") {}.keyboardShortcut(",").disabled(true)
+            Button("Settings…", action: model.openSettings).keyboardShortcut(",")
             Divider()
             Button("Quit wamadu") { NSApp.terminate(nil) }.keyboardShortcut("q")
         } label: {

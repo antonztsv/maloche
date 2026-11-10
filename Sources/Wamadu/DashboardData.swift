@@ -2,7 +2,8 @@ import AppKit
 import SwiftUI
 import WamaduCore
 
-/// Everything the dashboard shows of a day, week or month, built from database values.
+/// Everything the dashboard shows of a day, week or month, built from database values; rounding changes durations,
+/// never the timeline.
 struct DashboardData {
     /// Timeline colors: work per customer, nil for activities without customer.
     enum Lane: Equatable, Sendable {
@@ -31,7 +32,8 @@ struct DashboardData {
 
     init(
         period: Period, blocks: [Block], activities: [Activity], projects: [Project], customers: [Customer],
-        schedule: WorkSchedule, current: NowRow, now: Date, calendar: Calendar
+        schedule: WorkSchedule, current: NowRow, now: Date, calendar: Calendar,
+        rounding: RoundingSettings = RoundingSettings()
     ) {
         self.period = period
         self.current = current
@@ -43,7 +45,8 @@ struct DashboardData {
         self.customers = Self.byId(customers)
         summary = Reports.summary(
             of: period, blocks: blocks, activities: activities, projects: projects, customers: customers,
-            calendar: calendar)
+            calendar: calendar
+        ).rounded(by: rounding)
         let shown = blocks.filter { block in self.activities[block.activityId].map { $0.kind != .private } ?? false }
         timeline = DayTimeline(
             day: period.interval, blocks: shown, plan: schedule.interval(on: period.interval.start, calendar: calendar))

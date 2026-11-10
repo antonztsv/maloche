@@ -155,11 +155,11 @@ public enum Reports {
             customers: longestFirst(customerTotals, \.duration) { $0.customer?.name ?? "" }, entries: entries)
     }
 
-    private static func sum(_ totals: [ActivityTotal]) -> TimeInterval {
+    static func sum(_ totals: [ActivityTotal]) -> TimeInterval {
         totals.reduce(0) { $0 + $1.duration }
     }
 
-    private static func longestFirst<T>(_ items: [T], _ duration: KeyPath<T, TimeInterval>, _ name: (T) -> String)
+    static func longestFirst<T>(_ items: [T], _ duration: KeyPath<T, TimeInterval>, _ name: (T) -> String)
         -> [T]
     {
         items.sorted { ($0[keyPath: duration], name($1)) > ($1[keyPath: duration], name($0)) }
@@ -221,5 +221,60 @@ extension Calendar {
     public var orderedShortWeekdaySymbols: [String] {
         let symbols = shortStandaloneWeekdaySymbols
         return Array(symbols[(firstWeekday - 1)...] + symbols[..<(firstWeekday - 1)])
+    }
+}
+
+extension PeriodSummary {
+    /// Durations as the rounding shows them; clock times and entries stay exact, without a step nothing changes.
+    public func rounded(by rounding: RoundingSettings) -> PeriodSummary {
+        guard (rounding.stepMinutes ?? 0) > 0 else { return self }
+        let totals = rounding.apply(to: entries)
+        // work activities by customer, any other entry is a break
+        var customerOf: [Int64: Int64?] = [:]
+        for customer in customers {
+            for total in customer.projects.flatMap(\.activities) {
+                customerOf.updateValue(customer.customer?.id, forKey: total.activity.id!)
+            }
+        }
+        func rounded(_ total: ActivityTotal) -> ActivityTotal {
+            ActivityTotal(activity: total.activity, duration: totals.byActivity[total.activity.id!] ?? 0)
+        }
+        var result = self
+        result.days = days.map { day in
+            var day = day
+            day.work = 0
+            day.breaks = 0
+            day.workByCustomer = [:]
+            for (id, duration) in totals.byDayAndActivity[day.interval.start] ?? [:] {
+                if let customerId = customerOf[id] {
+                    day.work += duration
+                    if duration > 0 { day.workByCustomer[customerId, default: 0] += duration }
+                } else {
+                    day.breaks += duration
+                }
+            }
+            return day
+        }
+        result.activities = Reports.longestFirst(activities.map(rounded), \.duration) { $0.activity.name }
+        result.customers = Reports.longestFirst(
+            customers.map { customer in
+                var customer = customer
+                customer.projects = Reports.longestFirst(
+                    customer.projects.map { project in
+                        var project = project
+                        project.activities = Reports.longestFirst(project.activities.map(rounded), \.duration) {
+                            $0.activity.name
+                        }
+                        project.duration = Reports.sum(project.activities)
+                        return project
+                    }, \.duration
+                ) { $0.project?.name ?? "" }
+                customer.duration = customer.projects.reduce(0) { $0 + $1.duration }
+                return customer
+            }, \.duration
+        ) { $0.customer?.name ?? "" }
+        result.work = Reports.sum(result.activities)
+        result.breaks = totals.byActivity.filter { !customerOf.keys.contains($0.key) }.values.reduce(0, +)
+        return result
     }
 }

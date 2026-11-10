@@ -1,14 +1,14 @@
 import Foundation
 
-public struct RoundingSettings: Equatable, Sendable {
-    public enum Mode: Sendable {
+public struct RoundingSettings: Codable, Equatable, Sendable {
+    public enum Mode: String, Codable, Sendable {
         /// Halves round up.
         case nearest
         /// Any started step counts in full.
         case up
     }
 
-    public enum Level: Sendable {
+    public enum Level: String, Codable, Sendable {
         /// Round each entry, then sum.
         case entry
         /// Sum per local day and activity, then round.
@@ -22,7 +22,7 @@ public struct RoundingSettings: Equatable, Sendable {
     public var mode: Mode
     public var level: Level
 
-    public init(stepMinutes: Int?, mode: Mode, level: Level) {
+    public init(stepMinutes: Int? = nil, mode: Mode = .nearest, level: Level = .dayAndActivity) {
         self.stepMinutes = stepMinutes
         self.mode = mode
         self.level = level

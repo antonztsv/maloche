@@ -1,10 +1,12 @@
 import AppKit
 
-/// Never visible for an LSUIElement app, but its key equivalents reach text fields (Cmd+A, C, V, X, Z) and Quit.
+/// Never visible for an LSUIElement app, but its key equivalents reach text fields (Cmd+A, C, V, X, Z), Close and Quit.
 @MainActor
 enum MainMenu {
     static func make() -> NSMenu {
         let appMenu = NSMenu()
+        appMenu.addItem(
+            withTitle: String(localized: "Close"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         appMenu.addItem(
             withTitle: String(localized: "Quit wamadu"), action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q")

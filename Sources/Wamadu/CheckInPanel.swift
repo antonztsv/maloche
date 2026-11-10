@@ -94,7 +94,7 @@ struct PanelView: View {
         var data = DashboardData(
             period: day.period, blocks: day.blocks, activities: catalog.activities, projects: catalog.projects,
             customers: catalog.customers, schedule: model.schedule, current: model.nowRow,
-            now: model.now, calendar: model.calendar)
+            now: model.now, calendar: model.calendar, rounding: model.settings.rounding)
         data.editable = Set(day.blocks.map(\.activityId)).filter { model.entry(activityId: $0) != nil }
         return DashboardView(
             data: data, moreActions: MoreActionsMenu(model: model), onShowPeriod: model.showDashboard,
@@ -105,6 +105,7 @@ struct PanelView: View {
 @MainActor
 final class CheckInPanelController: PanelPresenter {
     weak var statusItem: NSStatusItem?
+    var onShowSettings: (() -> Void)?
     let panel = CheckInPanel()
     private let model: AppModel
     private let editor: EntryEditorController
@@ -201,6 +202,10 @@ final class CheckInPanelController: PanelPresenter {
 
     func signalFailure() {
         NSSound.beep()
+    }
+
+    func showSettings() {
+        onShowSettings?()
     }
 
     /// Highlighted while the panel shows, like a menu bar extra with its menu open.

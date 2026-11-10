@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panelController: CheckInPanelController?
     private var presence: PresenceMonitor?
     private var shortcuts: GlobalShortcuts?
+    private var settingsWindow: SettingsWindowController?
     private var iconMode: TrackerMode?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -51,14 +52,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         presence?.start()
 
         let shortcuts = GlobalShortcuts { [weak model] in model?.shortcut($0) }
-        let failed = shortcuts.register(
-            Dictionary(uniqueKeysWithValues: ShortcutAction.allCases.map { ($0, $0.defaultShortcut) }))
+        self.shortcuts = shortcuts
+        registerShortcuts()
+        let settingsWindow = SettingsWindowController(model: model) { [weak shortcuts] in shortcuts?.isPaused = $0 }
+        controller.onShowSettings = { settingsWindow.show() }
+        self.settingsWindow = settingsWindow
+    }
+
+    /// The hotkeys follow the settings.
+    private func registerShortcuts() {
+        guard let model, let shortcuts else { return }
+        let wanted = withObservationTracking {
+            model.settings.shortcuts
+        } onChange: {
+            Task { @MainActor in self.registerShortcuts() }
+        }
+        let failed = shortcuts.register(wanted)
         if !failed.isEmpty {
             appLog.error(
                 "shortcuts not registered: \(failed.map(\.rawValue).sorted().joined(separator: ", "), privacy: .public)"
             )
         }
-        self.shortcuts = shortcuts
     }
 
     /// The menu bar icon follows the tracker mode.
@@ -81,19 +95,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static func makeModel() throws -> AppModel {
         let url = try AppDatabase.defaultURL(
             bundleIdentifier: Bundle.main.bundleIdentifier ?? "io.github.antonztsv.wamadu.dev")
-        var settings = TrackerSettings()
-        #if DEBUG
-            // manual testing, e.g. `open "wamadu Dev.app" --args -DebugCheckInInterval 60 -DebugIdleThreshold 120`
-            let defaults = UserDefaults.standard
-            if defaults.double(forKey: "DebugCheckInInterval") > 0 {
-                settings.checkInInterval = defaults.double(forKey: "DebugCheckInInterval")
-            }
-            if defaults.double(forKey: "DebugIdleThreshold") > 0 {
-                settings.awayThreshold = defaults.double(forKey: "DebugIdleThreshold")
-            }
-        #endif
         return try AppModel(
             database: .open(at: url), stateURL: url.deletingLastPathComponent().appending(path: "tracker-state.json"),
-            settings: settings)
+            settingsStore: .standard,
+            adjustTracker: { settings in
+                #if DEBUG
+                    // manual testing, e.g. `open "wamadu Dev.app" --args -DebugCheckInInterval 60 -DebugIdleThreshold 120`
+                    let defaults = UserDefaults.standard
+                    if defaults.double(forKey: "DebugCheckInInterval") > 0 {
+                        settings.checkInInterval = defaults.double(forKey: "DebugCheckInInterval")
+                    }
+                    if defaults.double(forKey: "DebugIdleThreshold") > 0 {
+                        settings.awayThreshold = defaults.double(forKey: "DebugIdleThreshold")
+                    }
+                #endif
+            })
     }
 }

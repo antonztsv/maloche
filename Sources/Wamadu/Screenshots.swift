@@ -45,6 +45,14 @@
                         model: editing.model, activityId: editing.activityId, period: editing.period,
                         confirmingDelete: confirmingDelete, onClose: {}))
             }
+            /// Default settings, changed by `edit`, never stored.
+            func settings(_ edit: (inout AppSettings) -> Void = { _ in }) throws -> AppModel {
+                let model = try AppModel(database: .inMemory(), stateURL: nil)
+                var settings = model.settings
+                edit(&settings)
+                model.update(settings)
+                return model
+            }
             let screens: [(name: String, view: AnyView)] = [
                 ("checkin", AnyView(CheckInView(model: model, content: .checkIn(timed)))),
                 (
@@ -124,6 +132,12 @@
                 ("dashboard-month", AnyView(DashboardView.sample(.month, model: model))),
                 ("edit-entry", editor()),
                 ("edit-entry-delete", editor(confirmingDelete: true)),
+                ("settings-general", AnyView(GeneralSettingsView(model: try settings(), isLoginItem: { true }))),
+                ("settings-schedule", AnyView(ScheduleSettingsView(model: try settings()))),
+                (
+                    "settings-rounding",
+                    AnyView(RoundingSettingsView(model: try settings { $0.rounding.stepMinutes = 15 }))
+                ),
             ]
             try MenuBarIcon.writePreviews(to: directory)
             for screen in screens {
