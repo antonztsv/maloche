@@ -3,7 +3,7 @@
 # The private key never leaves the keychain; temporary files are removed.
 set -euo pipefail
 
-NAME="${WAMADU_SIGNING_IDENTITY:-wamadu Local Signing}"
+NAME="${MALOCHE_SIGNING_IDENTITY:-maloche Local Signing}"
 KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
 
 if security find-certificate -c "$NAME" "$KEYCHAIN" >/dev/null 2>&1; then

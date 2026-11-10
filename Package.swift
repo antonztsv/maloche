@@ -2,22 +2,22 @@
 import PackageDescription
 
 let package = Package(
-    name: "Wamadu",
+    name: "Maloche",
     defaultLocalization: "en",
     platforms: [.macOS(.v26)],
     products: [
-        .executable(name: "Wamadu", targets: ["Wamadu"])
+        .executable(name: "Maloche", targets: ["Maloche"])
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.12.0")
     ],
     targets: [
-        .target(name: "WamaduCore", dependencies: [.product(name: "GRDB", package: "GRDB.swift")]),
-        .executableTarget(name: "Wamadu", dependencies: ["WamaduCore"], resources: [.process("Resources")]),
+        .target(name: "MalocheCore", dependencies: [.product(name: "GRDB", package: "GRDB.swift")]),
+        .executableTarget(name: "Maloche", dependencies: ["MalocheCore"], resources: [.process("Resources")]),
         .testTarget(
-            name: "WamaduCoreTests",
-            dependencies: ["WamaduCore", .product(name: "GRDB", package: "GRDB.swift")]
+            name: "MalocheCoreTests",
+            dependencies: ["MalocheCore", .product(name: "GRDB", package: "GRDB.swift")]
         ),
-        .testTarget(name: "WamaduTests", dependencies: ["Wamadu", "WamaduCore"]),
+        .testTarget(name: "MalocheTests", dependencies: ["Maloche", "MalocheCore"]),
     ]
 )

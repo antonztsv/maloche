@@ -11,4 +11,4 @@ if [[ -n "$CODE" ]]; then
   LANGUAGE_ARGS=(-AppleLanguages "($CODE)" -AppleLocale "$CODE")
 fi
 rm -rf "$OUT"
-"build/wamadu Dev.app/Contents/MacOS/Wamadu" --screenshots "$PWD/$OUT" "${LANGUAGE_ARGS[@]}"
+"build/maloche Dev.app/Contents/MacOS/Maloche" --screenshots "$PWD/$OUT" "${LANGUAGE_ARGS[@]}"

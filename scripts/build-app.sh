@@ -4,25 +4,25 @@
 set -euo pipefail
 cd "${0:A:h}/.."
 
-BASE_ID="io.github.antonztsv.wamadu"
+BASE_ID="io.github.antonztsv.maloche"
 VERSION="0.1.0"
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 
 case "${1:-}" in
-  --release) CONFIG=release; BUNDLE_ID="$BASE_ID"; NAME="wamadu" ;;
-  "") CONFIG=debug; BUNDLE_ID="$BASE_ID.dev"; NAME="wamadu Dev" ;;
+  --release) CONFIG=release; BUNDLE_ID="$BASE_ID"; NAME="maloche" ;;
+  "") CONFIG=debug; BUNDLE_ID="$BASE_ID.dev"; NAME="maloche Dev" ;;
   *) echo "Usage: scripts/build-app.sh [--release]" >&2; exit 2 ;;
 esac
 
-swift build -c "$CONFIG" --product Wamadu
+swift build -c "$CONFIG" --product Maloche
 BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
 
 APP="build/$NAME.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN_DIR/Wamadu" "$APP/Contents/MacOS/Wamadu"
+cp "$BIN_DIR/Maloche" "$APP/Contents/MacOS/Maloche"
 # compiled String Catalog goes into the main bundle, Bundle.module would need the resource bundle in the app root
-RESOURCES="$BIN_DIR/Wamadu_Wamadu.bundle/Contents/Resources"
+RESOURCES="$BIN_DIR/Maloche_Maloche.bundle/Contents/Resources"
 if [[ -d "$RESOURCES" ]]; then
   cp -R "$RESOURCES/" "$APP/Contents/Resources/"
 fi
@@ -35,7 +35,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
   <key>CFBundleName</key><string>$NAME</string>
   <key>CFBundleDisplayName</key><string>$NAME</string>
-  <key>CFBundleExecutable</key><string>Wamadu</string>
+  <key>CFBundleExecutable</key><string>Maloche</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$BUILD_NUMBER</string>
@@ -48,7 +48,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-IDENTITY="${WAMADU_SIGNING_IDENTITY:-wamadu Local Signing}"
+IDENTITY="${MALOCHE_SIGNING_IDENTITY:-maloche Local Signing}"
 if ! security find-identity -p codesigning | grep -qF "\"$IDENTITY\""; then
   echo "Signing identity \"$IDENTITY\" not found. Run scripts/make-signing-cert.sh once." >&2
   exit 1

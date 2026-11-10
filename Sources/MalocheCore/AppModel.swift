@@ -1,0 +1,688 @@
+import Foundation
+import OSLog
+import Observation
+
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "maloche", category: "model")
+
+/// Shows the panel under the menu bar icon; the model decides what is in it.
+@MainActor
+public protocol PanelPresenter: AnyObject {
+    var isVisible: Bool { get }
+    var isKey: Bool { get }
+    /// Shows fresh content; without focus the active app keeps the keyboard.
+    func show(focus: Bool)
+    /// Moves the visible panel along, its content and focus stay.
+    func update()
+    func focus()
+    func hide()
+    /// An action did not go through, the panel keeps its content.
+    func signalFailure()
+    /// Opens the settings window, after the panel closed.
+    func showSettings()
+    /// Opens the Manage Activities window, after the panel closed.
+    func showManageActivities()
+}
+
+public enum PanelContent: Equatable, Sendable {
+    case checkIn(CheckIn)
+    /// Back after being away, the answer covers the span.
+    case awayReturn(span: DateInterval, prefill: Int64)
+    /// Back from a break, the answer runs from the end of the span.
+    case breakReturn(span: DateInterval, prefill: Int64?)
+    case dashboard(DashboardDay)
+
+    /// A question to the user, as opposed to the dashboard views.
+    public var isPrompt: Bool {
+        switch self {
+        case .checkIn, .awayReturn, .breakReturn: true
+        case .dashboard: false
+        }
+    }
+}
+
+/// A day and its blocks as the dashboard shows them.
+public struct DashboardDay: Equatable, Sendable {
+    public var period: Period
+    public var blocks: [Block]
+
+    public init(period: Period, blocks: [Block]) {
+        self.period = period
+        self.blocks = blocks
+    }
+}
+
+/// What the Now row of the dashboard shows.
+public enum NowRow: Equatable, Sendable {
+    case activity(id: Int64)
+    case onBreak
+    case off
+    /// After Done for today, until Keep tracking.
+    case doneForToday
+    /// No answer yet, the row stays hidden.
+    case none
+}
+
+public struct CheckIn: Equatable, Sendable {
+    public enum Mode: Equatable, Sendable {
+        /// Asked by the tracker, the answer covers the span.
+        case timed
+        /// Opened by hand, the answer starts now.
+        case manual
+    }
+
+    public var mode: Mode
+    /// Since the last answer when timed, since the current activity runs when opened by hand; before the first
+    /// answer of a day since the first time not booked yet.
+    public var span: DateInterval?
+    /// What the answer books, without the absences in the span.
+    public var duration: TimeInterval
+    public var prefill: Int64?
+    /// The span is longer than one interval, the check-in offers the split view.
+    public var canSplit: Bool
+
+    public init(
+        mode: Mode, span: DateInterval?, duration: TimeInterval? = nil, prefill: Int64?, canSplit: Bool = false
+    ) {
+        self.mode = mode
+        self.span = span
+        self.duration = duration ?? span?.duration ?? 0
+        self.prefill = prefill
+        self.canSplit = canSplit
+    }
+}
+
+/// Runs the tracker against the database, keeps its state on disk and tells the panel what to show.
+@MainActor @Observable
+public final class AppModel {
+    public let database: AppDatabase
+    public let builtIns: BuiltInActivities
+    // ticks change the tracker every few seconds, views observe only the published values below
+    @ObservationIgnored public private(set) var tracker: Tracker
+    public private(set) var mode: TrackerMode = .off
+    public private(set) var currentActivity: Int64?
+    public private(set) var schedule = WorkSchedule.standard
+    public private(set) var catalog = Catalog()
+    public private(set) var panel: PanelContent?
+    /// As stored and shown in the settings window.
+    public private(set) var settings: AppSettings
+    /// The newest backup in the backup folder.
+    public private(set) var lastBackup: Date?
+    /// Set while the latest backup did not go through.
+    public private(set) var backupFailedAt: Date?
+    @ObservationIgnored public weak var presenter: (any PanelPresenter)?
+    public let calendar: Calendar
+    @ObservationIgnored private let clock: any WallClock
+    @ObservationIgnored private let stateURL: URL?
+    @ObservationIgnored private var savedState: (state: TrackerState, at: Date)?
+    /// The dashboard a prompt replaced, the panel goes back to it once the prompt is answered.
+    @ObservationIgnored private var returnTo: Period?
+    @ObservationIgnored private var closedByClickOutside: Date?
+    @ObservationIgnored private let settingsStore: (any SettingsStore)?
+    @ObservationIgnored private let adjustTracker: (inout TrackerSettings) -> Void
+    @ObservationIgnored private let defaultBackupFolder: URL?
+
+    /// Settings come from the store, `adjustTracker` overrides them for the tracker only and is never stored.
+    /// `backups` is the backup folder unless the settings name one; without either nothing is backed up.
+    /// `builtInNames` names Break and Private in the catalog and the database reserves them, it stores its own names.
+    public init(
+        database: AppDatabase, stateURL: URL?, settingsStore: (any SettingsStore)? = nil, backups: URL? = nil,
+        adjustTracker: @escaping (inout TrackerSettings) -> Void = { _ in }, builtInNames: [ActivityKind: String] = [:],
+        clock: any WallClock = SystemWallClock(), calendar: Calendar = .autoupdatingCurrent
+    ) throws {
+        var database = database
+        database.builtInNames = builtInNames
+        self.database = database
+        self.stateURL = stateURL
+        self.clock = clock
+        self.calendar = calendar
+        self.settingsStore = settingsStore
+        self.adjustTracker = adjustTracker
+        defaultBackupFolder = backups
+        let settings = settingsStore.map(AppSettings.load) ?? AppSettings()
+        self.settings = settings
+        builtIns = BuiltInActivities(
+            breakId: try database.builtIn(.break).id!, privateId: try database.builtIn(.private).id!)
+        var trackerSettings = settings.tracker
+        adjustTracker(&trackerSettings)
+        tracker = Tracker(
+            settings: trackerSettings, calendar: calendar, builtIns: builtIns, state: Self.loadState(from: stateURL))
+        reloadCatalog()
+        publish()
+        lastBackup = backupFolder.flatMap { Backup.all(in: $0, calendar: calendar).last?.date }
+    }
+
+    public var now: Date { clock.now }
+
+    public func send(_ event: TrackerEvent) {
+        apply(tracker.handle(event, now: clock.now))
+        publish()
+        if case .systemAway = event { saveState() } else { saveStateIfDue() }
+        switch event {
+        case .tick, .appLaunched: backUpIfDue()
+        default: break
+        }
+    }
+
+    private func publish() {
+        if mode != tracker.mode { mode = tracker.mode }
+        if currentActivity != tracker.currentActivity { currentActivity = tracker.currentActivity }
+        if schedule != tracker.settings.schedule { schedule = tracker.settings.schedule }
+    }
+
+    public func apply(_ effects: [TrackerEffect]) {
+        var booked = false
+        for effect in effects {
+            switch effect {
+            case .book(let block):
+                do {
+                    try database.insert(block: block)
+                    booked = true
+                } catch {
+                    logger.error("booking failed: \(String(describing: error), privacy: .public)")
+                    presenter?.signalFailure()
+                }
+            case .showCheckIn(let prompt):
+                present(
+                    .checkIn(
+                        CheckIn(
+                            mode: .timed, span: prompt.span, duration: prompt.duration, prefill: prompt.prefill,
+                            canSplit: prompt.canSplit)))
+            case .showAwayReturn(let span, let prefill):
+                present(.awayReturn(span: span, prefill: prefill))
+            case .showBreakReturn(let span, let prefill):
+                present(.breakReturn(span: span, prefill: prefill))
+            case .hidePrompt:
+                if panel?.isPrompt == true { endPrompt() }
+            }
+        }
+        guard booked else { return }
+        reloadCatalog()
+        if case .dashboard(let day) = panel { showDashboard(day.period) }
+    }
+
+    public var nowRow: NowRow {
+        switch mode {
+        case .onBreak: .onBreak
+        case .off:
+            tracker.state.phase == .waiting && tracker.state.doneDay == calendar.startOfDay(for: now)
+                ? .doneForToday : .off
+        case .tracking, .continuing: currentActivity.map { .activity(id: $0) } ?? .none
+        }
+    }
+
+    /// The activity "Continue without asking" keeps logging, nil before the first answer and during a break.
+    public var activityToContinue: Int64? {
+        mode == .onBreak ? nil : currentActivity
+    }
+
+    /// Today's dashboard, or focus or close the visible panel.
+    public func statusItemClicked() {
+        // the click on the icon itself took the focus and closed the panel, it must not reopen it
+        if let closed = closedByClickOutside, clock.now.timeIntervalSince(closed) < 0.5 {
+            closedByClickOutside = nil
+            return
+        }
+        reveal(.statusItem) { showDashboard(today) }
+    }
+
+    /// A click outside closes what the user opened (dashboard, check-in by hand) without booking;
+    /// prompts the app showed by itself stay.
+    public func panelLostFocus() {
+        switch panel {
+        case .dashboard: break
+        case .checkIn(let checkIn) where checkIn.mode == .manual: break
+        default: return
+        }
+        hidePanel()
+        closedByClickOutside = clock.now
+    }
+
+    public func shortcut(_ action: ShortcutAction) {
+        guard let presenter else { return }
+        switch action {
+        case .openCheckIn:
+            if !(presenter.isVisible && panel?.isPrompt == true) { checkIn() }
+            if presenter.isVisible { presenter.focus() } else { presenter.show(focus: true) }
+        case .toggleBreak:
+            switch tracker.mode {
+            case .tracking, .continuing: startBreak()
+            case .onBreak:
+                send(.openedDuringBreak)
+                presenter.focus()
+            case .off: break
+            }
+        case .openDashboard:
+            // a visible prompt stays, closing it would answer it
+            reveal(.shortcut) { showDashboard(today) }
+        }
+    }
+
+    /// The Now row and Check In Now: the check-in by hand, during a break the break return.
+    public func checkIn() {
+        if tracker.mode == .onBreak {
+            send(.openedDuringBreak)
+        } else {
+            reloadCatalog()
+            let now = clock.now
+            let spans =
+                tracker.unbooked(until: now)
+                ?? tracker.runningSince.map { [DateInterval(start: min($0, now), end: now)] }
+            let span = spans.map { DateInterval(start: $0[0].start, end: now) }
+            let duration = spans?.reduce(0) { $0 + $1.duration }
+            showPrompt(.checkIn(CheckIn(mode: .manual, span: span, duration: duration, prefill: tracker.prefill)))
+        }
+    }
+
+    /// Paging through the days.
+    public func showDashboard(_ period: Period) {
+        if let day = day(period) { panel = .dashboard(day) }
+        returnTo = nil
+    }
+
+    // MARK: More menu, every action closes the panel and an open prompt counts as dismissed
+
+    public func doneForToday() {
+        fromMenu(.doneForToday)
+    }
+
+    public func continueWithoutAsking(for duration: TimeInterval?) {
+        guard let id = activityToContinue else { return }
+        fromMenu(.continueWithoutAsking(id, for: duration))
+    }
+
+    public func stopContinuing() {
+        fromMenu(.stopContinuing)
+    }
+
+    /// For the given seconds, or until the app restarts when nil.
+    public func turnOff(for duration: TimeInterval?) {
+        fromMenu(.turnOff(for: duration))
+    }
+
+    public func turnOn() {
+        fromMenu(tracker.state.phase == .waiting ? .keepTracking : .turnOn)
+    }
+
+    /// The Keep tracking button of the Now row after Done for today, after Turn off or outside the plan.
+    public func keepTracking() {
+        act(tracker.state.phase == .waiting ? .keepTracking : .turnOn)
+    }
+
+    private func fromMenu(_ event: TrackerEvent) {
+        dismiss()
+        send(event)
+        hidePanel()
+    }
+
+    public func openSettings() {
+        dismiss()
+        hidePanel()
+        presenter?.showSettings()
+    }
+
+    /// Stores the settings and applies them from the next tick, the running span stays.
+    public func update(_ settings: AppSettings) {
+        guard settings != self.settings else { return }
+        let folderChanged = settings.backup.folder != self.settings.backup.folder
+        self.settings = settings
+        if folderChanged {
+            lastBackup = backupFolder.flatMap { Backup.all(in: $0, calendar: calendar).last?.date }
+            backupFailedAt = nil
+        }
+        var trackerSettings = settings.tracker
+        adjustTracker(&trackerSettings)
+        tracker.settings = trackerSettings
+        publish()
+        if let settingsStore { settings.save(to: settingsStore) }
+    }
+
+    public func startBreak() {
+        act(.startBreak)
+    }
+
+    /// Escape: a prompt goes back to the dashboard it replaced, anything else closes.
+    public func close() {
+        dismiss()
+        endPrompt()
+    }
+
+    /// A prompt closed without an answer: a timed one counts as dismissed, the away return as Break once the day has
+    /// an answer, the break return as still on break.
+    private func dismiss() {
+        let closed = panel
+        // without a prompt in the panel, the one the tracker ends does not close it
+        panel = nil
+        switch closed {
+        case .checkIn(let checkIn) where checkIn.mode == .timed: send(.checkInDismissed)
+        case .awayReturn: send(.awayDismissed)
+        case .breakReturn: send(.stillOnBreak)
+        default: break
+        }
+    }
+
+    /// A timed prompt books its span, one opened by hand switches now, a return answers for the time away.
+    public func log(_ choice: CheckInList.Choice) {
+        guard let content = panel, content.isPrompt, let id = resolve(choice) else { return }
+        logger.info("answered the panel with \(id)")
+        switch content {
+        case .checkIn(let checkIn): act(checkIn.mode == .timed ? .checkInAnswered(id) : .switchActivity(id))
+        case .awayReturn:
+            act(.awayAnswered(id == builtIns.breakId ? .break : id == builtIns.privateId ? .private : .activity(id)))
+        case .breakReturn: act(.breakReturnAnswered(id))
+        case .dashboard: break
+        }
+        reloadCatalog()
+    }
+
+    /// Books the parts of a timed span, the last part runs on.
+    public func log(_ split: SplitDraft) {
+        guard case .checkIn(let checkIn) = panel, checkIn.mode == .timed else { return }
+        guard let choices = split.choices else {
+            presenter?.signalFailure()
+            return
+        }
+        let ids = choices.compactMap(resolve)
+        guard ids.count == choices.count else { return }
+        act(.checkInSplit(dividers: split.dividers, activities: ids))
+        reloadCatalog()
+    }
+
+    // MARK: Editing an entry of the shown day
+
+    /// The activity's finished spans on the day the panel shows, nil without a shown day or without such time.
+    /// The running span belongs to the tracker, which books it again until the next answer.
+    public func entry(activityId: Int64) -> DayEntry? {
+        guard case .dashboard(let day) = panel else { return nil }
+        let finished = day.blocks.filter { block in editLimit.map { block.startedAt < $0 } ?? true }
+        return DayEntry(activityId: activityId, day: day.period.interval, blocks: finished)
+    }
+
+    /// The start of the running span, nil when nothing runs.
+    private var editLimit: Date? { tracker.runningSince.map { min($0, now) } }
+
+    /// New start and end of the span: after the start, before the running span or now, on the entry's day
+    /// (a part outside may stay).
+    public func setSpan(_ span: DayEntry.Span, of entry: DayEntry, start: Date, end: Date) {
+        let day = entry.day
+        let allowed = DateInterval(start: min(day.start, span.interval.start), end: max(day.end, span.interval.end))
+        guard start < end, end <= editLimit ?? now, allowed.start <= start, end <= allowed.end, start < day.end,
+            day.start < end
+        else {
+            presenter?.signalFailure()
+            return
+        }
+        edit { try database.replaceBlocks(span.blockIds, over: DateInterval(start: start, end: end)) }
+    }
+
+    /// Moves the end by the seconds: a later end stops at the running span or now, an earlier one keeps the span
+    /// at least a minute long.
+    public func extendSpan(_ span: DayEntry.Span, of entry: DayEntry, by seconds: TimeInterval) {
+        let end = seconds > 0 ? min(span.interval.end + seconds, editLimit ?? now) : span.interval.end + seconds
+        guard seconds > 0 ? end > span.interval.end : end.timeIntervalSince(span.interval.start) >= 60 else {
+            presenter?.signalFailure()
+            return
+        }
+        setSpan(span, of: entry, start: span.interval.start, end: end)
+    }
+
+    /// Books every span of the entry to the other activity, Break and Private included.
+    public func moveEntry(_ entry: DayEntry, to activityId: Int64) {
+        guard activityId != entry.activityId else { return }
+        edit { try database.moveBlocks(entry.blockIds, to: activityId) }
+    }
+
+    /// Deletes every span of the entry, a block over midnight as a whole.
+    public func deleteEntry(_ entry: DayEntry) {
+        edit { try database.deleteBlocks(entry.blockIds) }
+    }
+
+    private func edit(_ change: () throws -> Void) {
+        do {
+            try manage { _ in try change() }
+        } catch {
+            logger.error("editing an entry failed: \(String(describing: error), privacy: .public)")
+            presenter?.signalFailure()
+        }
+    }
+
+    // MARK: Backup
+
+    public var backupFolder: URL? {
+        settings.backup.folder.map { URL(filePath: $0, directoryHint: .isDirectory) } ?? defaultBackupFolder
+    }
+
+    /// From "Back Up Now", a failure shows in the settings.
+    public func backUpNow() {
+        try? backUp()
+    }
+
+    /// Backs up the current data first, then replaces it with the backup; tracking continues from the next input.
+    public func restore(_ backup: RestorableBackup) throws {
+        try backUp()
+        try database.restore(backup)
+        hidePanel()
+        reloadCatalog()
+        tracker.restored(activities: Set(catalog.activities.compactMap(\.id)))
+        publish()
+        saveState()
+    }
+
+    /// Once a day; a backup that did not go through is tried again after an hour.
+    private func backUpIfDue() {
+        guard settings.backup.automatic, backupFolder != nil else { return }
+        // a backup dated ahead, e.g. after a clock change, does not hold back the next one
+        if let last = lastBackup, (0..<24 * 3600).contains(now.timeIntervalSince(last)) { return }
+        if let failed = backupFailedAt, now.timeIntervalSince(failed) < 3600 { return }
+        try? backUp()
+    }
+
+    private func backUp() throws {
+        do {
+            guard let folder = backupFolder else { throw CocoaError(.fileNoSuchFile) }
+            lastBackup = try database.backUp(to: folder, at: now, keep: settings.backup.keep, calendar: calendar).date
+            backupFailedAt = nil
+        } catch {
+            logger.error("backup failed: \(String(describing: error), privacy: .public)")
+            backupFailedAt = now
+            throw error
+        }
+    }
+
+    // MARK: Manage Activities
+
+    public func openManageActivities() {
+        dismiss()
+        hidePanel()
+        presenter?.showManageActivities()
+    }
+
+    /// A change to activities, projects or customers; the catalog and the shown day follow it.
+    public func manage(_ change: (AppDatabase) throws -> Void) throws {
+        try change(database)
+        reloadCatalog()
+        if case .dashboard(let day) = panel { showDashboard(day.period) }
+    }
+
+    /// Books the activities' time to the target and deletes them; a merged running activity runs on as the target.
+    public func merge(_ ids: [Int64], into target: Int64) throws {
+        try manage { try $0.mergeActivities(ids, into: target) }
+        tracker.replaceActivities(Set(ids), with: target)
+        publish()
+        saveState()
+    }
+
+    /// The window's sidebar and table, with the work of the current calendar month.
+    public func activityOverview() throws -> ActivityOverview {
+        let month = Period(.month, containing: now, calendar: calendar)
+        let summary = Reports.summary(
+            of: month, blocks: try database.blocks(in: month.interval), activities: catalog.activities,
+            projects: catalog.projects, customers: catalog.customers, calendar: calendar)
+        return ActivityOverview(catalog: catalog, thisMonth: summary.activities)
+    }
+
+    /// Uses the customer of that name or creates it, an empty customer name means none; the same for its project.
+    public func createProject(name: String, customerName: String) throws -> Project {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { throw MalocheError.emptyName }
+        let customerName = customerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        var customerId: Int64?
+        if !customerName.isEmpty {
+            let existing = try database.customers().first {
+                $0.name.caseInsensitiveCompare(customerName) == .orderedSame
+            }
+            customerId = try (existing ?? database.createCustomer(name: customerName)).id
+        }
+        let existing = try database.projects().first {
+            $0.customerId == customerId && $0.name.caseInsensitiveCompare(name) == .orderedSame
+        }
+        let project = try existing ?? database.createProject(name: name, customerId: customerId)
+        reloadCatalog()
+        return project
+    }
+
+    /// A new name creates the activity in its project or at the top level unless one there has it, e.g. after an earlier
+    /// part of a split; an archived activity comes back, one merged away since the prompt showed is refused.
+    private func resolve(_ choice: CheckInList.Choice) -> Int64? {
+        do {
+            let activities = try database.activities()
+            let activity =
+                switch choice {
+                case .existing(let id): activities.first { $0.id == id }
+                case .create(let name, let projectId):
+                    try Suggestions.exactMatch(
+                        for: name, in: activities.filter { ($0.projectId, $0.customerId) == (projectId, nil) })
+                        ?? database.createActivity(name: name, projectId: projectId)
+                }
+            guard let activity, let id = activity.id else {
+                presenter?.signalFailure()
+                return nil
+            }
+            if activity.archived { try database.setArchived(false, activities: [id]) }
+            return id
+        } catch {
+            logger.error("choosing an activity failed: \(String(describing: error), privacy: .public)")
+            presenter?.signalFailure()
+            return nil
+        }
+    }
+
+    /// A prompt from the tracker shows without taking the focus.
+    private func present(_ content: PanelContent) {
+        reloadCatalog()
+        showPrompt(content)
+        reveal(.timer) {}
+    }
+
+    private func showPrompt(_ content: PanelContent) {
+        if case .dashboard(let day) = panel { returnTo = day.period }
+        panel = content
+    }
+
+    /// Shows, focuses or closes the panel; `content` fills it when it opens.
+    private func reveal(_ trigger: PanelFocus.Trigger, content: () -> Void) {
+        guard let presenter else { return }
+        switch PanelFocus.action(for: trigger, visible: presenter.isVisible, key: presenter.isKey) {
+        case .show(let focus):
+            content()
+            if panel != nil { presenter.show(focus: focus) }
+        case .update: presenter.update()
+        case .focus: presenter.focus()
+        case .close:
+            dismiss()
+            hidePanel()
+        }
+    }
+
+    /// A user action: a dashboard stays and shows it, a prompt counts as answered and goes back to its dashboard or closes.
+    /// An action the tracker ignores keeps the panel and signals it.
+    private func act(_ event: TrackerEvent) {
+        let content = panel
+        var unchanged = tracker.state
+        // without a prompt in the panel, the one the tracker ends does not close it
+        if content?.isPrompt == true { panel = nil }
+        send(event)
+        // every user action counts as input, also one the tracker ignores
+        unchanged.lastInput = tracker.state.lastInput
+        guard tracker.state != unchanged else {
+            panel = content
+            presenter?.signalFailure()
+            return
+        }
+        switch content {
+        case .dashboard(let day): showDashboard(day.period)
+        case nil: break
+        case .some: endPrompt()
+        }
+    }
+
+    /// Back to the dashboard the prompt replaced, else the panel closes.
+    private func endPrompt() {
+        if let back = returnTo { showDashboard(back) } else { hidePanel() }
+    }
+
+    private var today: Period { Period(.day, containing: now, calendar: calendar) }
+
+    private func day(_ period: Period) -> DashboardDay? {
+        do {
+            return DashboardDay(period: period, blocks: try database.blocks(in: period.interval))
+        } catch {
+            logger.error("loading the dashboard failed: \(String(describing: error), privacy: .public)")
+            return nil
+        }
+    }
+
+    private func hidePanel() {
+        panel = nil
+        returnTo = nil
+        presenter?.hide()
+    }
+
+    private func reloadCatalog() {
+        do {
+            let today = calendar.dateInterval(of: .day, for: clock.now) ?? DateInterval(start: clock.now, duration: 0)
+            let activities = try database.activities().map { activity in
+                var activity = activity
+                activity.name = database.builtInNames[activity.kind] ?? activity.name
+                return activity
+            }
+            catalog = Catalog(
+                activities: activities, projects: try database.projects(),
+                customers: try database.customers(), todayBlocks: try database.blocks(in: today))
+        } catch {
+            logger.error("loading the catalog failed: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    /// Writes the tracker state now, e.g. before the app quits.
+    public func saveState() {
+        guard let stateURL else { return }
+        do {
+            try JSONEncoder().encode(tracker.state).write(to: stateURL, options: .atomic)
+            savedState = (tracker.state, now)
+        } catch {
+            logger.error("saving the tracker state failed: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    /// Any change at once, one only in the last tick and input at most once a minute.
+    private func saveStateIfDue() {
+        if let saved = savedState {
+            guard saved.state != tracker.state else { return }
+            var ticked = saved.state
+            ticked.lastTick = tracker.state.lastTick
+            ticked.lastInput = tracker.state.lastInput
+            if ticked == tracker.state, (0..<60).contains(now.timeIntervalSince(saved.at)) { return }
+        }
+        saveState()
+    }
+
+    private static func loadState(from url: URL?) -> TrackerState {
+        guard let url, let data = try? Data(contentsOf: url) else { return TrackerState() }
+        do {
+            return try JSONDecoder().decode(TrackerState.self, from: data)
+        } catch {
+            logger.error("tracker state unreadable, starting fresh: \(String(describing: error), privacy: .public)")
+            return TrackerState()
+        }
+    }
+}
