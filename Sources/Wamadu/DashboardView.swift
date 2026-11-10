@@ -78,14 +78,27 @@ struct DashboardView: View {
             return (data.isCurrent ? Text("Today") : nil, start.formatted(.dateTime.weekday(.wide).month(.wide).day()))
         case .week:
             let last = data.summary.days.last?.interval.start ?? start
-            let sameMonth = data.calendar.isDate(start, equalTo: last, toGranularity: .month)
-            let lastStyle: Date.FormatStyle = sameMonth ? .dateTime.day() : .dateTime.month(.wide).day()
-            let range = String(
-                localized: "\(start, format: .dateTime.month(.wide).day()) to \(last, format: lastStyle)")
+            let range = Self.weekRange(from: start, to: last, calendar: data.calendar)
             return (data.isCurrent ? Text("This week") : data.isPrevious ? Text("Last week") : nil, range)
         case .month:
             return (nil, start.formatted(.dateTime.month(.wide).year()))
         }
+    }
+
+    /// "November 2 to 8" or "2. to 8. November" as the locale orders day and month, across months both in full.
+    static func weekRange(from start: Date, to last: Date, calendar: Calendar, locale: Locale = .current) -> String {
+        let monthDay = Date.FormatStyle.dateTime.month(.wide).day().locale(locale)
+        let pattern = DateFormatter.dateFormat(fromTemplate: "MMMMd", options: 0, locale: locale) ?? "MMMM d"
+        guard calendar.isDate(start, equalTo: last, toGranularity: .month),
+            let dayIndex = pattern.firstIndex(of: "d"), let monthIndex = pattern.firstIndex(of: "M")
+        else { return String(localized: "\(start.formatted(monthDay)) to \(last.formatted(monthDay))") }
+        let day = DateFormatter()
+        day.locale = locale
+        // the day as the locale writes it before the month, e.g. "2." in German
+        day.dateFormat = dayIndex < monthIndex ? pattern[..<monthIndex].trimmingCharacters(in: .whitespaces) : "d"
+        return dayIndex < monthIndex
+            ? String(localized: "\(day.string(from: start)) to \(last.formatted(monthDay))")
+            : String(localized: "\(start.formatted(monthDay)) to \(day.string(from: last))")
     }
 
     private var pagingLabels: (previous: Text, next: Text) {

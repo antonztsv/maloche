@@ -120,15 +120,18 @@ public final class AppModel {
     @ObservationIgnored private let settingsStore: (any SettingsStore)?
     @ObservationIgnored private let adjustTracker: (inout TrackerSettings) -> Void
     @ObservationIgnored private let defaultBackupFolder: URL?
+    @ObservationIgnored private let builtInNames: [ActivityKind: String]
 
     /// Settings come from the store, `adjustTracker` overrides them for the tracker only and is never stored.
     /// `backups` is the backup folder unless the settings name one; without either nothing is backed up.
+    /// `builtInNames` names Break and Private in the catalog, the database keeps its own names.
     public init(
         database: AppDatabase, stateURL: URL?, settingsStore: (any SettingsStore)? = nil, backups: URL? = nil,
-        adjustTracker: @escaping (inout TrackerSettings) -> Void = { _ in },
+        adjustTracker: @escaping (inout TrackerSettings) -> Void = { _ in }, builtInNames: [ActivityKind: String] = [:],
         clock: any WallClock = SystemWallClock(), calendar: Calendar = .autoupdatingCurrent
     ) throws {
         self.database = database
+        self.builtInNames = builtInNames
         self.stateURL = stateURL
         self.clock = clock
         self.calendar = calendar
@@ -637,8 +640,13 @@ public final class AppModel {
     private func reloadCatalog() {
         do {
             let today = calendar.dateInterval(of: .day, for: clock.now) ?? DateInterval(start: clock.now, duration: 0)
+            let activities = try database.activities().map { activity in
+                var activity = activity
+                activity.name = builtInNames[activity.kind] ?? activity.name
+                return activity
+            }
             catalog = Catalog(
-                activities: try database.activities(), projects: try database.projects(),
+                activities: activities, projects: try database.projects(),
                 customers: try database.customers(), todayBlocks: try database.blocks(in: today))
         } catch {
             logger.error("loading the catalog failed: \(String(describing: error), privacy: .public)")

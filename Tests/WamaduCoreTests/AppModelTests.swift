@@ -825,6 +825,22 @@ final class TestClock: WallClock, @unchecked Sendable {
         return writing
     }
 
+    @Test func breakAndPrivateShowAndMatchUnderTheirShownNamesWhileTheDatabaseKeepsItsOwn() throws {
+        let model = try AppModel(
+            database: .inMemory(), stateURL: nil, builtInNames: [.break: "Pause", .private: "Privat"], clock: clock,
+            calendar: Fixture.berlin)
+        let (breakId, privateId) = (model.builtIns.breakId, model.builtIns.privateId)
+        #expect(model.catalog.activity(breakId)?.name == "Pause")
+        #expect(model.catalog.activity(privateId)?.name == "Privat")
+        var list = CheckInList(catalog: model.catalog, prefill: breakId, includingBuiltIns: true)
+        #expect(list.text == "Pause")
+        #expect(list.choice == .existing(breakId))
+        list.setText("privat")
+        #expect(list.choice == .existing(privateId))
+        #expect(try model.database.builtIn(.break).name == "Break")
+        #expect(try model.database.builtIn(.private).name == "Private")
+    }
+
     @Test func backFromAwayAsksWithoutFocusPrefilledWithBreak() throws {
         let model = try makeModel()
         _ = try backFromAway(model)

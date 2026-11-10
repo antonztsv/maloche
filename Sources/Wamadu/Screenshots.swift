@@ -244,7 +244,9 @@
                             endedAt: Self.at(end.0, end.1),
                             source: .checkIn))
                 }
-                model = try AppModel(database: database, stateURL: nil, clock: FixedClock(now: Self.at(10, 30)))
+                model = try AppModel(
+                    database: database, stateURL: nil, builtInNames: AppModel.localizedBuiltInNames,
+                    clock: FixedClock(now: Self.at(10, 30)))
             }
 
             /// Two customers with projects and activities, time in this and the last month, Old Stuff archived, at 17:30.
@@ -342,7 +344,9 @@
                             activityId: review.id!, startedAt: at(start.0, start.1), endedAt: at(end.0, end.1),
                             source: .checkIn))
                 }
-                let model = try AppModel(database: database, stateURL: nil, clock: FixedClock(now: at(17, 30)))
+                let model = try AppModel(
+                    database: database, stateURL: nil, builtInNames: AppModel.localizedBuiltInNames,
+                    clock: FixedClock(now: at(17, 30)))
                 let period = Period(.day, containing: today, calendar: model.calendar)
                 model.showDashboard(period)
                 return (model, review.id!, period)

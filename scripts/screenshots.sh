@@ -1,7 +1,14 @@
 #!/bin/zsh
-# Renders every screen in light and dark into build/screenshots/.
+# Renders every screen in light and dark into build/screenshots/, or with a language into build/screenshots-<language>/.
+# Usage: scripts/screenshots.sh [language], e.g. de; the language applies to this run only.
 set -euo pipefail
 cd "${0:A:h}/.."
 scripts/build-app.sh >/dev/null
-rm -rf build/screenshots
-"build/wamadu Dev.app/Contents/MacOS/Wamadu" --screenshots "$PWD/build/screenshots"
+CODE="${1:-}"
+OUT="build/screenshots${CODE:+-$CODE}"
+LANGUAGE_ARGS=()
+if [[ -n "$CODE" ]]; then
+  LANGUAGE_ARGS=(-AppleLanguages "($CODE)" -AppleLocale "$CODE")
+fi
+rm -rf "$OUT"
+"build/wamadu Dev.app/Contents/MacOS/Wamadu" --screenshots "$PWD/$OUT" "${LANGUAGE_ARGS[@]}"

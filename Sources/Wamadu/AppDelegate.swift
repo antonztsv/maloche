@@ -126,6 +126,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         settings.awayThreshold = defaults.double(forKey: "DebugIdleThreshold")
                     }
                 #endif
-            })
+            }, builtInNames: AppModel.localizedBuiltInNames)
+    }
+}
+
+extension AppModel {
+    /// Break and Private in the language of the app.
+    static var localizedBuiltInNames: [ActivityKind: String] {
+        [.break: String(localized: "Break"), .private: String(localized: "Private")]
     }
 }

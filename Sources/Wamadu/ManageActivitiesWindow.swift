@@ -304,11 +304,15 @@ struct ManageActivitiesView: View {
         moveMenu(ids)
             .fixedSize()
         Button("Merge Into…") { sheet = .merge(Array(ids)) }
-        if filter == .archived {
-            Button("Unarchive") { archive(ids, false) }
-        } else {
-            Button("Archive") { archive(ids, true) }
+            .fixedSize()
+        Group {
+            if filter == .archived {
+                Button("Unarchive") { archive(ids, false) }
+            } else {
+                Button("Archive") { archive(ids, true) }
+            }
         }
+        .fixedSize()
     }
 
     /// Every customer with its projects; No project under a customer assigns the customer directly.
