@@ -7,11 +7,16 @@ struct CheckInView: View {
     let model: AppModel
     let content: PanelContent
     @State private var list: CheckInList
+    @State private var split: SplitDraft?
     @State private var draft: ProjectDraft?
-    @State private var projectMenuRequest = 0
-    @FocusState private var fieldFocused: Bool
+    /// The split part a new project is for, nil for the check-in field.
+    @State private var draftPart: Int?
+    @FocusState private var focusedField: Int?
 
-    init(model: AppModel, content: PanelContent, list: CheckInList? = nil, draft: ProjectDraft? = nil) {
+    init(
+        model: AppModel, content: PanelContent, list: CheckInList? = nil, split: SplitDraft? = nil,
+        draft: ProjectDraft? = nil
+    ) {
         self.model = model
         self.content = content
         let initial: CheckInList
@@ -22,6 +27,7 @@ struct CheckInView: View {
         case .breakReturn(_, let prefill): initial = CheckInList(catalog: model.catalog, prefill: prefill)
         }
         _list = State(initialValue: list ?? initial)
+        _split = State(initialValue: split)
         _draft = State(initialValue: draft)
     }
 
@@ -32,14 +38,32 @@ struct CheckInView: View {
                 NewProjectForm(
                     draft: binding, customers: model.catalog.customers, onCancel: { draft = nil },
                     onCreate: createProject)
+            } else if let binding = Binding($split) {
+                SplitView(
+                    catalog: model.catalog, split: binding, onLog: logSplit, onBack: { split = nil },
+                    onNewProject: { part in
+                        draftPart = part
+                        draft = ProjectDraft()
+                    })
             } else {
                 VStack(alignment: .leading, spacing: 6) {
                     if let question {
                         Text(question).padding(.horizontal, 4)
                     }
-                    field
+                    ActivityField(
+                        catalog: model.catalog, list: $list, focus: $focusedField, id: 0, onSubmit: log,
+                        onEscape: model.close,
+                        onNewProject: {
+                            draftPart = nil
+                            draft = ProjectDraft()
+                        }
+                    )
+                    // focus per appearance, a panel opened without key status still types into the field after a click
+                    .task { focusedField = 0 }
                 }
-                if !list.rows.isEmpty { suggestions }
+                if !list.rows.isEmpty {
+                    SuggestionList(list: $list, catalog: model.catalog, sections: isCheckIn, onPick: log)
+                }
                 Divider().padding(.horizontal, 4)
                 buttons
             }
@@ -50,24 +74,37 @@ struct CheckInView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.title3.weight(.semibold))
-            if let subtitle {
-                Text(subtitle)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.title3.weight(.semibold))
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+            Spacer(minLength: 0)
+            if case .checkIn(let checkIn) = content, checkIn.canSplit, draft == nil {
+                Toggle("Split", isOn: Binding(get: { split != nil }, set: toggleSplit))
+                    .toggleStyle(.button)
+                    .buttonStyle(.accessoryBar)
+                    .controlSize(.small)
             }
         }
         .padding(.horizontal, 4)
     }
 
+    private var isCheckIn: Bool {
+        if case .checkIn = content { true } else { false }
+    }
+
     private var title: String {
-        if case .checkIn = content {
-            String(localized: "What are you working on?")
-        } else {
-            String(localized: "Welcome back")
+        switch content {
+        case .checkIn where split != nil: String(localized: "What were you working on?")
+        case .checkIn: String(localized: "What are you working on?")
+        case .awayReturn, .breakReturn: String(localized: "Welcome back")
         }
     }
 
@@ -87,75 +124,9 @@ struct CheckInView: View {
         }
     }
 
-    private var field: some View {
-        HStack(spacing: 6) {
-            TextField("Activity", text: Binding(get: { list.text }, set: { list.setText($0) }))
-                .textFieldStyle(.plain)
-                .focused($fieldFocused)
-                .onSubmit(log)
-                .onKeyPress(.downArrow) {
-                    list.moveSelection(by: 1)
-                    return .handled
-                }
-                .onKeyPress(.upArrow) {
-                    list.moveSelection(by: -1)
-                    return .handled
-                }
-                .onKeyPress(.tab) {
-                    guard list.isCreating else { return .ignored }
-                    projectMenuRequest += 1
-                    return .handled
-                }
-                .onKeyPress(.escape) {
-                    model.close()
-                    return .handled
-                }
-            if list.isCreating {
-                ProjectChip(
-                    catalog: model.catalog, projectId: $list.projectId, menuRequest: $projectMenuRequest,
-                    onNewProject: { draft = ProjectDraft() })
-            } else if let match = list.fieldMatch {
-                Text(Self.meta(project: match.projectName, customer: match.customerName))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-        }
-        .padding(.leading, 8)
-        .padding(.trailing, list.isCreating ? 3 : 8)
-        .fieldBackground(focused: fieldFocused)
-        // focus per appearance, a panel opened without key status still types into the field after a click
-        .task { fieldFocused = true }
-    }
-
-    private var suggestions: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            ForEach(Array(list.rows.enumerated()), id: \.offset) { index, row in
-                if let title = sectionTitle(at: index) {
-                    Text(title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 8)
-                        .padding(.top, index == 0 ? 0 : 6)
-                        .padding(.bottom, 2)
-                        .accessibilityAddTraits(.isHeader)
-                }
-                SuggestionRow(
-                    row: row, selected: index == list.selection, catalog: model.catalog, projectId: list.projectId
-                )
-                .onTapGesture {
-                    list.select(index)
-                    log()
-                }
-            }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(String(localized: "Suggestions"))
-    }
-
     private var buttons: some View {
         HStack(spacing: 8) {
-            if case .checkIn = content { MoreActionsMenu() }
+            if isCheckIn { MoreActionsMenu() }
             if let hint {
                 Text(hint)
                     .font(.subheadline)
@@ -175,14 +146,6 @@ struct CheckInView: View {
         .controlSize(.large)
     }
 
-    private func sectionTitle(at index: Int) -> String? {
-        guard case .checkIn = content, list.showsSections, case .activity(_, let today) = list.rows[index] else {
-            return nil
-        }
-        if index > 0, case .activity(_, let previous) = list.rows[index - 1], previous == today { return nil }
-        return today ? String(localized: "Today") : String(localized: "Earlier")
-    }
-
     private var hint: String? {
         guard list.isCreating else { return nil }
         guard let project = model.catalog.project(list.projectId) else {
@@ -195,10 +158,26 @@ struct CheckInView: View {
         if let choice = list.choice { model.log(choice) }
     }
 
+    /// The first part keeps the activity before, the second takes the field unless it still names that one.
+    private func toggleSplit(_ on: Bool) {
+        guard on, case .checkIn(let checkIn) = content, let span = checkIn.span else {
+            split = nil
+            return
+        }
+        let first = CheckInList(catalog: model.catalog, prefill: checkIn.prefill)
+        let second = list.choice == first.choice ? CheckInList(catalog: model.catalog, prefill: nil) : list
+        split = SplitDraft(span: span, first: first, second: second)
+    }
+
+    private func logSplit() {
+        if let split { model.log(split) }
+    }
+
     private func createProject() {
         guard let draft else { return }
         do {
-            list.projectId = try model.createProject(name: draft.name, customerName: draft.customer).id
+            let id = try model.createProject(name: draft.name, customerName: draft.customer).id
+            if let draftPart { split?.parts[draftPart].projectId = id } else { list.projectId = id }
             self.draft = nil
         } catch {
             NSSound.beep()
@@ -237,6 +216,96 @@ struct CheckInView: View {
         case (let name?, nil), (nil, let name?): name
         case (nil, nil): ""
         }
+    }
+}
+
+/// The activity field: arrows move the selected suggestion, Tab opens the project menu of a new activity.
+struct ActivityField: View {
+    let catalog: Catalog
+    @Binding var list: CheckInList
+    let focus: FocusState<Int?>.Binding
+    let id: Int
+    var label: String?
+    let onSubmit: () -> Void
+    let onEscape: () -> Void
+    let onNewProject: () -> Void
+    @State private var projectMenuRequest = 0
+
+    var body: some View {
+        HStack(spacing: 6) {
+            TextField("Activity", text: Binding(get: { list.text }, set: { list.setText($0) }))
+                .textFieldStyle(.plain)
+                .focused(focus, equals: id)
+                .accessibilityLabel(label ?? String(localized: "Activity"))
+                .onSubmit(onSubmit)
+                .onKeyPress(.downArrow) {
+                    list.moveSelection(by: 1)
+                    return .handled
+                }
+                .onKeyPress(.upArrow) {
+                    list.moveSelection(by: -1)
+                    return .handled
+                }
+                .onKeyPress(.tab) {
+                    guard list.isCreating else { return .ignored }
+                    projectMenuRequest += 1
+                    return .handled
+                }
+                .onKeyPress(.escape) {
+                    onEscape()
+                    return .handled
+                }
+            if list.isCreating {
+                ProjectChip(
+                    catalog: catalog, projectId: $list.projectId, menuRequest: $projectMenuRequest,
+                    onNewProject: onNewProject)
+            } else if let match = list.fieldMatch {
+                Text(CheckInView.meta(project: match.projectName, customer: match.customerName))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.leading, 8)
+        .padding(.trailing, list.isCreating ? 3 : 8)
+        .fieldBackground(focused: focus.wrappedValue == id)
+    }
+}
+
+/// The suggestions under a field, a click picks one; grouped into today and earlier when `sections` allows.
+struct SuggestionList: View {
+    @Binding var list: CheckInList
+    let catalog: Catalog
+    let sections: Bool
+    let onPick: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            ForEach(Array(list.rows.enumerated()), id: \.offset) { index, row in
+                if let title = sectionTitle(at: index) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.top, index == 0 ? 0 : 6)
+                        .padding(.bottom, 2)
+                        .accessibilityAddTraits(.isHeader)
+                }
+                SuggestionRow(row: row, selected: index == list.selection, catalog: catalog, projectId: list.projectId)
+                    .onTapGesture {
+                        list.select(index)
+                        onPick()
+                    }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(String(localized: "Suggestions"))
+    }
+
+    private func sectionTitle(at index: Int) -> String? {
+        guard sections, list.showsSections, case .activity(_, let today) = list.rows[index] else { return nil }
+        if index > 0, case .activity(_, let previous) = list.rows[index - 1], previous == today { return nil }
+        return today ? String(localized: "Today") : String(localized: "Earlier")
     }
 }
 

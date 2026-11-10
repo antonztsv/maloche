@@ -37,11 +37,14 @@ public struct CheckIn: Equatable, Sendable {
     /// Since the last answer when timed, since the current activity runs when opened by hand.
     public var span: DateInterval?
     public var prefill: Int64?
+    /// The span is longer than one interval, the check-in offers the split view.
+    public var canSplit: Bool
 
-    public init(mode: Mode, span: DateInterval?, prefill: Int64?) {
+    public init(mode: Mode, span: DateInterval?, prefill: Int64?, canSplit: Bool = false) {
         self.mode = mode
         self.span = span
         self.prefill = prefill
+        self.canSplit = canSplit
     }
 }
 
@@ -92,7 +95,9 @@ public final class AppModel {
                     logger.error("booking failed: \(String(describing: error), privacy: .public)")
                 }
             case .showCheckIn(let prompt):
-                present(.checkIn(CheckIn(mode: .timed, span: prompt.span, prefill: prompt.prefill)))
+                present(
+                    .checkIn(
+                        CheckIn(mode: .timed, span: prompt.span, prefill: prompt.prefill, canSplit: prompt.canSplit)))
             case .showAwayReturn(let span, let prefill):
                 present(.awayReturn(span: span, prefill: prefill))
             case .showBreakReturn(let span, let prefill):
@@ -142,20 +147,7 @@ public final class AppModel {
 
     /// A timed prompt books its span, one opened by hand switches now, a return answers for the time away.
     public func log(_ choice: CheckInList.Choice) {
-        guard let content = panel else { return }
-        let id: Int64
-        switch choice {
-        case .existing(let existing):
-            id = existing
-        case .create(let name, let projectId):
-            do {
-                guard let created = try database.createActivity(name: name, projectId: projectId).id else { return }
-                id = created
-            } catch {
-                logger.error("creating an activity failed: \(String(describing: error), privacy: .public)")
-                return
-            }
-        }
+        guard let content = panel, let id = resolve(choice) else { return }
         panel = nil
         presenter?.hide()
         logger.info("answered the panel with \(id)")
@@ -167,6 +159,17 @@ public final class AppModel {
                     id == builtIns.breakId ? .break : id == builtIns.privateId ? .private : .activity(id)))
         case .breakReturn: send(.breakReturnAnswered(id))
         }
+        reloadCatalog()
+    }
+
+    /// Books the parts of a timed span, the last part runs on.
+    public func log(_ split: SplitDraft) {
+        guard case .checkIn(let checkIn) = panel, checkIn.mode == .timed, let choices = split.choices else { return }
+        let ids = choices.compactMap(resolve)
+        guard ids.count == choices.count else { return }
+        panel = nil
+        presenter?.hide()
+        send(.checkInSplit(dividers: split.dividers, activities: ids))
         reloadCatalog()
     }
 
@@ -190,6 +193,24 @@ public final class AppModel {
         let project = try database.createProject(name: name, customerId: customerId)
         reloadCatalog()
         return project
+    }
+
+    /// A new name creates the activity, unless an earlier part of a split just did.
+    private func resolve(_ choice: CheckInList.Choice) -> Int64? {
+        switch choice {
+        case .existing(let id):
+            return id
+        case .create(let name, let projectId):
+            do {
+                if let existing = Suggestions.exactMatch(for: name, in: try database.activities()) {
+                    return existing.id
+                }
+                return try database.createActivity(name: name, projectId: projectId).id
+            } catch {
+                logger.error("creating an activity failed: \(String(describing: error), privacy: .public)")
+                return nil
+            }
+        }
     }
 
     private func present(_ content: PanelContent) {

@@ -33,6 +33,12 @@
     "Activity" : {
 
     },
+    "Activity for %@" : {
+
+    },
+    "Add another part" : {
+
+    },
     "Away from %@ to %@" : {
       "localizations" : {
         "en" : {
@@ -112,7 +118,13 @@
     "Day timeline" : {
 
     },
+    "Divider" : {
+
+    },
     "Done for today" : {
+
+    },
+    "Drag the divider to adjust" : {
 
     },
     "Earlier" : {
@@ -221,6 +233,9 @@
         }
       }
     },
+    "Split" : {
+
+    },
     "Still on break" : {
 
     },
@@ -258,6 +273,9 @@
 
     },
     "What was that time?" : {
+
+    },
+    "What were you working on?" : {
 
     },
     "Work" : {

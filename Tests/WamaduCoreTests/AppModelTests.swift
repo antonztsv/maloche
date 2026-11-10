@@ -189,6 +189,62 @@ final class TestClock: WallClock, @unchecked Sendable {
         #expect(presenter.calls.suffix(2) == ["show(focus: false)", "focus"])
     }
 
+    // MARK: Split
+
+    /// Writing from 09:00, the check-in at 09:15 dismissed, the one at 09:30 covers half an hour.
+    private func longSpan(_ model: AppModel) throws -> Int64 {
+        let writing = try model.database.createActivity(name: "Writing").id!
+        tick(model, at: "09:00")
+        model.statusItemClicked()
+        model.log(.existing(writing))
+        tick(model, at: "09:15")
+        model.close()
+        tick(model, at: "09:30")
+        return writing
+    }
+
+    @Test func aSpanLongerThanAnIntervalCanBeSplit() throws {
+        let model = try makeModel()
+        let writing = try longSpan(model)
+        #expect(
+            model.panel
+                == .checkIn(
+                    CheckIn(mode: .timed, span: Fixture.span("09:00", "09:30"), prefill: writing, canSplit: true))
+        )
+    }
+
+    @Test func aSplitBooksEveryPartAndTheLastOneRunsOn() throws {
+        let model = try makeModel()
+        let reading = try model.database.createActivity(name: "Reading").id!
+        let writing = try longSpan(model)
+        var offsite = CheckInList(catalog: model.catalog, prefill: nil)
+        offsite.setText("Offsite")
+        var split = SplitDraft(
+            span: Fixture.span("09:00", "09:30"), first: CheckInList(catalog: model.catalog, prefill: writing),
+            second: CheckInList(catalog: model.catalog, prefill: reading))
+        split.addPart(offsite)
+        model.log(split)
+        #expect(model.panel == nil)
+        #expect(presenter.calls.last == "hide")
+        tick(model, at: "09:32")
+        #expect(try timeline(model) == ["Writing 09:00-09:15", "Reading 09:15-09:22", "Offsite 09:22-09:32"])
+    }
+
+    @Test func aNewNameInTwoPartsCreatesOneActivity() throws {
+        let model = try makeModel()
+        let writing = try longSpan(model)
+        var offsite = CheckInList(catalog: model.catalog, prefill: nil)
+        offsite.setText("Offsite")
+        var split = SplitDraft(
+            span: Fixture.span("09:00", "09:30"), first: offsite,
+            second: CheckInList(catalog: model.catalog, prefill: writing))
+        offsite.setText("offsite")
+        split.addPart(offsite)
+        model.log(split)
+        #expect(try model.database.activities().filter { $0.name.lowercased() == "offsite" }.count == 1)
+        #expect(try timeline(model) == ["Offsite 09:00-09:15", "Writing 09:15-09:22", "Offsite 09:22-09:30"])
+    }
+
     // MARK: Returns
 
     /// Writing from 09:00, away from 09:05 (screen locked) until an input at 09:50.

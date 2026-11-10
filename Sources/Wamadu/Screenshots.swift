@@ -22,6 +22,16 @@
             let timed = CheckIn(
                 mode: .timed, span: DateInterval(start: Sample.at(10, 15), end: Sample.at(10, 30)),
                 prefill: sample.review)
+            let long = CheckIn(
+                mode: .timed, span: DateInterval(start: Sample.at(10, 15), end: Sample.at(11, 0)),
+                prefill: sample.review, canSplit: true)
+            func split(_ activities: [Int64?], at dividers: [(Int, Int)]) -> SplitDraft {
+                let lists = activities.map { CheckInList(catalog: model.catalog, prefill: $0) }
+                var draft = SplitDraft(span: long.span!, first: lists[0], second: lists[1])
+                for list in lists.dropFirst(2) { draft.addPart(list) }
+                for (index, time) in dividers.enumerated() { draft.moveDivider(index, to: Sample.at(time.0, time.1)) }
+                return draft
+            }
             func typed(_ text: String, projectId: Int64? = nil) -> CheckInList {
                 var list = CheckInList(catalog: model.catalog, prefill: sample.review)
                 list.setText(text)
@@ -53,6 +63,21 @@
                         CheckInView(
                             model: model, content: .checkIn(timed), list: typed("Kickoff"),
                             draft: ProjectDraft(name: "Relaunch 2027", customer: "Acme")))
+                ),
+                ("checkin-long", AnyView(CheckInView(model: model, content: .checkIn(long)))),
+                (
+                    "split",
+                    AnyView(
+                        CheckInView(
+                            model: model, content: .checkIn(long),
+                            split: split([sample.review, sample.weekly], at: [(10, 40)])))
+                ),
+                (
+                    "split-three",
+                    AnyView(
+                        CheckInView(
+                            model: model, content: .checkIn(long),
+                            split: split([sample.review, sample.writing, sample.weekly], at: [(10, 30), (10, 45)])))
                 ),
                 (
                     "away-return",
@@ -92,6 +117,7 @@
             let model: AppModel
             let review: Int64?
             let writing: Int64?
+            let weekly: Int64?
             let relaunch: Int64?
             static let today = Calendar.current.startOfDay(for: .now)
 
@@ -113,6 +139,7 @@
                 let kickoff = try database.createActivity(name: "Kickoff Shop", projectId: shop.id)
                 self.review = review.id
                 self.writing = writing.id
+                self.weekly = weekly.id
                 self.relaunch = relaunch.id
                 let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Self.today)!
                 try database.insert(
