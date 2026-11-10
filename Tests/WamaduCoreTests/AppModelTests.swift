@@ -565,6 +565,23 @@ final class TestClock: WallClock, @unchecked Sendable {
         #expect(shownDay(model) != nil)
     }
 
+    @Test func dashboardShortcutOnlyFocusesAPromptAndTurnsThatsItIntoTheDashboard() throws {
+        let model = try makeModel()
+        let writing = try writingFrom0900(model)
+        tick(model, at: "09:15")
+        model.shortcut(.openDashboard)
+        #expect(presenter.calls.last == "focus")
+        #expect(model.panel == .checkIn(CheckIn(mode: .timed, span: Fixture.span("09:00", "09:15"), prefill: writing)))
+        model.log(.existing(writing))
+
+        clock.now = Fixture.at("12:00")
+        model.statusItemClicked()
+        model.doneForToday()
+        model.shortcut(.openDashboard)
+        #expect(shownDay(model)?.period == today)
+        #expect(presenter.calls.last == "focus")
+    }
+
     // MARK: Split
 
     /// Writing from 09:00, the check-in at 09:15 dismissed, the one at 09:30 covers half an hour.

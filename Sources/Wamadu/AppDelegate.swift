@@ -83,13 +83,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             bundleIdentifier: Bundle.main.bundleIdentifier ?? "io.github.antonztsv.wamadu.dev")
         var settings = TrackerSettings()
         #if DEBUG
-            // manual testing, e.g. `open "wamadu Dev.app" --args -SpikeCheckInInterval 60 -SpikeIdleThreshold 120`
+            // manual testing, e.g. `open "wamadu Dev.app" --args -DebugCheckInInterval 60 -DebugIdleThreshold 120`
             let defaults = UserDefaults.standard
-            if defaults.double(forKey: "SpikeCheckInInterval") > 0 {
-                settings.checkInInterval = defaults.double(forKey: "SpikeCheckInInterval")
+            if defaults.double(forKey: "DebugCheckInInterval") > 0 {
+                settings.checkInInterval = defaults.double(forKey: "DebugCheckInInterval")
             }
-            if defaults.double(forKey: "SpikeIdleThreshold") > 0 {
-                settings.awayThreshold = defaults.double(forKey: "SpikeIdleThreshold")
+            if defaults.double(forKey: "DebugIdleThreshold") > 0 {
+                settings.awayThreshold = defaults.double(forKey: "DebugIdleThreshold")
             }
         #endif
         return try AppModel(

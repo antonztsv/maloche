@@ -14,7 +14,7 @@ final class GlobalShortcuts {
     init(onAction: @escaping (ShortcutAction) -> Void) {
         self.onAction = onAction
         var pressed = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        InstallEventHandler(
+        let status = InstallEventHandler(
             GetApplicationEventTarget(),
             { _, event, userData in
                 var id = EventHotKeyID()
@@ -27,6 +27,7 @@ final class GlobalShortcuts {
                 MainActor.assumeIsolated { shortcuts.fire(id) }
                 return noErr
             }, 1, &pressed, Unmanaged.passUnretained(self).toOpaque(), &handler)
+        if status != noErr { appLog.error("installing the hotkey handler failed: \(status)") }
     }
 
     isolated deinit {

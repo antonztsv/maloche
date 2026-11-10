@@ -53,7 +53,7 @@ struct TimelineChart: View {
                 localized:
                     "\(lane.interval.start, format: DashboardData.time) to \(lane.interval.end, format: DashboardData.time)"
             )
-            return "\(span) \(name)"
+            return String(localized: "\(span) \(name)", comment: "A time span and what it was spent on, for VoiceOver")
         }
         .formatted(.list(type: .and, width: .narrow))
     }

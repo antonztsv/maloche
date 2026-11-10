@@ -192,6 +192,8 @@ public final class AppModel {
             case .off: break
             }
         case .openDashboard:
+            // a visible prompt stays, closing it would answer it
+            if presenter.isVisible, case .doneForToday = panel { showDashboard(today) }
             reveal(.shortcut) { showDashboard(today) }
         }
     }

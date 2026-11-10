@@ -154,14 +154,14 @@ struct DashboardView: View {
             selection: Binding(
                 get: { data.period.kind },
                 set: { kind in
-                    // TODO: pass week and month on once their views exist, the day layout cannot show them
+                    // TODO: enable week and month once their views exist, the day layout cannot show them
                     guard kind == .day else { return }
                     onShowPeriod(Period(kind, containing: data.period.interval.start, calendar: data.calendar))
                 })
         ) {
             Text("Day").tag(PeriodKind.day)
-            Text("Week").tag(PeriodKind.week)
-            Text("Month").tag(PeriodKind.month)
+            Text("Week").tag(PeriodKind.week).selectionDisabled()
+            Text("Month").tag(PeriodKind.month).selectionDisabled()
         }
         .pickerStyle(.segmented)
         .labelsHidden()

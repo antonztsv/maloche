@@ -147,7 +147,7 @@ private struct SplitBar: View {
             let span = String(
                 localized:
                     "\(interval.start, format: DashboardData.time) to \(interval.end, format: DashboardData.time)")
-            return "\(span) \(name)"
+            return String(localized: "\(span) \(name)", comment: "A time span and what it was spent on, for VoiceOver")
         }
         .joined(separator: ", ")
     }
@@ -199,7 +199,8 @@ private struct SplitBar: View {
 
     private func handle(_ index: Int, width: CGFloat) -> some View {
         Capsule()
-            .fill(.white)
+            .fill(Color(nsColor: .alternateSelectedControlTextColor))
+            .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5)
             .frame(width: 6, height: Self.barHeight + 6)
             .shadow(radius: 2, y: 1)
             .overlay {
