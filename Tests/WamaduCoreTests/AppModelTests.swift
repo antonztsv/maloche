@@ -985,4 +985,97 @@ final class TestClock: WallClock, @unchecked Sendable {
         try Data("not json".utf8).write(to: stateURL)
         #expect(try makeModel(stateURL: stateURL).tracker.state == TrackerState())
     }
+
+    // MARK: State file
+
+    private func stored(_ url: URL) throws -> TrackerState {
+        try JSONDecoder().decode(TrackerState.self, from: Data(contentsOf: url))
+    }
+
+    /// Plain ticks every 5 seconds from `start` up to and including `end`.
+    private func ticks(_ model: AppModel, from start: String, through end: String) {
+        var time = Fixture.at(start)
+        while time <= Fixture.at(end) {
+            clock.now = time
+            model.send(.tick(idleSeconds: 0))
+            time += 5
+        }
+    }
+
+    @Test func plainTicksWriteTheStateOnceAMinute() throws {
+        let folder = try TemporaryFolder()
+        let stateURL = folder.url.appending(path: "tracker-state.json")
+        let model = try makeModel(stateURL: stateURL)
+        model.turnOff(for: nil)
+        #expect(try stored(stateURL) == model.tracker.state)
+
+        ticks(model, from: "09:00:05", through: "09:00:55")
+        #expect(try stored(stateURL).lastTick == nil)
+
+        ticks(model, from: "09:01", through: "09:01:55")
+        #expect(try stored(stateURL).lastTick == Fixture.at("09:01"))
+        ticks(model, from: "09:02", through: "09:02")
+        #expect(try stored(stateURL) == model.tracker.state)
+    }
+
+    @Test func aModeChangeAndAnAnswerWriteTheStateAtOnce() throws {
+        let folder = try TemporaryFolder()
+        let stateURL = folder.url.appending(path: "tracker-state.json")
+        let model = try makeModel(stateURL: stateURL)
+        let writing = try model.database.createActivity(name: "Writing").id!
+        model.turnOff(for: nil)
+        ticks(model, from: "09:00:05", through: "09:00:20")
+
+        model.keepTracking()
+        #expect(try stored(stateURL) == model.tracker.state)
+        ticks(model, from: "09:00:25", through: "09:00:30")
+        model.shortcut(.openCheckIn)
+        model.log(.existing(writing))
+        #expect(try stored(stateURL) == model.tracker.state)
+        ticks(model, from: "09:00:35", through: "09:00:40")
+        clock.now = Fixture.at("09:00:42")
+        model.startBreak()
+        #expect(try stored(stateURL) == model.tracker.state)
+    }
+
+    @Test func sleepLockAndQuitWriteTheStateAtOnce() throws {
+        let folder = try TemporaryFolder()
+        let stateURL = folder.url.appending(path: "tracker-state.json")
+        let model = try makeModel(stateURL: stateURL)
+        model.turnOff(for: nil)
+
+        ticks(model, from: "09:00:05", through: "09:00:20")
+        model.send(.systemAway(since: Fixture.at("09:00:20")))
+        #expect(try stored(stateURL) == model.tracker.state)
+
+        ticks(model, from: "09:00:25", through: "09:00:40")
+        model.saveState()
+        #expect(try stored(stateURL) == model.tracker.state)
+    }
+
+    /// After a crash the state on disk is at most a minute behind and tracking goes on as before.
+    @Test func aRelaunchFromTheWrittenStateRestoresWithinAMinute() throws {
+        let folder = try TemporaryFolder()
+        let stateURL = folder.url.appending(path: "tracker-state.json")
+        let database = try AppDatabase.inMemory()
+        let model = try makeModel(database, stateURL: stateURL)
+        let writing = try writingFrom0900(model)
+        ticks(model, from: "09:00:05", through: "09:10:55")
+
+        let relaunched = try makeModel(database, stateURL: stateURL)
+        var restored = relaunched.tracker.state
+        let live = model.tracker.state
+        #expect(try #require(live.lastTick).timeIntervalSince(try #require(restored.lastTick)) < 60)
+        #expect(live.lastInput.timeIntervalSince(restored.lastInput) < 60)
+        restored.lastTick = live.lastTick
+        restored.lastInput = live.lastInput
+        #expect(restored == live)
+
+        clock.now = Fixture.at("09:11")
+        relaunched.send(.appLaunched)
+        ticks(relaunched, from: "09:11", through: "09:15")
+        #expect(
+            relaunched.panel == .checkIn(CheckIn(mode: .timed, span: Fixture.span("09:00", "09:15"), prefill: writing)))
+        #expect(try timeline(relaunched) == ["Writing 09:00-09:15"])
+    }
 }

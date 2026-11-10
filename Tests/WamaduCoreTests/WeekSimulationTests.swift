@@ -4,7 +4,7 @@ import Testing
 
 @testable import WamaduCore
 
-/// PLAN 5.5: weeks of use driven like `PresenceMonitor`, with sleep, a weekend and the end of daylight saving time.
+/// Weeks of use driven like `PresenceMonitor`, with sleep, a weekend and the end of daylight saving time.
 @MainActor @Suite struct WeekSimulationTests {
     @Test func twoWeeksOfUseKeepTheDataSoundAndTheStateAndMemoryFlat() throws {
         weak var model: AppModel?
@@ -368,11 +368,17 @@ private final class SimulatedUse {
         windows.append((DateInterval(start: start, end: end), offPlan))
     }
 
-    /// Records the day's booked totals and checks the saved state.
+    /// Records the day's booked totals and checks the saved state, at most a minute behind in the last tick and input.
     private func dayEnds(booking totals: [String: String]) throws {
         expected[day] = totals
         let data = try Data(contentsOf: stateURL)
-        #expect(try JSONDecoder().decode(TrackerState.self, from: data) == model.tracker.state)
+        var saved = try JSONDecoder().decode(TrackerState.self, from: data)
+        let live = model.tracker.state
+        #expect(try #require(live.lastTick).timeIntervalSince(try #require(saved.lastTick)) < 60)
+        #expect(live.lastInput.timeIntervalSince(saved.lastInput) < 60)
+        saved.lastTick = live.lastTick
+        saved.lastInput = live.lastInput
+        #expect(saved == live)
         maxStateSize = max(maxStateSize, data.count)
     }
 

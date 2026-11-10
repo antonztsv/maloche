@@ -107,6 +107,7 @@ public final class AppModel {
     public let calendar: Calendar
     @ObservationIgnored private let clock: any WallClock
     @ObservationIgnored private let stateURL: URL?
+    @ObservationIgnored private var savedState: (state: TrackerState, at: Date)?
     /// The dashboard a prompt replaced, the panel goes back to it once the prompt is answered.
     @ObservationIgnored private var returnTo: Period?
     @ObservationIgnored private var closedByClickOutside: Date?
@@ -146,7 +147,7 @@ public final class AppModel {
     public func send(_ event: TrackerEvent) {
         apply(tracker.handle(event, now: clock.now))
         publish()
-        saveState()
+        if case .systemAway = event { saveState() } else { saveStateIfDue() }
         switch event {
         case .tick, .appLaunched: backUpIfDue()
         default: break
@@ -632,13 +633,27 @@ public final class AppModel {
         }
     }
 
-    private func saveState() {
+    /// Writes the tracker state now, e.g. before the app quits.
+    public func saveState() {
         guard let stateURL else { return }
         do {
             try JSONEncoder().encode(tracker.state).write(to: stateURL, options: .atomic)
+            savedState = (tracker.state, now)
         } catch {
             logger.error("saving the tracker state failed: \(String(describing: error), privacy: .public)")
         }
+    }
+
+    /// Any change at once, one only in the last tick and input at most once a minute.
+    private func saveStateIfDue() {
+        if let saved = savedState {
+            guard saved.state != tracker.state else { return }
+            var ticked = saved.state
+            ticked.lastTick = tracker.state.lastTick
+            ticked.lastInput = tracker.state.lastInput
+            if ticked == tracker.state, (0..<60).contains(now.timeIntervalSince(saved.at)) { return }
+        }
+        saveState()
     }
 
     private static func loadState(from url: URL?) -> TrackerState {

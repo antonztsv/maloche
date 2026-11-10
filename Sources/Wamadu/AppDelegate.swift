@@ -71,6 +71,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        model?.saveState()
+    }
+
     /// The hotkeys follow the settings.
     private func registerShortcuts() {
         guard let model, let shortcuts else { return }
