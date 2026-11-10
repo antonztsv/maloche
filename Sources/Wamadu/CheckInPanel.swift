@@ -3,6 +3,8 @@ import SwiftUI
 import WamaduCore
 
 final class CheckInPanel: NSPanel {
+    var onCancel: (() -> Void)?
+
     init() {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 380, height: 200),
@@ -21,22 +23,45 @@ final class CheckInPanel: NSPanel {
     override var canBecomeKey: Bool { true }
 
     override func cancelOperation(_ sender: Any?) {
-        orderOut(nil)
+        if let onCancel { onCancel() } else { orderOut(nil) }
+    }
+}
+
+/// What the panel shows, its height follows the content.
+struct PanelView: View {
+    let model: AppModel
+    let onResize: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            switch model.panel {
+            case .checkIn(let checkIn): CheckInView(model: model, checkIn: checkIn)
+            case nil: EmptyView()
+            }
+        }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.height
+        } action: { _ in
+            onResize()
+        }
     }
 }
 
 @MainActor
-final class CheckInPanelController {
+final class CheckInPanelController: PanelPresenter {
     weak var statusItem: NSStatusItem?
-    private let panel = CheckInPanel()
+    let panel = CheckInPanel()
+    private let model: AppModel
     private let glass = NSGlassEffectView()
     private var hosting: NSView?
     private var activationObserver: NSObjectProtocol?
 
-    init() {
+    init(model: AppModel) {
+        self.model = model
         glass.style = .regular
         glass.cornerRadius = 16
         panel.contentView = glass
+        panel.onCancel = { [weak model] in model?.close() }
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
         ) { [weak self] _ in
@@ -49,42 +74,48 @@ final class CheckInPanelController {
         }
     }
 
-    #if DEBUG
-        func runSelfTest() async { await SpikeSelfTest.run(self, panel: panel) }
-    #endif
+    var isVisible: Bool { panel.isVisible }
+    var isKey: Bool { panel.isKeyWindow }
 
-    func open(_ trigger: PanelFocus.Trigger) {
-        switch PanelFocus.action(for: trigger, visible: panel.isVisible, key: panel.isKeyWindow) {
-        case .show(let focus):
-            // a fresh hosting view per check-in resets the field and its focus
-            let view = NSHostingView(
-                rootView: CheckInView(onLog: { [weak self] text in
-                    spikeLog.info("logged \(text, privacy: .private)")
-                    self?.panel.orderOut(nil)
-                }))
-            glass.contentView = view
-            hosting = view
-            position()
-            if focus { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
-        case .update:
-            // keeps what the user is typing and who has the focus
-            position()
-            panel.orderFrontRegardless()
-        case .focus:
-            position()
-            panel.makeKeyAndOrderFront(nil)
-        case .close:
-            panel.orderOut(nil)
-        }
-        logState(trigger)
+    func show(focus: Bool) {
+        // a fresh hosting view per opening resets the field and its focus
+        let view = NSHostingView(
+            rootView: PanelView(model: model) { [weak self] in
+                DispatchQueue.main.async { self?.contentResized() }
+            })
+        glass.contentView = view
+        hosting = view
+        position()
+        if focus { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
+        logState("show focus=\(focus)")
     }
 
-    private func logState(_ trigger: PanelFocus.Trigger) {
+    func update() {
+        position()
+        panel.orderFrontRegardless()
+        logState("update")
+    }
+
+    func focus() {
+        position()
+        panel.makeKeyAndOrderFront(nil)
+        logState("focus")
+    }
+
+    func hide() {
+        panel.orderOut(nil)
+    }
+
+    private func contentResized() {
+        if panel.isVisible { position() }
+    }
+
+    private func logState(_ action: String) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [panel] in
             let editor = panel.firstResponder as? NSTextView
             spikeLog.info(
                 """
-                panel \(String(describing: trigger), privacy: .public): visible=\(panel.isVisible) \
+                panel \(action, privacy: .public): visible=\(panel.isVisible) \
                 key=\(panel.isKeyWindow) screen=\(panel.screen?.localizedName ?? "?", privacy: .public) \
                 frontmost=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?", privacy: .public) \
                 fieldEditor=\(editor != nil) selection=\(editor.map { NSStringFromRange($0.selectedRange()) } ?? "-", privacy: .public)
@@ -94,7 +125,9 @@ final class CheckInPanelController {
 
     private func position() {
         let size = hosting?.fittingSize ?? panel.frame.size
-        guard let screen = Self.screenWithFrontmostWindow() ?? NSScreen.main ?? NSScreen.screens.first else { return }
+        guard size.height > 0,
+            let screen = Self.screenWithFrontmostWindow() ?? NSScreen.main ?? NSScreen.screens.first
+        else { return }
         var anchorOffset: CGFloat = 200
         if let button = statusItem?.button, let window = button.window, let buttonScreen = window.screen {
             anchorOffset = buttonScreen.frame.maxX - window.frame.midX

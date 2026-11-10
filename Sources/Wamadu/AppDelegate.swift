@@ -1,13 +1,14 @@
 import AppKit
 import OSLog
+import WamaduCore
 
 let spikeLog = Logger(subsystem: Bundle.main.bundleIdentifier ?? "wamadu", category: "spike")
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
-    private let panelController = CheckInPanelController()
-    private var spikeTimer: Timer?
+    private var model: AppModel?
+    private var panelController: CheckInPanelController?
     private var presence: PresenceMonitor?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -23,6 +24,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
         #endif
+        let model: AppModel
+        do {
+            model = try Self.makeModel()
+        } catch {
+            NSAlert(error: error).runModal()
+            NSApp.terminate(nil)
+            return
+        }
+        let controller = CheckInPanelController(model: model)
+        model.presenter = controller
+
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = item.button {
             button.image = NSImage(systemSymbolName: "clock", accessibilityDescription: "wamadu")
@@ -32,11 +44,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         statusItem = item
-        panelController.statusItem = item
+        controller.statusItem = item
+        self.model = model
+        panelController = controller
 
-        // Spike only: open the panel periodically, e.g. `open "wamadu Dev.app" --args -SpikeCheckInInterval 30`.
-        let idleThreshold = UserDefaults.standard.double(forKey: "SpikeIdleThreshold")
-        presence = PresenceMonitor(threshold: idleThreshold > 0 ? idleThreshold : 120)
+        model.send(.appLaunched)
+        presence = PresenceMonitor(model: model)
         presence?.start()
 
         #if DEBUG
@@ -44,17 +57,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 LoginItem.runSpike(action)
             }
             if UserDefaults.standard.bool(forKey: "SpikeSelfTest") {
-                Task { await panelController.runSelfTest() }
+                Task { await SpikeSelfTest.run(model: model, controller: controller) }
             }
         #endif
-        let interval = UserDefaults.standard.double(forKey: "SpikeCheckInInterval")
-        if interval > 0 {
-            let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
-                MainActor.assumeIsolated { self?.panelController.open(.timer) }
+    }
+
+    private static func makeModel() throws -> AppModel {
+        let url = try AppDatabase.defaultURL(
+            bundleIdentifier: Bundle.main.bundleIdentifier ?? "io.github.antonztsv.wamadu.dev")
+        var settings = TrackerSettings()
+        #if DEBUG
+            // manual testing, e.g. `open "wamadu Dev.app" --args -SpikeCheckInInterval 60 -SpikeIdleThreshold 120`
+            let defaults = UserDefaults.standard
+            if defaults.double(forKey: "SpikeCheckInInterval") > 0 {
+                settings.checkInInterval = defaults.double(forKey: "SpikeCheckInInterval")
             }
-            RunLoop.main.add(timer, forMode: .common)
-            spikeTimer = timer
-        }
+            if defaults.double(forKey: "SpikeIdleThreshold") > 0 {
+                settings.awayThreshold = defaults.double(forKey: "SpikeIdleThreshold")
+            }
+        #endif
+        return try AppModel(
+            database: .open(at: url), stateURL: url.deletingLastPathComponent().appending(path: "tracker-state.json"),
+            settings: settings)
     }
 
     @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
@@ -68,6 +92,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             statusItem?.menu = nil
             return
         }
-        panelController.open(.statusItem)
+        model?.statusItemClicked()
     }
 }

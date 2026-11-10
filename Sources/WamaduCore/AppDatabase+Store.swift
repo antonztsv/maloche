@@ -37,6 +37,14 @@ extension AppDatabase {
         try dbQueue.read { db in try Activity.fetchAll(db) }
     }
 
+    public func projects() throws -> [Project] {
+        try dbQueue.read { db in try Project.order(Column("name").collating(.nocase)).fetchAll(db) }
+    }
+
+    public func customers() throws -> [Customer] {
+        try dbQueue.read { db in try Customer.order(Column("name").collating(.nocase)).fetchAll(db) }
+    }
+
     public func builtIn(_ kind: ActivityKind) throws -> Activity {
         let activity = try dbQueue.read { db in try Activity.filter(Column("kind") == kind.rawValue).fetchOne(db) }
         guard let activity else { throw WamaduError.activityNotFound }

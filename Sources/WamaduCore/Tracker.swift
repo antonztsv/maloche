@@ -71,6 +71,12 @@ public struct CheckInPrompt: Equatable, Sendable {
     public var prefill: Int64?
     /// The span is longer than one interval.
     public var canSplit: Bool
+
+    public init(span: DateInterval, prefill: Int64?, canSplit: Bool) {
+        self.span = span
+        self.prefill = prefill
+        self.canSplit = canSplit
+    }
 }
 
 public enum TrackerEffect: Equatable, Sendable {
@@ -150,6 +156,12 @@ public struct Tracker: Sendable {
         case .continuing: .continuing
         }
     }
+
+    /// The running activity, before the first answer of a day the prefill.
+    public var currentActivity: Int64? { state.current }
+
+    /// Since when the current activity or the break runs, nil while off or away.
+    public var runningSince: Date? { isRunning ? state.runStart : nil }
 
     public mutating func handle(_ event: TrackerEvent, now: Date) -> [TrackerEffect] {
         self.now = Self.whole(now)

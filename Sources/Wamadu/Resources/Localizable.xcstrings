@@ -1,22 +1,68 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
     "Activity" : {
 
     },
     "Break" : {
 
     },
+    "Continue without asking" : {
+
+    },
     "Copy" : {
+
+    },
+    "Create “%@”" : {
 
     },
     "Cut" : {
 
     },
+    "Done for today" : {
+
+    },
+    "Earlier" : {
+
+    },
     "Edit" : {
 
     },
+    "For 1 hour" : {
+
+    },
+    "For 2 hours" : {
+
+    },
+    "For 3 hours" : {
+
+    },
+    "For 30 minutes" : {
+
+    },
+    "For 4 hours" : {
+
+    },
+    "For this session" : {
+
+    },
     "Log" : {
+
+    },
+    "Manage Activities…" : {
+
+    },
+    "More actions" : {
 
     },
     "Paste" : {
@@ -31,10 +77,35 @@
     "Select All" : {
 
     },
-    "Since 10:15, 15 minutes" : {
+    "Settings…" : {
+
+    },
+    "Since %@" : {
+
+    },
+    "Since %@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Since %1$@, %2$@"
+          }
+        }
+      }
+    },
+    "Suggestions" : {
+
+    },
+    "Today" : {
+
+    },
+    "Turn off tracking" : {
 
     },
     "Undo" : {
+
+    },
+    "Until I stop it" : {
 
     },
     "What are you working on?" : {
