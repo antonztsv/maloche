@@ -105,6 +105,10 @@
                     "dashboard-day",
                     AnyView(DashboardView.sample(.activity(id: DashboardView.sampleCodeReviewId), model: model))
                 ),
+                (
+                    "dashboard-few",
+                    AnyView(DashboardView.sample(.activity(id: 5), few: true, model: model))
+                ),
                 ("dashboard-break", AnyView(DashboardView.sample(.onBreak, model: model))),
                 ("dashboard-off", AnyView(DashboardView.sample(.off, model: model))),
                 ("dashboard-empty", AnyView(DashboardView.sample(.none, empty: true, model: model))),

@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import WamaduCore
 
-/// The day as blocks in customer colors with breaks hatched, above an axis labelled every second hour.
+/// The day as blocks in customer colors with breaks hatched on a track, above an axis labelled every second hour.
 struct TimelineChart: View {
     var data: DashboardData
     var timeline: DayTimeline
@@ -14,6 +14,8 @@ struct TimelineChart: View {
     var body: some View {
         let ticks = showsAxis ? timeline.hourTicks(calendar: data.calendar) : []
         Canvas { context, size in
+            let track = CGRect(x: 0, y: 0, width: size.width, height: Self.barHeight)
+            context.fill(Path(roundedRect: track, cornerRadius: 4), with: .color(Color(nsColor: .quaternarySystemFill)))
             for bar in data.bars {
                 let minX = bar.start * size.width + 1
                 let rect = CGRect(

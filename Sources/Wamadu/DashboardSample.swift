@@ -7,7 +7,7 @@
         static let sampleCodeReviewId: Int64 = 1
 
         static func sample(
-            _ current: NowRow, empty: Bool = false, done: Bool = false, model: AppModel
+            _ current: NowRow, empty: Bool = false, few: Bool = false, done: Bool = false, model: AppModel
         ) -> DashboardView {
             let calendar = Calendar.current
             let day = calendar.date(from: DateComponents(year: 2026, month: 11, day: 9))!
@@ -34,12 +34,16 @@
                 (2, at(13), at(14, 30)), (4, at(14, 30), at(16)), (3, at(16), at(16, 30)), (1, at(16, 30), at(17)),
             ]
             let blocks =
-                empty ? [] : spans.map { Block(activityId: $0.0, startedAt: $0.1, endedAt: $0.2, source: .checkIn) }
+                empty
+                ? []
+                : spans.prefix(few ? 2 : spans.count).map {
+                    Block(activityId: $0.0, startedAt: $0.1, endedAt: $0.2, source: .checkIn)
+                }
             let data = DashboardData(
                 period: Period(.day, containing: day, calendar: calendar), blocks: blocks, activities: activities,
                 projects: projects, customers: customers,
                 schedule: WorkSchedule(plans: [2: .init(start: 9 * 60, end: 17 * 60)]), current: current,
-                now: empty ? at(8, 50) : at(17, 30), calendar: calendar)
+                now: empty ? at(8, 50) : few ? at(10, 5) : at(17, 30), calendar: calendar)
             return DashboardView(
                 data: data, done: done, moreActions: MoreActionsMenu(model: model), onShowPeriod: { _ in },
                 onCheckIn: {}, onKeepTracking: {})
