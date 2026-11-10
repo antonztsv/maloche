@@ -283,6 +283,31 @@ final class TestClock: WallClock, @unchecked Sendable {
         #expect(shownDay(model)?.blocks.map(\.activityId) == [writing])
     }
 
+    /// Writing ran the day before; the next morning it only prefills the check-in until the first answer.
+    @Test func theNowRowShowsNoActivityBeforeTheFirstAnswerOfTheDay() throws {
+        let model = try makeModel()
+        let writing = try writingFrom0900(model)
+        tick(model, at: "09:30")
+        model.doneForToday()
+        tick(model, at: "2026-11-10 08:00")
+        tick(model, at: "2026-11-10 08:10")
+        #expect(model.mode == .tracking)
+        #expect(model.nowRow == .none)
+        #expect(model.activityToContinue == nil)
+        model.statusItemClicked()
+        #expect(shownDay(model)?.blocks == [])
+
+        model.checkIn()
+        #expect(
+            model.panel
+                == .checkIn(
+                    CheckIn(
+                        mode: .manual, span: Fixture.span("2026-11-10 08:00", "2026-11-10 08:10"), prefill: writing)))
+        model.log(.existing(writing))
+        #expect(model.nowRow == .activity(id: writing))
+        #expect(shownDay(model)?.blocks.map(\.interval) == [Fixture.span("2026-11-10 08:00", "2026-11-10 08:10")])
+    }
+
     @Test func theNowRowFollowsTheTracker() throws {
         let model = try makeModel()
         #expect(model.nowRow == .off)

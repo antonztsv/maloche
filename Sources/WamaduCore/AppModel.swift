@@ -254,7 +254,7 @@ public final class AppModel {
             reloadCatalog()
             let now = clock.now
             let span = tracker.runningSince.map { DateInterval(start: min($0, now), end: now) }
-            showPrompt(.checkIn(CheckIn(mode: .manual, span: span, prefill: tracker.currentActivity)))
+            showPrompt(.checkIn(CheckIn(mode: .manual, span: span, prefill: tracker.prefill)))
         }
     }
 

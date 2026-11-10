@@ -118,6 +118,7 @@ public struct TrackerState: Codable, Equatable, Sendable {
     var lastTick: Date?
     var lastBookAt = Date.distantPast
     var day: Date?
+    /// The day an answer last named the current activity.
     var answeredDay: Date?
     var doneDay: Date?
     /// Turned on outside the plan, lasts until done, off or the next absence.
@@ -157,8 +158,13 @@ public struct Tracker: Sendable {
         }
     }
 
-    /// The running activity, before the first answer of a day the prefill.
-    public var currentActivity: Int64? { state.current }
+    /// The running activity, nil before the first answer of a day.
+    public var currentActivity: Int64? {
+        state.answeredDay != nil && state.answeredDay == state.day ? state.current : nil
+    }
+
+    /// What the check-in field starts with: the running activity, before the first answer of a day the last one.
+    public var prefill: Int64? { state.current }
 
     /// After a merge, the running activity runs on as the target.
     public mutating func replaceActivities(_ ids: Set<Int64>, with target: Int64) {
@@ -295,7 +301,9 @@ public struct Tracker: Sendable {
         let present = now.timeIntervalSince(state.lastInput) < settings.awayThreshold
         if state.override, isRunning, insidePlan(now) {
             state.override = false
-            state.day = calendar.startOfDay(for: now)
+            let day = calendar.startOfDay(for: now)
+            if currentActivity != nil { state.answeredDay = day }
+            state.day = day
         }
         if isRunning, dayOver {
             endDay()
@@ -505,12 +513,11 @@ public struct Tracker: Sendable {
     // MARK: Answers
 
     private mutating func answer(_ id: Int64) {
-        if id == state.current {
+        if id == running {
             bookRun(until: now)
         } else {
-            let firstOfDay = state.answeredDay != state.day || state.current == nil
             let span = state.spanStart
-            let cut = firstOfDay ? span : Self.whole(span + now.timeIntervalSince(span) / 2)
+            let cut = running == nil ? span : Self.whole(span + now.timeIntervalSince(span) / 2)
             bookRun(until: cut)
             run(id, from: cut, source: .checkIn)
             bookRun(until: now)
@@ -527,7 +534,7 @@ public struct Tracker: Sendable {
             book(builtIns.privateId, since, backAt, source: .away)
         case .activity(let id):
             book(id, since, backAt, source: .away)
-            if id != state.current { run(id, from: backAt, source: .checkIn) }
+            if id != running { run(id, from: backAt, source: .checkIn) }
         }
         bookRun(until: now)
         answered()
@@ -537,7 +544,6 @@ public struct Tracker: Sendable {
         state.spanStart = now
         state.lastPromptAt = now
         state.checkInShown = false
-        state.answeredDay = state.day
     }
 
     // MARK: Booking
@@ -546,7 +552,7 @@ public struct Tracker: Sendable {
     private var running: Int64? {
         switch state.phase {
         case .onBreak, .breakReturn: builtIns.breakId
-        default: state.current
+        default: currentActivity
         }
     }
 
@@ -556,6 +562,7 @@ public struct Tracker: Sendable {
             state.unassigned = []
         }
         state.current = id
+        state.answeredDay = state.day
         state.runStart = start
         state.runSource = source
     }

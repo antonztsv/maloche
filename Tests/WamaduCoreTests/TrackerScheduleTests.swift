@@ -83,7 +83,8 @@ import Testing
         h.tick()
         h.pass(to: "2026-11-10 08:05")
         #expect(h.prompts.isEmpty)
-        #expect(h.timeline == ["Writing 17:00-17:30", "Writing 11-10 08:00-11-10 08:05"])
+        #expect(h.tracker.mode == .tracking)
+        #expect(h.timeline == ["Writing 17:00-17:30"])
     }
 
     @Test func sleepAcrossThePlanEndDoesNotAskTheNextMorning() {
@@ -96,7 +97,8 @@ import Testing
         h.tick()
         h.pass(to: "2026-11-10 08:10")
         #expect(h.prompts.isEmpty)
-        #expect(h.timeline == ["Writing 17:00-17:30", "Writing 11-10 08:05-11-10 08:10"])
+        #expect(h.tracker.mode == .tracking)
+        #expect(h.timeline == ["Writing 17:00-17:30"])
     }
 
     @Test func breakAcrossThePlanEndEndsTheDayAtTheLastInput() {
@@ -110,7 +112,8 @@ import Testing
         h.tick()
         h.pass(to: "2026-11-10 08:10")
         #expect(h.prompts.isEmpty)
-        #expect(h.timeline == ["Writing 17:00-17:30", "Break 17:30-17:35", "Writing 11-10 08:05-11-10 08:10"])
+        #expect(h.tracker.mode == .tracking)
+        #expect(h.timeline == ["Writing 17:00-17:30", "Break 17:30-17:35"])
     }
 
     /// Back from a break at 12:30, the break return stays unanswered.
@@ -173,7 +176,8 @@ import Testing
         h.lastInput = h.now
         h.tick()
         h.pass(to: "2026-11-10 08:05")
-        #expect(h.timeline == ["Writing 14:00-15:00", "Writing 11-10 08:00-11-10 08:05"])
+        #expect(h.tracker.mode == .tracking)
+        #expect(h.timeline == ["Writing 14:00-15:00"])
     }
 
     @Test func keepTrackingResumesAfterDone() {
@@ -292,6 +296,15 @@ import Testing
         #expect(h.timeline == ["Writing 23:00-11-10 00:00", "Reading 11-10 00:00-11-10 00:30"])
     }
 
+    @Test func aRunTurnedOnTheEveningBeforeGoesOnIntoTheNextDaysPlan() {
+        var h = Harness(at: "2026-11-08 23:30", settings: Fixture.noCheckIns)
+        h.tick()
+        h.send(.turnOn)
+        h.pass(to: "08:10")
+        #expect(h.timeline == ["Writing 11-08 23:30-08:10"])
+        #expect(h.tracker.currentActivity == Fixture.writing)
+    }
+
     @Test func doneForTodayIsPerCalendarDay() {
         var h = Harness(at: "23:00", settings: Fixture.noCheckIns)
         h.tick()
@@ -315,7 +328,7 @@ import Testing
         h.tick()
         h.pass(to: "2026-11-10 12:00")
         #expect(h.tracker.mode == .tracking)
-        #expect(h.timeline.last == "Writing 11-10 08:00-11-10 12:00")
+        #expect(h.timeline.last == "Writing 23:00-11-10 00:30")
     }
 
     @Test func turnOnBeforeThePlanEndsWithThePlan() {
@@ -361,7 +374,7 @@ import Testing
         try h.relaunch()
         h.pass(to: "2026-11-10 08:20")
         #expect(h.tracker.mode == .tracking)
-        #expect(h.timeline == ["Writing 15:00-15:10", "Writing 11-10 08:10-11-10 08:20"])
+        #expect(h.timeline == ["Writing 15:00-15:10"])
     }
 
     @Test func stateSurvivesACodableRoundTrip() throws {

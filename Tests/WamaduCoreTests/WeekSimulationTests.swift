@@ -106,7 +106,7 @@ private final class SimulatedUse {
         func on(_ offset: Int) { day = Fixture.berlin.date(byAdding: .day, value: offset, to: start)! }
         on(0)
         if firstUse { try launch(at: at("08:00")) } else { wake(at: at("08:00")) }
-        try monday(firstUse: firstUse)
+        try monday()
         on(1)
         try tuesday()
         on(2)
@@ -119,8 +119,8 @@ private final class SimulatedUse {
         try sunday()
     }
 
-    /// The first use ever has no activity before the first answer, later Mondays start with Sunday's.
-    private func monday(firstUse: Bool) throws {
+    /// Nothing runs before the first answer, also when Sunday ended with Reading.
+    private func monday() throws {
         work(until: at("08:10"))
         back(at: at("08:30"))
         answer("Break")
@@ -135,10 +135,7 @@ private final class SimulatedUse {
         work(until: at("17:50"), on: "Writing")
         lockScreen()
         tracked(at("08:00"), at("17:50"))
-        try dayEnds(
-            booking: firstUse
-                ? ["Review": "1:32:30", "Writing": "7:12:30", "Break": "1:05:00"]
-                : ["Reading": "0:17:30", "Review": "1:15:00", "Writing": "7:12:30", "Break": "1:05:00"])
+        try dayEnds(booking: ["Review": "1:32:30", "Writing": "7:12:30", "Break": "1:05:00"])
     }
 
     private func tuesday() throws {

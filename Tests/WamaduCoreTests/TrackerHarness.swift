@@ -56,12 +56,20 @@ struct Harness {
     var bookings = 0
     private var nextId: Int64 = 1
 
-    init(at time: String = "08:00", current: Int64? = Fixture.writing, settings: TrackerSettings = TrackerSettings()) {
-        var state = TrackerState()
-        state.current = current
-        tracker = Tracker(settings: settings, calendar: Fixture.berlin, builtIns: Fixture.builtIns, state: state)
+    /// `current` was answered earlier that day; unless `answered`, it is an earlier day's and only the prefill.
+    init(
+        at time: String = "08:00", current: Int64? = Fixture.writing, answered: Bool = true,
+        settings: TrackerSettings = TrackerSettings()
+    ) {
         now = Fixture.at(time)
         lastInput = now
+        var state = TrackerState()
+        state.current = current
+        if answered {
+            state.day = Fixture.berlin.startOfDay(for: now)
+            state.answeredDay = state.day
+        }
+        tracker = Tracker(settings: settings, calendar: Fixture.berlin, builtIns: Fixture.builtIns, state: state)
     }
 
     /// One tick at the current time, idle since the simulated last input.
