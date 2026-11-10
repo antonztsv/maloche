@@ -35,19 +35,22 @@ struct NewProjectForm: View {
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text("Customer").font(.subheadline).foregroundStyle(.secondary)
-                HStack(spacing: 6) {
+                // at the name's text, or after the color square and its 6 pt spacing
+                CustomerField(
+                    text: $draft.customer, customers: customers, textStart: match == nil ? 8 : 22, onSubmit: submit,
+                    onCancel: onCancel
+                )
+                .focused($focus, equals: .customer)
+                .padding(.leading, CustomerField.listOutset.leading)
+                .padding(.trailing, CustomerField.listOutset.trailing)
+                .overlay(alignment: .leading) {
                     if let match {
                         RoundedRectangle(cornerRadius: 2)
                             .fill(Color(nsColor: CustomerColor.nsColor(for: match)))
                             .frame(width: 8, height: 8)
+                            .padding(.leading, 8)
                     }
-                    CustomerField(text: $draft.customer, customers: customers, onSubmit: submit, onCancel: onCancel)
-                        .focused($focus, equals: .customer)
-                        // the combo box insets its text, this aligns it with the name field
-                        .padding(.leading, -5)
                 }
-                .padding(.leading, 8)
-                .padding(.trailing, 6)
                 .fieldBackground(focused: focus == .customer)
                 Text("Pick one or type a new customer name.")
                     .font(.subheadline)
@@ -88,13 +91,18 @@ struct NewProjectForm: View {
 private struct CustomerField: NSViewRepresentable {
     @Binding var text: String
     let customers: [Customer]
+    /// Where the text starts, from the leading edge of the field.
+    let textStart: CGFloat
     let onSubmit: () -> Void
     let onCancel: () -> Void
+
+    /// AppKit opens the list this far outside the combo box's frame (measured, the same for every width).
+    static let listOutset = (leading: 9.0, trailing: 8.0)
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeNSView(context: Context) -> NSComboBox {
-        let field = NSComboBox()
+        let field = ComboBox()
         field.isBezeled = false
         field.isBordered = false
         field.isButtonBordered = false
@@ -114,6 +122,69 @@ private struct CustomerField: NSViewRepresentable {
     func updateNSView(_ field: NSComboBox, context: Context) {
         context.coordinator.parent = self
         if field.stringValue != text { field.stringValue = text }
+        let start = textStart - Self.listOutset.leading
+        guard let cell = field.cell as? Cell, cell.textStart != start else { return }
+        cell.textStart = start
+        field.needsDisplay = true
+        // places the field editor again, at the new start
+        if let editor = field.currentEditor() {
+            let selection = editor.selectedRange
+            cell.select(
+                withFrame: field.bounds, in: field, editor: editor, delegate: field, start: selection.location,
+                length: selection.length)
+        }
+    }
+
+    private final class ComboBox: NSComboBox {
+        override class var cellClass: AnyClass? {
+            get { Cell.self }
+            set {}
+        }
+
+        // zero horizontally, so the padding around the field places the frame and with it the list
+        override var alignmentRectInsets: NSEdgeInsets {
+            let insets = super.alignmentRectInsets
+            return NSEdgeInsets(top: insets.top, left: 0, bottom: insets.bottom, right: 0)
+        }
+    }
+
+    /// Moves the text, drawn and edited, to `textStart` from the frame's leading edge.
+    private final class Cell: NSComboBoxCell {
+        var textStart: CGFloat = 0
+
+        override func titleRect(forBounds rect: NSRect) -> NSRect {
+            var title = super.titleRect(forBounds: rect)
+            // the cell and the field editor pad the text by 2 pt
+            let minX = rect.minX + textStart - 2
+            title.size.width = title.maxX - minX
+            title.origin.x = minX
+            return title
+        }
+
+        override func drawInterior(withFrame cellFrame: NSRect, in controlView: NSView) {
+            super.drawInterior(withFrame: shifted(cellFrame), in: controlView)
+        }
+
+        override func edit(
+            withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?, event: NSEvent?
+        ) {
+            super.edit(withFrame: shifted(rect), in: controlView, editor: textObj, delegate: delegate, event: event)
+        }
+
+        override func select(
+            withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?, start selStart: Int,
+            length selLength: Int
+        ) {
+            super.select(
+                withFrame: shifted(rect), in: controlView, editor: textObj, delegate: delegate, start: selStart,
+                length: selLength)
+        }
+
+        /// The cell draws the text and places the field editor at the default title rect, this moves both.
+        private func shifted(_ rect: NSRect) -> NSRect {
+            let shift = titleRect(forBounds: rect).minX - super.titleRect(forBounds: rect).minX
+            return NSRect(x: rect.minX + shift, y: rect.minY, width: rect.width - shift, height: rect.height)
+        }
     }
 
     @MainActor final class Coordinator: NSObject, NSComboBoxDataSource, NSComboBoxDelegate {

@@ -56,6 +56,74 @@ import WamaduCore
         view.layoutSubtreeIfNeeded()
     }
 
+    /// Where the text of the field being edited starts, in window coordinates.
+    private func textStart(in window: NSWindow) throws -> CGFloat {
+        let editor = try #require(window.firstResponder as? NSTextView)
+        let x = editor.textContainerOrigin.x + (editor.textContainer?.lineFragmentPadding ?? 0)
+        return editor.convert(NSPoint(x: x, y: 0), to: nil).x
+    }
+
+    @Test(arguments: ["Acme", "Globex"])
+    func theCustomerListIsFlushWithTheField(customer: String) throws {
+        let form = NewProjectForm(
+            draft: .constant(ProjectDraft(name: "Relaunch", customer: customer)), customers: Self.customers,
+            onCancel: {}, onCreate: {})
+        let (window, hosting) = host(form)
+        settle(hosting)
+        let name = try #require(textField(in: hosting, value: "Relaunch"))
+        let field = try #require(comboBox(in: hosting))
+        // the form pads its fields 4 pt from the window's edges, the name text starts 8 pt into its field
+        let fieldMinX: CGFloat = 4
+        let fieldMaxX = window.frame.width - 4
+        window.makeFirstResponder(name)
+        #expect(try textStart(in: window) == fieldMinX + 8)
+
+        // AppKit opens the list 9 pt left and 8 pt right outside the combo box's frame
+        let frame = field.convert(field.bounds, to: nil)
+        #expect(frame.minX == fieldMinX + 9)
+        #expect(frame.maxX == fieldMaxX - 8)
+    }
+
+    @Test(arguments: zip(["Globex", "Acme"], [0.0, 14.0]))
+    func theCustomerTextStartsWithTheNameText(customer: String, colorSquare: CGFloat) throws {
+        let form = NewProjectForm(
+            draft: .constant(ProjectDraft(name: "Relaunch", customer: customer)), customers: Self.customers,
+            onCancel: {}, onCreate: {})
+        let (window, hosting) = host(form)
+        settle(hosting)
+        let name = try #require(textField(in: hosting, value: "Relaunch"))
+        let field = try #require(comboBox(in: hosting))
+        window.makeFirstResponder(name)
+        let nameStart = try textStart(in: window)
+
+        window.makeFirstResponder(field)
+
+        #expect(abs(try textStart(in: window) - (nameStart + colorSquare)) < 1)
+    }
+
+    @Test func theCustomerTextMakesRoomForTheColorSquareWhilePicking() throws {
+        let model = try AppModel(database: .inMemory(), stateURL: nil)
+        _ = try model.createProject(name: "Website", customerName: "Acme")
+        let view = CheckInView(
+            model: model, content: .checkIn(CheckIn(mode: .manual, span: nil, prefill: nil)),
+            draft: ProjectDraft(name: "Relaunch", customer: "Glob"))
+        let (window, hosting) = host(view)
+        settle(hosting)
+        let name = try #require(textField(in: hosting, value: "Relaunch"))
+        let field = try #require(comboBox(in: hosting))
+        window.makeFirstResponder(name)
+        let nameStart = try textStart(in: window)
+        window.makeFirstResponder(field)
+        #expect(abs(try textStart(in: window) - nameStart) < 1)
+
+        field.selectItem(at: 0)
+        settle(hosting)
+
+        // the color square and its spacing
+        #expect(abs(try textStart(in: window) - (nameStart + 14)) < 1)
+        #expect((window.firstResponder as? NSTextView)?.string == "Acme")
+    }
+
     @Test func creatingAProjectWithANewCustomerKeepsTheCheckIn() throws {
         let model = try AppModel(database: .inMemory(), stateURL: nil)
         let view = CheckInView(
