@@ -58,7 +58,7 @@ struct PanelView: View {
         return DashboardView(
             data: DashboardData(
                 period: day.period, blocks: day.blocks, activities: catalog.activities, projects: catalog.projects,
-                customers: catalog.customers, schedule: model.tracker.settings.schedule, current: model.nowRow,
+                customers: catalog.customers, schedule: model.schedule, current: model.nowRow,
                 now: model.now, calendar: model.calendar),
             done: done, moreActions: MoreActionsMenu(model: model), onShowPeriod: model.showDashboard,
             onCheckIn: model.checkIn, onKeepTracking: model.keepTracking)

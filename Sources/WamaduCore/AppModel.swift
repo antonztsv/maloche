@@ -84,7 +84,11 @@ public struct CheckIn: Equatable, Sendable {
 public final class AppModel {
     public let database: AppDatabase
     public let builtIns: BuiltInActivities
-    public private(set) var tracker: Tracker
+    // ticks change the tracker every few seconds, views observe only the published values below
+    @ObservationIgnored public private(set) var tracker: Tracker
+    public private(set) var mode: TrackerMode = .off
+    public private(set) var currentActivity: Int64?
+    public private(set) var schedule = WorkSchedule.standard
     public private(set) var catalog = Catalog()
     public private(set) var panel: PanelContent?
     @ObservationIgnored public weak var presenter: (any PanelPresenter)?
@@ -107,13 +111,21 @@ public final class AppModel {
         tracker = Tracker(
             settings: settings, calendar: calendar, builtIns: builtIns, state: Self.loadState(from: stateURL))
         reloadCatalog()
+        publish()
     }
 
     public var now: Date { clock.now }
 
     public func send(_ event: TrackerEvent) {
         apply(tracker.handle(event, now: clock.now))
+        publish()
         saveState()
+    }
+
+    private func publish() {
+        if mode != tracker.mode { mode = tracker.mode }
+        if currentActivity != tracker.currentActivity { currentActivity = tracker.currentActivity }
+        if schedule != tracker.settings.schedule { schedule = tracker.settings.schedule }
     }
 
     public func apply(_ effects: [TrackerEffect]) {
@@ -145,16 +157,16 @@ public final class AppModel {
     }
 
     public var nowRow: NowRow {
-        switch tracker.mode {
+        switch mode {
         case .onBreak: .onBreak
         case .off: .off
-        case .tracking, .continuing: tracker.currentActivity.map { .activity(id: $0) } ?? .none
+        case .tracking, .continuing: currentActivity.map { .activity(id: $0) } ?? .none
         }
     }
 
     /// The activity "Continue without asking" keeps logging, nil before the first answer and during a break.
     public var activityToContinue: Int64? {
-        tracker.mode == .onBreak ? nil : tracker.currentActivity
+        mode == .onBreak ? nil : currentActivity
     }
 
     /// Today's dashboard, or focus or close the visible panel.

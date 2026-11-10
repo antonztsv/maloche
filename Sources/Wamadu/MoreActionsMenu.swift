@@ -9,7 +9,7 @@ struct MoreActionsMenu: View {
     var body: some View {
         Menu {
             Button("Done for today", action: model.doneForToday)
-            if model.tracker.mode == .continuing {
+            if model.mode == .continuing {
                 Button("Stop continuing", action: model.stopContinuing)
             } else {
                 Menu("Continue without asking") {
@@ -23,7 +23,7 @@ struct MoreActionsMenu: View {
                 }
                 .disabled(model.activityToContinue == nil)
             }
-            if model.tracker.mode == .off {
+            if model.mode == .off {
                 Button("Turn on tracking", action: model.keepTracking)
             } else {
                 Menu("Turn off tracking") {

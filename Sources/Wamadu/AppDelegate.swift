@@ -65,7 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showMode() {
         guard let model else { return }
         let mode = withObservationTracking {
-            model.tracker.mode
+            model.mode
         } onChange: {
             Task { @MainActor in self.showMode() }
         }

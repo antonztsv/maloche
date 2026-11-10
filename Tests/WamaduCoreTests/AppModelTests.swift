@@ -1,5 +1,6 @@
 import Foundation
 import GRDB
+import Observation
 import Testing
 
 @testable import WamaduCore
@@ -65,6 +66,28 @@ final class TestClock: WallClock, @unchecked Sendable {
             }
         }
         return merged.map { "\(names[$0.activityId]!) \(Fixture.clock($0.startedAt))-\(Fixture.clock($0.endedAt))" }
+    }
+
+    @Test func ticksThatChangeNothingVisibleDoNotRedrawTheMenuOrIcon() throws {
+        let model = try makeModel()
+        _ = try model.database.createActivity(name: "Writing")
+        tick(model, at: "09:00")
+        final class Flag: @unchecked Sendable { var changed = false }
+        let flag = Flag()
+        withObservationTracking {
+            _ = model.mode
+            _ = model.nowRow
+            _ = model.activityToContinue
+            _ = model.schedule
+        } onChange: {
+            flag.changed = true
+        }
+        tick(model, at: "09:01")
+        tick(model, at: "09:02")
+        #expect(!flag.changed)
+        model.send(.startBreak)
+        #expect(flag.changed)
+        #expect(model.mode == .onBreak)
     }
 
     @Test func checkInShortcutOpensTheCheckInByHandAndTheAnswerStartsNow() throws {
