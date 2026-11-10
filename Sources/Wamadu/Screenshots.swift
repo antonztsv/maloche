@@ -68,13 +68,6 @@
                             model: model, content: .checkIn(timed), list: typed("Kickoff Relaunch"),
                             draft: ProjectDraft(name: "Relaunch 2027", customer: "Acme")))
                 ),
-                (
-                    "newproject-customers",
-                    AnyView(
-                        CheckInView(
-                            model: model, content: .checkIn(timed), list: typed("Kickoff Relaunch"),
-                            draft: ProjectDraft(name: "Relaunch 2027")))
-                ),
                 ("checkin-long", AnyView(CheckInView(model: model, content: .checkIn(long)))),
                 (
                     "split",
@@ -125,9 +118,7 @@
             for screen in screens {
                 for (mode, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
                     let url = directory.appending(path: "\(screen.name)-\(mode).png")
-                    try render(
-                        screen.view, appearance: NSAppearance(named: appearance)!,
-                        openingList: screen.name == "newproject-customers", to: url)
+                    try render(screen.view, appearance: NSAppearance(named: appearance)!, to: url)
                     print(url.path(percentEncoded: false))
                 }
             }
@@ -180,57 +171,49 @@
             }
         }
 
-        // Glass is composited by the window server and cannot be captured offscreen, the panel background stands in.
-        /// `openingList` types into the first combo box, its list is a child window and is drawn over the view.
-        private static func render(_ view: AnyView, appearance: NSAppearance, openingList: Bool, to url: URL) throws {
-            let hosting = NSHostingView(
-                rootView: view.background(Color(nsColor: .windowBackgroundColor)).clipShape(.rect(cornerRadius: 16)))
-            hosting.appearance = appearance
-            hosting.frame.size = hosting.fittingSize
-            let window = CheckInPanel()
-            window.setContentSize(hosting.frame.size)
-            window.appearance = appearance
-            window.contentView = hosting
-            // above every screen, below one the combo box list would flip above its field
-            window.setFrameOrigin(NSPoint(x: -10_000, y: 10_000))
-            window.makeKeyAndOrderFront(nil)
-            hosting.layoutSubtreeIfNeeded()
-            RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-            if openingList, let comboBox = firstComboBox(in: hosting) {
-                window.makeFirstResponder(comboBox)
-                for type in [NSEvent.EventType.keyDown, .keyUp] {
-                    window.sendEvent(
-                        NSEvent.keyEvent(
-                            with: type, location: .zero, modifierFlags: [], timestamp: 0,
-                            windowNumber: window.windowNumber, context: nil, characters: "n",
-                            charactersIgnoringModifiers: "n", isARepeat: false, keyCode: 45)!)
-                }
-                RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-            }
-            func snapshot(_ view: NSView) throws -> NSBitmapImageRep {
-                guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
-                    throw CocoaError(.fileWriteUnknown, userInfo: [NSFilePathErrorKey: url.path])
-                }
-                view.cacheDisplay(in: view.bounds, to: rep)
-                return rep
-            }
-            let rep = try snapshot(hosting)
-            if let list = window.childWindows?.first, let content = list.contentView {
-                let listRep = try snapshot(content)
-                NSGraphicsContext.saveGraphicsState()
-                NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-                listRep.draw(in: window.convertFromScreen(list.frame))
-                NSGraphicsContext.restoreGraphicsState()
-            }
-            window.orderOut(nil)
-            guard let png = rep.representation(using: .png, properties: [:]) else {
-                throw CocoaError(.fileWriteUnknown, userInfo: [NSFilePathErrorKey: url.path])
-            }
+        private static func render(_ view: AnyView, appearance: NSAppearance, to url: URL) throws {
+            guard let png = try image(of: view, appearance: appearance).representation(using: .png, properties: [:])
+            else { throw CocoaError(.fileWriteUnknown, userInfo: [NSFilePathErrorKey: url.path]) }
             try png.write(to: url)
+            precondition(
+                NSApp.keyWindow == nil && !NSApp.isActive && NSApp.windows.allSatisfy { !$0.isVisible },
+                "screenshots must never take the keyboard or show a window")
         }
 
-        private static func firstComboBox(in view: NSView) -> NSComboBox? {
-            (view as? NSComboBox) ?? view.subviews.lazy.compactMap(firstComboBox).first
+        /// Draws as an active window without ever becoming key, so the app in front keeps the keyboard.
+        final class Window: NSWindow {
+            init() {
+                super.init(contentRect: .zero, styleMask: .borderless, backing: .buffered, defer: false)
+            }
+
+            override var canBecomeKey: Bool { false }
+            override var canBecomeMain: Bool { false }
+            // controls and focus rings draw their active look from these, the window server is never asked
+            override var isKeyWindow: Bool { true }
+            override var isMainWindow: Bool { true }
+        }
+
+        /// The view in a window that is never shown; glass needs the window server, the panel background stands in.
+        static func image(of view: AnyView, appearance: NSAppearance) throws -> NSBitmapImageRep {
+            let hosting = NSHostingView(
+                rootView: view.background(Color(nsColor: .windowBackgroundColor)).clipShape(.rect(cornerRadius: 16))
+                    // the active look of a key panel, without the window ever becoming key
+                    .environment(\.appearsActive, true))
+            hosting.appearance = appearance
+            hosting.frame.size = hosting.fittingSize
+            let window = Window()
+            window.appearance = appearance
+            window.setContentSize(hosting.frame.size)
+            window.contentView = hosting
+            hosting.layoutSubtreeIfNeeded()
+            // lets tasks such as the initial field focus run, the window stays off screen and never key
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+            hosting.layoutSubtreeIfNeeded()
+            guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            hosting.cacheDisplay(in: hosting.bounds, to: rep)
+            return rep
         }
     }
 #endif

@@ -110,6 +110,7 @@ import WamaduCore
         settle(hosting)
         #expect(draft.customer == "an")
         #expect(items(of: field) == ["Ångström Labs"])
+        #expect(NSApplication.shared.windows.allSatisfy { !$0.isVisible })
     }
 
     @Test func pickingACustomerSetsTheDraft() throws {
