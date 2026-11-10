@@ -50,18 +50,22 @@
                                     mode: .manual, span: DateInterval(start: Sample.at(8, 30), end: Sample.at(10, 30)),
                                     prefill: sample.writing))))
                 ),
-                ("newactivity", AnyView(CheckInView(model: model, content: .checkIn(timed), list: typed("Kickoff")))),
+                (
+                    "newactivity",
+                    AnyView(CheckInView(model: model, content: .checkIn(timed), list: typed("Kickoff Relaunch")))
+                ),
                 (
                     "newactivity-project",
                     AnyView(
                         CheckInView(
-                            model: model, content: .checkIn(timed), list: typed("Kickoff", projectId: sample.relaunch)))
+                            model: model, content: .checkIn(timed),
+                            list: typed("Kickoff Relaunch", projectId: sample.relaunch)))
                 ),
                 (
                     "newproject",
                     AnyView(
                         CheckInView(
-                            model: model, content: .checkIn(timed), list: typed("Kickoff"),
+                            model: model, content: .checkIn(timed), list: typed("Kickoff Relaunch"),
                             draft: ProjectDraft(name: "Relaunch 2027", customer: "Acme")))
                 ),
                 ("checkin-long", AnyView(CheckInView(model: model, content: .checkIn(long)))),

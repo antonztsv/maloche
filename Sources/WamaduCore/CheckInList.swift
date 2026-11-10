@@ -39,12 +39,7 @@ public struct CheckInList: Equatable, Sendable {
         self.text = text
         let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
         showsSections = query.isEmpty
-        let match = query.isEmpty ? nil : catalog.match(for: query)
-        fill(top: match, query: query)
-        if !query.isEmpty, match == nil {
-            rows = Array(([.create(name: query)] + rows).prefix(Self.maxRows))
-            selection = 0
-        }
+        fill(top: query.isEmpty ? nil : catalog.match(for: query), query: query)
     }
 
     public mutating func moveSelection(by offset: Int) {
@@ -78,6 +73,7 @@ public struct CheckInList: Equatable, Sendable {
     }
 
     /// Ranked suggestions for the query with `top` moved to the first row, which is selected.
+    /// Without `top` a query also offers Create: last below the first name it starts words of, else selected on top.
     private mutating func fill(top: Activity?, query: String) {
         let usedToday = Set(catalog.usedToday)
         var ranked = catalog.suggestions(for: query, includingBuiltIns: includingBuiltIns).filter {
@@ -87,8 +83,26 @@ public struct CheckInList: Equatable, Sendable {
             let builtIns = ranked.filter { $0.activity.kind != .regular }
             ranked = ranked.filter { $0.activity.kind == .regular }.prefix(Self.maxRows - 1 - builtIns.count) + builtIns
         }
-        let suggestions = (top.map { [catalog.suggestion(for: $0)] } ?? []) + ranked
-        rows = suggestions.prefix(Self.maxRows).map { .activity($0, today: usedToday.contains($0.activity.id ?? 0)) }
-        selection = rows.isEmpty ? nil : 0
+        var suggestions = (top.map { [catalog.suggestion(for: $0)] } ?? []) + ranked
+        let row = { (suggestion: Suggestion) in
+            Row.activity(suggestion, today: usedToday.contains(suggestion.activity.id ?? 0))
+        }
+        guard !query.isEmpty, top == nil else {
+            rows = suggestions.prefix(Self.maxRows).map(row)
+            selection = rows.isEmpty ? nil : 0
+            return
+        }
+        guard var best = suggestions.firstIndex(where: { Suggestions.startsWords(of: $0.activity.name, query: query) })
+        else {
+            rows = [.create(name: query)] + suggestions.prefix(Self.maxRows - 1).map(row)
+            selection = 0
+            return
+        }
+        if best > Self.maxRows - 2 {
+            suggestions.insert(suggestions.remove(at: best), at: Self.maxRows - 2)
+            best = Self.maxRows - 2
+        }
+        rows = suggestions.prefix(Self.maxRows - 1).map(row) + [.create(name: query)]
+        selection = best
     }
 }

@@ -30,6 +30,7 @@ public enum Suggestions {
                     || [suggestion.activity.name, suggestion.projectName, suggestion.customerName].contains {
                         $0?.range(of: needle, options: [.caseInsensitive, .diacriticInsensitive]) != nil
                     }
+                    || startsWords(of: suggestion.activity.name, query: needle)
             }
             .sorted { first, second in
                 let (a, b) = (first.activity, second.activity)
@@ -38,6 +39,18 @@ public enum Suggestions {
                 let (usedA, usedB) = (a.lastUsedAt ?? .distantPast, b.lastUsedAt ?? .distantPast)
                 if usedA != usedB { return usedA > usedB }
                 return a.name.localizedStandardCompare(b.name) == .orderedAscending
+            }
+    }
+
+    /// Every word of the query starts a word of the name, ignoring case and diacritics, like Spotlight.
+    public static func startsWords(of name: String, query: String) -> Bool {
+        let words = name.split { !$0.isLetter && !$0.isNumber }
+        let typed = query.split { !$0.isLetter && !$0.isNumber }
+        return !typed.isEmpty
+            && typed.allSatisfy { part in
+                words.contains {
+                    $0.range(of: part, options: [.caseInsensitive, .diacriticInsensitive, .anchored]) != nil
+                }
             }
     }
 

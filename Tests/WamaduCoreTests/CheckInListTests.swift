@@ -142,7 +142,72 @@ import Testing
         var list = CheckInList(catalog: many, prefill: nil)
         list.setText("Task")
         #expect(list.rows.count == CheckInList.maxRows)
+        #expect(list.rows.last == .create(name: "Task"))
+    }
+
+    // MARK: Selection like Spotlight
+
+    private let spotlight = Catalog(activities: [
+        Activity(id: 1, name: "Code Review", lastUsedAt: Fixture.at("10:00")),
+        Activity(id: 2, name: "Weekly", lastUsedAt: Fixture.at("09:00")),
+        Activity(id: 3, name: "Kickoff Shop-Migration", lastUsedAt: Fixture.at("08:00")),
+        Activity(id: 4, name: "Überarbeitung", lastUsedAt: Fixture.at("07:00")),
+    ])
+
+    private func typed(_ text: String) -> CheckInList {
+        var list = CheckInList(catalog: spotlight, prefill: 1)
+        list.setText(text)
+        return list
+    }
+
+    @Test func aNameStartingWithTheTextIsSelectedAboveCreate() {
+        let list = typed("wee")
+        #expect(names(list) == ["Weekly", "+wee"])
+        #expect(list.choice == .existing(2))
+        #expect(!list.isCreating)
+    }
+
+    @Test func everyWordMustStartAWordOfTheName() {
+        #expect(typed("code rev").choice == .existing(1))
+        #expect(typed("kickoff mig").choice == .existing(3))
+        let list = typed("Kickoff Relaunch")
+        #expect(list.choice == .create(name: "Kickoff Relaunch", projectId: nil))
+        #expect(list.rows.first == .create(name: "Kickoff Relaunch"))
+    }
+
+    @Test func wordPrefixesIgnoreCaseAndDiacritics() {
+        #expect(typed("uber").choice == .existing(4))
+        #expect(typed("WEEK").choice == .existing(2))
+    }
+
+    @Test func withoutAWordPrefixCreateStaysSelectedOnTop() {
+        let list = typed("view")
+        #expect(names(list) == ["+view", "Code Review"])
         #expect(list.isCreating)
+    }
+
+    @Test func aMatchBelowTheVisibleRowsMovesUpAboveCreate() {
+        let previews = (1...6).map {
+            Activity(id: Int64($0), name: "Preview \($0)", lastUsedAt: Fixture.at("10:0\($0)"))
+        }
+        let catalog = Catalog(activities: previews + [Activity(id: 7, name: "Review", lastUsedAt: Fixture.at("08:00"))])
+        var list = CheckInList(catalog: catalog, prefill: nil)
+        list.setText("rev")
+        #expect(list.rows.count == CheckInList.maxRows)
+        #expect(list.selection == CheckInList.maxRows - 2)
+        #expect(list.choice == .existing(7))
+        #expect(list.rows.last == .create(name: "rev"))
+    }
+
+    @Test func theFirstOfSeveralMatchesInSuggestionOrderIsSelected() {
+        let catalog = Catalog(activities: [
+            Activity(id: 1, name: "Writing docs", lastUsedAt: Fixture.at("08:00")),
+            Activity(id: 2, name: "Writing", lastUsedAt: Fixture.at("09:00")),
+        ])
+        var list = CheckInList(catalog: catalog, prefill: nil)
+        list.setText("wri")
+        #expect(names(list) == ["Writing", "Writing docs", "+wri"])
+        #expect(list.choice == .existing(2))
     }
 
     @Test func anArchivedPrefillStaysSelectable() {
