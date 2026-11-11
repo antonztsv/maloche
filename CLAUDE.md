@@ -1,4 +1,4 @@
-# wamadu
+# maloche
 
 Native macOS menu bar time tracker. At an interval it asks "What are you working on?" and books the elapsed span to the answer. Open source, MIT, local only: no server, no account, no telemetry, no network access.
 
@@ -13,9 +13,9 @@ Native macOS menu bar time tracker. At an interval it asks "What are you working
 
 ## Layout
 
-- `Sources/WamaduCore`: domain logic and storage. No AppKit or SwiftUI imports. Clock and idle detection are injected protocols.
-- `Sources/Wamadu`: the app (menu bar, panels, windows).
-- `Tests/WamaduCoreTests`: unit and database tests.
+- `Sources/MalocheCore`: domain logic and storage. No AppKit or SwiftUI imports. Clock and idle detection are injected protocols.
+- `Sources/Maloche`: the app (menu bar, panels, windows).
+- `Tests/MalocheCoreTests`: unit and database tests.
 - `scripts/`: build, signing, screenshots, release.
 
 ## Conventions
