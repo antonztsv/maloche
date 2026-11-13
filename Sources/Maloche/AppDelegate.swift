@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var iconMode: TrackerMode?
     private var resignObserver: NSObjectProtocol?
     private var session: AnyObject?
+    private var updater: Updater?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
@@ -73,7 +74,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let shortcuts = GlobalShortcuts { [weak model] in model?.shortcut($0) }
         self.shortcuts = shortcuts
         registerShortcuts()
-        let settingsWindow = SettingsWindowController(model: model) { [weak shortcuts] in shortcuts?.isPaused = $0 }
+        let updater = Updater(model: model)
+        self.updater = updater
+        let settingsWindow = SettingsWindowController(model: model, checkForUpdates: updater.map { $0.checkNow }) {
+            [weak shortcuts] in shortcuts?.isPaused = $0
+        }
         controller.onShowSettings = { settingsWindow.show() }
         self.settingsWindow = settingsWindow
         let manageWindow = ManageActivitiesWindowController(model: model)
@@ -82,7 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // launches with debug arguments are for manual testing and skip the welcome
         if model.welcomeDue && !CommandLine.arguments.contains(where: { $0.hasPrefix("-Debug") }) {
-            let welcomeWindow = WelcomeWindowController(model: model)
+            let welcomeWindow = WelcomeWindowController(model: model, showsUpdates: updater != nil)
             self.welcomeWindow = welcomeWindow
             welcomeWindow.show()
         }

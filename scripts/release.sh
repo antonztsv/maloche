@@ -34,3 +34,9 @@ rm -f "$ZIP"
 ditto -c -k --keepParent "$APP" "$ZIP"
 echo "$ZIP"
 shasum -a 256 "$ZIP"
+
+GENERATE_APPCAST=".build/artifacts/sparkle/Sparkle/bin/generate_appcast"
+if [[ -x "$GENERATE_APPCAST" ]]; then
+  echo "To write build/release/appcast.xml, signed with the key in your keychain, run:"
+  echo "  $GENERATE_APPCAST build/release"
+fi

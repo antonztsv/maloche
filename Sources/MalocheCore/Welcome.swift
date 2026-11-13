@@ -6,11 +6,13 @@ public struct Welcome: Equatable, Sendable {
     public var days: Set<Int>
     public var plan: WorkSchedule.Plan
     public var checkInInterval: TimeInterval
+    public var checkForUpdates: Bool
 
     public init(settings: AppSettings, calendar: Calendar) {
         days = Set(settings.schedule.plans.keys)
         plan = settings.schedule.firstPlan(calendar: calendar)
         checkInInterval = settings.checkInInterval
+        checkForUpdates = settings.checkForUpdates
     }
 }
 
@@ -27,6 +29,7 @@ extension AppModel {
             settings.schedule = WorkSchedule(
                 plans: Dictionary(uniqueKeysWithValues: welcome.days.map { ($0, welcome.plan) }))
             settings.checkInInterval = welcome.checkInInterval
+            settings.checkForUpdates = welcome.checkForUpdates
         }
         settings.welcomeDone = true
         update(settings)

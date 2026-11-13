@@ -10,13 +10,15 @@ final class WelcomeWindowController: NSObject, NSWindowDelegate {
     private let model: AppModel
     private let isLoginItem: () -> Bool
     private let setLoginItem: (Bool) throws -> Void
+    private let showsUpdates: Bool
     private(set) lazy var window = makeWindow()
 
     init(
         model: AppModel, isLoginItem: @escaping () -> Bool = { LoginItem.isEnabled },
-        setLoginItem: @escaping (Bool) throws -> Void = { try LoginItem.setEnabled($0) }
+        setLoginItem: @escaping (Bool) throws -> Void = { try LoginItem.setEnabled($0) }, showsUpdates: Bool = false
     ) {
         self.model = model
+        self.showsUpdates = showsUpdates
         self.isLoginItem = isLoginItem
         self.setLoginItem = setLoginItem
     }
@@ -43,7 +45,9 @@ final class WelcomeWindowController: NSObject, NSWindowDelegate {
     }
 
     private func makeWindow() -> NSWindow {
-        let view = WelcomeView(model: model, openAtLogin: true) { [weak self] in self?.start($0, openAtLogin: $1) }
+        let view = WelcomeView(model: model, openAtLogin: true, showsUpdates: showsUpdates) { [weak self] in
+            self?.start($0, openAtLogin: $1)
+        }
         let window = NSWindow(contentViewController: NSHostingController(rootView: view))
         window.title = String(localized: "Welcome to maloche")
         window.styleMask = [.titled, .closable, .fullSizeContentView]
@@ -56,9 +60,10 @@ final class WelcomeWindowController: NSObject, NSWindowDelegate {
     }
 }
 
-/// The principle, work days and hours, check-in interval and login item; Start applies them.
+/// The principle, work days and hours, check-in interval, login item and updates; Start applies them.
 struct WelcomeView: View {
     let model: AppModel
+    let showsUpdates: Bool
     let onStart: (Welcome, Bool) -> Void
     @State private var welcome: Welcome
     @State private var openAtLogin: Bool
@@ -67,8 +72,11 @@ struct WelcomeView: View {
 
     private var calendar: Calendar { model.calendar }
 
-    init(model: AppModel, openAtLogin: Bool, onStart: @escaping (Welcome, Bool) -> Void) {
+    init(
+        model: AppModel, openAtLogin: Bool, showsUpdates: Bool = false, onStart: @escaping (Welcome, Bool) -> Void
+    ) {
         self.model = model
+        self.showsUpdates = showsUpdates
         _welcome = State(initialValue: Welcome(settings: model.settings, calendar: model.calendar))
         _openAtLogin = State(initialValue: openAtLogin)
         self.onStart = onStart
@@ -113,6 +121,9 @@ struct WelcomeView: View {
                         GeneralSettingsView.durations(including: welcome.checkInInterval)
                     }
                     Toggle("Open at login", isOn: $openAtLogin)
+                    if showsUpdates {
+                        Toggle("Check for updates automatically", isOn: $welcome.checkForUpdates)
+                    }
                 } footer: {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 4) {

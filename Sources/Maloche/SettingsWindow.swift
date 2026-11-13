@@ -11,6 +11,7 @@ final class SettingsWindowController {
 
     private let model: AppModel
     private let onRecording: (Bool) -> Void
+    private let checkForUpdates: (() -> Void)?
     private(set) lazy var window = makeWindow()
 
     /// A visible window grows or shrinks to the pane with the system animation, with Reduce Motion at once.
@@ -19,8 +20,9 @@ final class SettingsWindowController {
     }
 
     /// `onRecording` pauses the global hotkeys while a shortcut field records.
-    init(model: AppModel, onRecording: @escaping (Bool) -> Void) {
+    init(model: AppModel, checkForUpdates: (() -> Void)? = nil, onRecording: @escaping (Bool) -> Void) {
         self.model = model
+        self.checkForUpdates = checkForUpdates
         self.onRecording = onRecording
     }
 
@@ -35,7 +37,7 @@ final class SettingsWindowController {
         let panes: [(String, String, AnyView)] = [
             (
                 String(localized: "General"), "gearshape",
-                AnyView(GeneralSettingsView(model: model, onRecording: onRecording))
+                AnyView(GeneralSettingsView(model: model, checkForUpdates: checkForUpdates, onRecording: onRecording))
             ),
             (String(localized: "Schedule"), "calendar", AnyView(ScheduleSettingsView(model: model))),
             (String(localized: "Rounding"), "clock", AnyView(RoundingSettingsView(model: model))),

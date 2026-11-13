@@ -19,8 +19,13 @@ BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
 
 APP="build/$NAME.app"
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 cp "$BIN_DIR/Maloche" "$APP/Contents/MacOS/Maloche"
+ditto "$BIN_DIR/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
+# absolute rpaths point into .build, the bundle loads Sparkle from Contents/Frameworks
+otool -l "$APP/Contents/MacOS/Maloche" | awk '/cmd LC_RPATH/ {getline; getline; print $2}' | grep '^/' |
+  while read -r rpath; do install_name_tool -delete_rpath "$rpath" "$APP/Contents/MacOS/Maloche"; done
+install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/Maloche"
 # compiled String Catalog goes into the main bundle, Bundle.module would need the resource bundle in the app root
 RESOURCES="$BIN_DIR/Maloche_Maloche.bundle/Contents/Resources"
 if [[ -d "$RESOURCES" ]]; then
@@ -44,14 +49,31 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>26.0</string>
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
+  <key>SUEnableAutomaticChecks</key><false/>
 </dict>
 </plist>
 PLIST
+# updates run only with both a public key and a feed, see Updates.isConfigured
+KEY_FILE="scripts/sparkle-public-key.txt"
+if [[ -s "$KEY_FILE" ]]; then
+  plutil -insert SUPublicEDKey -string "$(tr -d '[:space:]' < "$KEY_FILE")" "$APP/Contents/Info.plist"
+fi
+if [[ -n "${MALOCHE_APPCAST_URL:-}" ]]; then
+  plutil -insert SUFeedURL -string "$MALOCHE_APPCAST_URL" "$APP/Contents/Info.plist"
+fi
 
 IDENTITY="${MALOCHE_SIGNING_IDENTITY:-maloche Local Signing}"
 if ! security find-identity -p codesigning | grep -qF "\"$IDENTITY\""; then
   echo "Signing identity \"$IDENTITY\" not found. Run scripts/make-signing-cert.sh once." >&2
   exit 1
 fi
-codesign --force --sign "$IDENTITY" --options runtime --timestamp=none "$APP"
+sign() { codesign --force --sign "$IDENTITY" --options runtime --timestamp=none "$@"; }
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework/Versions/B"
+sign "$SPARKLE/XPCServices/Installer.xpc"
+sign --preserve-metadata=entitlements "$SPARKLE/XPCServices/Downloader.xpc"
+sign "$SPARKLE/Autoupdate"
+sign "$SPARKLE/Updater.app"
+sign "$APP/Contents/Frameworks/Sparkle.framework"
+# without a Team ID library validation refuses Sparkle.framework, even signed by the same certificate
+sign --entitlements scripts/maloche.entitlements "$APP"
 echo "$APP"

@@ -12,6 +12,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var welcomeDone = false
     public var backup = BackupSettings()
     public var showInDock = false
+    public var checkForUpdates = false
 
     public init() {}
 
@@ -28,6 +29,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         shortcuts = value(.shortcuts, shortcuts)
         backup = value(.backup, backup)
         showInDock = value(.showInDock, showInDock)
+        checkForUpdates = value(.checkForUpdates, checkForUpdates)
         // settings stored before the welcome existed belong to someone already using the app
         welcomeDone = value(.welcomeDone, true)
     }

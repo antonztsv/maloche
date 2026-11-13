@@ -48,11 +48,13 @@ import Testing
         welcome.days = [1, 3, 7]
         welcome.plan = .init(start: 9 * 60 + 30, end: 17 * 60)
         welcome.checkInInterval = 30 * 60
+        welcome.checkForUpdates = true
         model.finishWelcome(welcome)
 
         let plan = WorkSchedule.Plan(start: 9 * 60 + 30, end: 17 * 60)
         #expect(model.settings.schedule == WorkSchedule(plans: [1: plan, 3: plan, 7: plan]))
         #expect(model.settings.checkInInterval == 30 * 60)
+        #expect(model.settings.checkForUpdates)
         #expect(model.settings.welcomeDone)
         #expect(model.tracker.settings.schedule == model.settings.schedule)
         let reloaded = try makeModel()

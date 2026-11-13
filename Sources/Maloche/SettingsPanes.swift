@@ -20,10 +20,12 @@ private func durationName(_ seconds: TimeInterval) -> String {
     Duration.seconds(seconds).formatted(.units(allowed: [.hours, .minutes], width: .wide))
 }
 
-/// Check-in interval, away threshold, open at login and the global shortcuts.
+/// Check-in interval, away threshold, open at login, updates and the global shortcuts.
 struct GeneralSettingsView: View {
     let model: AppModel
     var isLoginItem: () -> Bool = { LoginItem.isEnabled }
+    /// Nil in a bundle without updates, which then shows no update settings.
+    var checkForUpdates: (() -> Void)?
     var onRecording: (Bool) -> Void = { _ in }
     @State private var openAtLogin = false
 
@@ -46,6 +48,15 @@ struct GeneralSettingsView: View {
                 }
                 Toggle("Open at login", isOn: Binding(get: { openAtLogin }, set: setOpenAtLogin))
                 Toggle("Show in Dock", isOn: model.setting(\.showInDock))
+            }
+            if let checkForUpdates {
+                Section {
+                    HStack {
+                        Toggle("Check for updates automatically", isOn: model.setting(\.checkForUpdates))
+                        Spacer()
+                        Button("Check Now", action: checkForUpdates)
+                    }
+                }
             }
             ShortcutsSection(model: model, onRecording: onRecording)
         }
