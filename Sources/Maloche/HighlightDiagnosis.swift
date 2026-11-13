@@ -1,88 +1,60 @@
 #if DEBUG
     import AppKit
-    import Observation
+    import MalocheCore
 
-    /// Manual testing: `open "maloche Dev.app" --args -DebugHighlightVariant cycle`.
+    /// One thing switched off (or tried) per run, e.g. `open "maloche Dev.app" --args -DebugHighlightSuspect noKeyPanel`.
+    enum HighlightSuspect: String {
+        case none, noIconUpdates, noKeyPanel, noObserver, expandedSession
+    }
+
     @MainActor
-    @Observable
-    final class HighlightDiagnosis {
-        static let shared = HighlightDiagnosis()
-        static var isActive: Bool { UserDefaults.standard.string(forKey: "DebugHighlightVariant") == "cycle" }
+    enum HighlightDiagnosis {
+        static let suspect = UserDefaults.standard.string(forKey: "DebugHighlightSuspect").flatMap(
+            HighlightSuspect.init(rawValue:))
 
-        private(set) var caption: String?
-        @ObservationIgnored private var button: NSButton?
-        @ObservationIgnored private var highlight: StatusItemHighlight?
-        @ObservationIgnored private var cycle: Timer?
-        @ObservationIgnored private var delayed: Timer?
-        @ObservationIgnored private var index = 0
+        static var caption: String? { suspect.map { "highlight suspect: \($0.rawValue)" } }
 
-        private let variants: [(letter: String, name: String)] = [
-            ("A", "re-apply after every event"), ("B", "push on push off toggle"),
-            ("C", "left mouse down action"), ("D", "isHighlighted after 0.3 s timer"),
-            ("E", "cell isHighlighted"),
-        ]
-
-        func attach(item: NSStatusItem, highlight: StatusItemHighlight?) {
-            button = item.button
-            self.highlight = highlight
-            item.button?.sendAction(on: [.leftMouseDown])
-        }
-
-        func panelVisibilityChanged(_ visible: Bool) {
-            if visible, cycle == nil {
-                index = 0
-                runVariant()
-                let timer = Timer(timeInterval: 4, repeats: true) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.next() }
+        static func logAfterOpening(item: NSStatusItem?, panel: NSWindow) {
+            guard let suspect else { return }
+            for delay in [0.2, 1, 3] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak item, weak panel] in
+                    let button = item?.button
+                    var session = "n/a"
+                    if #available(macOS 27, *) { session = item?.expandedInterfaceSession == nil ? "nil" : "active" }
+                    appLog.notice(
+                        """
+                        highlight \(suspect.rawValue, privacy: .public) +\(delay, privacy: .public)s \
+                        isHighlighted=\(button?.isHighlighted ?? false, privacy: .public) \
+                        state=\(button?.state.rawValue ?? -1, privacy: .public) \
+                        panelVisible=\(panel?.isVisible ?? false, privacy: .public) \
+                        panelKey=\(panel?.isKeyWindow ?? false, privacy: .public) \
+                        appActive=\(NSApp.isActive, privacy: .public) session=\(session, privacy: .public)
+                        """)
                 }
-                RunLoop.main.add(timer, forMode: .common)
-                cycle = timer
-            } else if !visible, cycle != nil {
-                cycle?.invalidate()
-                cycle = nil
-                reset()
-                caption = nil
             }
         }
+    }
 
-        private func next() {
-            index = (index + 1) % variants.count
-            runVariant()
+    /// The macOS 27 expanded interface session, the menu bar draws the pill while it lasts.
+    @available(macOS 27, *)
+    @MainActor
+    final class ExpandedSessionDiagnosis: NSObject, @MainActor NSStatusItemExpandedInterfaceDelegate {
+        private let model: AppModel
+        private let isPanelVisible: () -> Bool
+
+        init(model: AppModel, isPanelVisible: @escaping () -> Bool) {
+            self.model = model
+            self.isPanelVisible = isPanelVisible
         }
 
-        private func reset() {
-            delayed?.invalidate()
-            highlight?.enabled = false
-            guard let button else { return }
-            button.highlight(false)
-            button.isHighlighted = false
-            button.cell?.isHighlighted = false
-            button.setButtonType(.momentaryPushIn)
-            button.state = .off
+        func statusItem(_ statusItem: NSStatusItem, didBegin session: NSStatusItemExpandedInterfaceSession) {
+            appLog.notice("highlight expandedSession began")
+            model.statusItemClicked()
         }
 
-        private func runVariant() {
-            reset()
-            let variant = variants[index]
-            caption = "\(variant.letter): \(variant.name)"
-            appLog.notice("highlight variant \(variant.letter, privacy: .public) \(variant.name, privacy: .public)")
-            guard let button else { return }
-            switch variant.letter {
-            case "A":
-                highlight?.enabled = true
-                highlight?.apply()
-            case "B":
-                button.setButtonType(.pushOnPushOff)
-                button.state = .on
-            case "C":
-                button.highlight(true)
-            case "D":
-                delayed = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak button] _ in
-                    MainActor.assumeIsolated { button?.isHighlighted = true }
-                }
-            default:
-                button.cell?.isHighlighted = true
-            }
+        func statusItemDidEndExpandedInterfaceSession(_ statusItem: NSStatusItem, animated: Bool) {
+            appLog.notice("highlight expandedSession ended")
+            if isPanelVisible() { model.close() }
         }
     }
 #endif

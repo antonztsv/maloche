@@ -70,7 +70,7 @@ struct PanelView: View {
     var body: some View {
         VStack(spacing: 0) {
             #if DEBUG
-                if let caption = HighlightDiagnosis.shared.caption {
+                if let caption = HighlightDiagnosis.caption {
                     Text(verbatim: caption).font(.caption).padding(.top, 6)
                 }
             #endif
@@ -111,12 +111,13 @@ struct PanelView: View {
 final class CheckInPanelController: PanelPresenter {
     weak var statusItem: NSStatusItem? {
         didSet {
-            highlight = StatusItemHighlight(button: statusItem?.button) { [weak self] in self?.isVisible ?? false }
+            var center = NotificationCenter.default
             #if DEBUG
-                if HighlightDiagnosis.isActive, let statusItem {
-                    HighlightDiagnosis.shared.attach(item: statusItem, highlight: highlight)
-                }
+                if HighlightDiagnosis.suspect == .noObserver { center = NotificationCenter() }
             #endif
+            highlight = StatusItemHighlight(button: statusItem?.button, center: center) { [weak self] in
+                self?.isVisible ?? false
+            }
         }
     }
     private var highlight: StatusItemHighlight?
@@ -163,9 +164,12 @@ final class CheckInPanelController: PanelPresenter {
         panel.glass.contentView = view
         hosting = view
         position()
-        if focus { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
+        if focus && takesFocus { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
         highlightStatusItem()
         logState("show focus=\(focus)")
+        #if DEBUG
+            HighlightDiagnosis.logAfterOpening(item: statusItem, panel: panel)
+        #endif
     }
 
     func update() {
@@ -177,7 +181,7 @@ final class CheckInPanelController: PanelPresenter {
 
     func focus() {
         position()
-        panel.makeKeyAndOrderFront(nil)
+        if takesFocus { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
         highlightStatusItem()
         logState("focus")
     }
@@ -199,10 +203,18 @@ final class CheckInPanelController: PanelPresenter {
         onShowManageActivities?(activityId)
     }
 
+    private var takesFocus: Bool {
+        #if DEBUG
+            HighlightDiagnosis.suspect != .noKeyPanel
+        #else
+            true
+        #endif
+    }
+
     private func highlightStatusItem() {
         highlight?.apply()
         #if DEBUG
-            if HighlightDiagnosis.isActive { HighlightDiagnosis.shared.panelVisibilityChanged(panel.isVisible) }
+            if #available(macOS 27, *), !panel.isVisible { statusItem?.expandedInterfaceSession?.cancel() }
         #endif
     }
 

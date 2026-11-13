@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var welcomeWindow: WelcomeWindowController?
     private var iconMode: TrackerMode?
     private var resignObserver: NSObjectProtocol?
+    private var expandedSessionDiagnosis: AnyObject?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
@@ -46,6 +47,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.action = #selector(statusItemClicked)
         statusItem = item
         controller.statusItem = item
+        #if DEBUG
+            if HighlightDiagnosis.suspect == .expandedSession, #available(macOS 27, *) {
+                let diagnosis = ExpandedSessionDiagnosis(model: model) { [weak controller] in
+                    controller?.isVisible ?? false
+                }
+                item.expandedInterfaceDelegate = diagnosis
+                // the session replaces target and action, both would toggle the panel
+                item.button?.action = nil
+                expandedSessionDiagnosis = diagnosis
+            }
+        #endif
         self.model = model
         panelController = controller
         showMode()
@@ -109,6 +121,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in self.showMode() }
         }
         guard mode != iconMode else { return }
+        #if DEBUG
+            if iconMode != nil, HighlightDiagnosis.suspect == .noIconUpdates { return }
+        #endif
         iconMode = mode
         statusItem?.button?.image = MenuBarIcon.image(for: mode)
     }
