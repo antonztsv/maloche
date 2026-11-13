@@ -6,6 +6,7 @@ final class StatusItemHighlight {
     private weak var button: NSButton?
     private let isPanelVisible: () -> Bool
     private var observer: NSObjectProtocol?
+    var enabled = true
 
     init(button: NSButton?, center: NotificationCenter = .default, isPanelVisible: @escaping () -> Bool) {
         self.button = button
@@ -18,7 +19,7 @@ final class StatusItemHighlight {
     }
 
     func apply() {
-        guard let button else { return }
+        guard enabled, let button else { return }
         let highlighted = isPanelVisible()
         if button.isHighlighted != highlighted { button.highlight(highlighted) }
     }

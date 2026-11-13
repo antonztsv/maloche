@@ -69,6 +69,11 @@ struct PanelView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            #if DEBUG
+                if let caption = HighlightDiagnosis.shared.caption {
+                    Text(verbatim: caption).font(.caption).padding(.top, 6)
+                }
+            #endif
             // one branch per kind, so another kind of prompt starts with a fresh field
             switch model.panel {
             case .checkIn(let checkIn): CheckInView(model: model, content: .checkIn(checkIn))
@@ -107,6 +112,11 @@ final class CheckInPanelController: PanelPresenter {
     weak var statusItem: NSStatusItem? {
         didSet {
             highlight = StatusItemHighlight(button: statusItem?.button) { [weak self] in self?.isVisible ?? false }
+            #if DEBUG
+                if HighlightDiagnosis.isActive, let statusItem {
+                    HighlightDiagnosis.shared.attach(item: statusItem, highlight: highlight)
+                }
+            #endif
         }
     }
     private var highlight: StatusItemHighlight?
@@ -191,6 +201,9 @@ final class CheckInPanelController: PanelPresenter {
 
     private func highlightStatusItem() {
         highlight?.apply()
+        #if DEBUG
+            if HighlightDiagnosis.isActive { HighlightDiagnosis.shared.panelVisibilityChanged(panel.isVisible) }
+        #endif
     }
 
     private func contentResized() {
