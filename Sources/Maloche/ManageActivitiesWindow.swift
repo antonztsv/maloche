@@ -7,7 +7,7 @@ import SwiftUI
 final class ManageActivitiesWindowController {
     static let identifier = NSUserInterfaceItemIdentifier("manage-activities")
     static let size = NSSize(width: 820, height: 560)
-    static let minSize = NSSize(width: 640, height: 360)
+    static let minSize = NSSize(width: 780, height: 420)
 
     private let model: AppModel
     let request = ManageActivitiesRequest()
@@ -297,10 +297,12 @@ struct ManageActivitiesView: View {
             TableColumn("Activity") { row in
                 Text(row.activity.name)
             }
+            .width(min: 150, ideal: 190)
             TableColumn("Project") { row in
                 Text(row.projectName ?? row.customerName ?? "")
                     .foregroundStyle(.secondary)
             }
+            .width(min: 120, ideal: 150)
             TableColumn("This month") { row in
                 Text(duration: row.thisMonth)
                     .monospacedDigit()
@@ -538,7 +540,7 @@ struct NameSheet: View {
     }
 }
 
-/// Picks the activity to merge into and names the time that moves; Merge is never the default button.
+/// Picks the activity to merge into and names the time that moves; the user asked for it, so Merge is the default.
 struct MergeSheet: View {
     let names: [String]
     let moving: TimeInterval
@@ -589,15 +591,15 @@ struct MergeSheet: View {
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
                 Spacer()
-                Button("Merge", role: .destructive, action: run)
-                    .disabled(target == nil)
-                Button("Cancel") { dismiss() }
+                Button("Cancel", role: .cancel) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Merge", action: run)
                     .keyboardShortcut(.defaultAction)
+                    .disabled(target == nil)
             }
         }
         .padding(20)
         .frame(width: 360)
-        .keyCommand(.escape, modifiers: []) { dismiss() }
     }
 
     private func message(_ time: String) -> Text {

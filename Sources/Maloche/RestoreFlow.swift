@@ -52,9 +52,9 @@ extension View {
             },
             titleVisibility: .visible, presenting: flow.backup
         ) { backup in
-            Button("Restore", role: .destructive) { flow.restore(backup, model: model) }
-            Button("Cancel", role: .cancel) {}
+            Button("Restore") { flow.restore(backup, model: model) }
                 .keyboardShortcut(.defaultAction)
+            Button("Cancel", role: .cancel) {}
         } message: { _ in
             Text("Your current data is replaced with the backup. maloche backs up your current data first.")
         }

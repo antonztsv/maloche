@@ -34,6 +34,7 @@ import Testing
     @Test func startStoresTheChoicesSetsTheLoginItemAndCloses() throws {
         let (controller, model) = try makeController()
         #expect(controller.window.title == "Welcome to maloche")
+        #expect(!controller.window.styleMask.contains(.resizable))
         var welcome = Welcome(settings: model.settings, calendar: model.calendar)
         welcome.days = [2, 4]
         welcome.checkInInterval = 20 * 60

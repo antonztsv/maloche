@@ -20,16 +20,36 @@ import Testing
         #expect(NSApplication.shared.keyWindow == nil)
     }
 
+    /// K30: at its smallest the window still shows the sidebar and every column at its least width, the window
+    /// cannot go below it.
+    @Test func atItsMinimumSizeTheSidebarAndAllColumnsStayReadable() throws {
+        let (model, acme, _) = try makeModel()
+        let window = ManageActivitiesWindowController(model: model).window
+        #expect(window.contentMinSize == ManageActivitiesWindowController.minSize)
+        #expect(window.contentMinSize.width >= 760 && window.contentMinSize.height >= 420)
+
+        let small = Window(size: ManageActivitiesWindowController.minSize)
+        let hosting = NSHostingView(rootView: ManageActivitiesView(model: model, filter: .customer(acme)))
+        small.contentView = hosting
+        settle(hosting)
+        let table = try table(in: hosting)
+        let columns = table.tableColumns
+        let visible = try #require(table.enclosingScrollView).contentView.bounds.width
+        #expect(columns.map(\.width).reduce(0, +) <= visible + 1, "\(columns.map(\.width)) in \(visible)")
+        #expect(columns[0].width >= 150 && columns[1].width >= 120, "\(columns.map(\.width))")
+        #expect(try sidebar(in: hosting).frame.width >= 200)
+    }
+
     /// Keeps the sheets SwiftUI begins instead of showing them.
     private final class Window: NSWindow {
         private var begun: [NSWindow] = []
         private var claimsVisible = false
         override var isVisible: Bool { claimsVisible }
 
-        init() {
+        init(size: NSSize = ManageActivitiesWindowController.size) {
             super.init(
-                contentRect: NSRect(origin: .zero, size: ManageActivitiesWindowController.size), styleMask: .borderless,
-                backing: .buffered, defer: false)
+                contentRect: NSRect(origin: .zero, size: size), styleMask: .borderless, backing: .buffered, defer: false
+            )
         }
 
         override func beginSheet(
@@ -215,6 +235,31 @@ import Testing
             settle(hosting)
             #expect(window.closes == 1)
         }
+    }
+
+    /// K30, D6: in the merge the user asked for, Merge is the default button on the right, Cancel left of it.
+    @Test func returnMergesAndCancelSitsLeftOfMerge() throws {
+        var merged: [Int64] = []
+        let target = ActivityOverview(catalog: try makeModel().0.catalog, thisMonth: []).rows(.all)[0]
+        let window = Closing(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: .borderless, backing: .buffered,
+            defer: false)
+        let sheet = MergeSheet(names: ["Writing"], moving: 3600, targets: [target], target: target.id) {
+            merged.append($0)
+        }
+        let hosting = NSHostingView(rootView: sheet)
+        window.contentView = hosting
+        settle(hosting)
+        let buttons = AccessibilityAudit(sheet).root.all.filter {
+            $0.role == "AXButton" && ["Cancel", "Merge"].contains($0.name)
+        }
+        #expect(buttons.sorted { $0.frame.minX < $1.frame.minX }.map(\.name) == ["Cancel", "Merge"])
+
+        #expect(window.performKeyEquivalent(with: event("\r", [], keyCode: 36, in: window)))
+        settle(hosting)
+
+        #expect(merged == [target.id])
+        #expect(window.closes == 1)
     }
 
     /// Other stops in between come from keyboard navigation in System Settings.

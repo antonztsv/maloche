@@ -11,6 +11,7 @@ import Testing
         let window = SettingsWindowController(model: model) { _ in }.window
         let tabs = try #require(window.contentViewController as? NSTabViewController)
         #expect(tabs.tabStyle == .toolbar)
+        #expect(!window.styleMask.contains(.resizable))
         #expect(tabs.tabViewItems.map(\.label) == ["General", "Schedule", "Rounding", "Backup"])
 
         var heights: [CGFloat] = []
