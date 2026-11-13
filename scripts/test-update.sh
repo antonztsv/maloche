@@ -21,8 +21,14 @@ MALOCHE_APPCAST_URL= scripts/build-app.sh >/dev/null
 python3 -m http.server 8000 --bind 127.0.0.1 --directory "$FEED" >/dev/null 2>&1 &
 SERVER=$!
 trap 'kill $SERVER 2>/dev/null; rm -rf "$TMP"' EXIT
+# a still running copy with the same bundle ID would only be activated by open, so wait until it is gone
 pkill -f "MacOS/Maloche" || true
-open "$TMP/maloche Dev.app"
-echo "maloche Dev 0.1.0 runs from $TMP. Settings > General > Check Now should offer 0.1.1."
+while pgrep -f "MacOS/Maloche" >/dev/null; do sleep 0.2; done
+APP="$TMP/maloche Dev.app"
+open -n "$APP"
+sleep 2
+echo "Started $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist") (build $(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.plist")) from $APP"
+echo "Running: $(pgrep -fl "MacOS/Maloche")"
+echo "Settings > General > Check Now should offer 0.1.1."
 echo "Press Return when done to stop the server and delete the folder."
 read -r

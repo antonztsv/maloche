@@ -20,6 +20,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var updater: Updater?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let info = Bundle.main.infoDictionary ?? [:]
+        appLog.notice(
+            "launched \(info["CFBundleShortVersionString"] as? String ?? "?", privacy: .public) build \(info["CFBundleVersion"] as? String ?? "?", privacy: .public) from \(Bundle.main.bundlePath, privacy: .private)"
+        )
         #if DEBUG
             if let directory = Screenshots.outputDirectory {
                 do {
