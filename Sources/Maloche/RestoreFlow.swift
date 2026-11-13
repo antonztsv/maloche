@@ -24,7 +24,7 @@ final class RestoreFlow {
         do {
             backup = try AppDatabase.readBackup(at: url, calendar: model.calendar)
         } catch {
-            appLog.error("reading a backup failed: \(String(describing: error), privacy: .public)")
+            appLog.error("reading a backup failed: \(String(describing: error), privacy: .private)")
             note = Text("“\(url.lastPathComponent)” is not a maloche backup. Your data stays as it is.")
         }
     }
@@ -34,7 +34,7 @@ final class RestoreFlow {
         do {
             try model.restore(backup)
         } catch {
-            appLog.error("restoring a backup failed: \(String(describing: error), privacy: .public)")
+            appLog.error("restoring a backup failed: \(String(describing: error), privacy: .private)")
             note = Text("The restore did not go through, your data stays as it is.")
         }
     }

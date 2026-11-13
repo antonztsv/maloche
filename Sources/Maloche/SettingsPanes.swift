@@ -67,7 +67,7 @@ struct GeneralSettingsView: View {
         do {
             try LoginItem.setEnabled(enabled)
         } catch {
-            appLog.error("changing the login item failed: \(String(describing: error), privacy: .public)")
+            appLog.error("changing the login item failed: \(String(describing: error), privacy: .private)")
             NSSound.beep()
         }
         openAtLogin = isLoginItem()

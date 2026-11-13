@@ -7,7 +7,7 @@ import Testing
     private let feed = "http://localhost:8000/appcast.xml"
 
     @Test func runsWithAFeedAndAKey() {
-        #expect(Updates.isConfigured(info: ["SUFeedURL": feed, "SUPublicEDKey": key]))
+        #expect(Updates.isConfigured(info: ["SUFeedURL": feed, "SUPublicEDKey": key], allowsLocalFeed: true))
     }
 
     @Test func staysOffWithoutAFeedOrAKey() {
@@ -28,10 +28,19 @@ import Testing
             "https://example.com/appcast.xml", "http://localhost:8000/appcast.xml", "http://127.0.0.1:8000/a.xml",
         ]
         for url in accepted {
-            #expect(Updates.isConfigured(info: ["SUFeedURL": url, "SUPublicEDKey": key]))
+            #expect(Updates.isConfigured(info: ["SUFeedURL": url, "SUPublicEDKey": key], allowsLocalFeed: true))
         }
         for url in ["http://example.com/appcast.xml", "ftp://example.com/a.xml", "file:///tmp/a.xml"] {
             #expect(!Updates.isConfigured(info: ["SUFeedURL": url, "SUPublicEDKey": key]))
         }
+    }
+
+    @Test func releaseBuildsRejectLocalFeeds() {
+        for url in ["http://localhost:8000/appcast.xml", "http://127.0.0.1:8000/a.xml"] {
+            #expect(!Updates.isConfigured(info: ["SUFeedURL": url, "SUPublicEDKey": key], allowsLocalFeed: false))
+        }
+        #expect(
+            Updates.isConfigured(
+                info: ["SUFeedURL": "https://example.com/a.xml", "SUPublicEDKey": key], allowsLocalFeed: false))
     }
 }

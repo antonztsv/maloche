@@ -121,7 +121,7 @@ struct ManageActivitiesView: View {
         do {
             overview = try model.activityOverview()
         } catch {
-            appLog.error("loading the activities failed: \(String(describing: error), privacy: .public)")
+            appLog.error("loading the activities failed: \(String(describing: error), privacy: .private)")
         }
         selection.formIntersection(overview.rows(filter).map(\.id))
     }
@@ -407,7 +407,7 @@ struct ManageActivitiesView: View {
         do {
             try change()
         } catch {
-            appLog.error("managing activities failed: \(String(describing: error), privacy: .public)")
+            appLog.error("managing activities failed: \(String(describing: error), privacy: .private)")
             NSSound.beep()
         }
     }
@@ -534,7 +534,7 @@ struct NameSheet: View {
         } catch MalocheError.duplicateName {
             note = Text("“\(trimmed)” is already in use, choose another name.")
         } catch {
-            appLog.error("saving a name failed: \(String(describing: error), privacy: .public)")
+            appLog.error("saving a name failed: \(String(describing: error), privacy: .private)")
             note = Text("The name was not saved, try again.")
         }
     }
@@ -618,7 +618,7 @@ struct MergeSheet: View {
             try merge(target)
             dismiss()
         } catch {
-            appLog.error("merging activities failed: \(String(describing: error), privacy: .public)")
+            appLog.error("merging activities failed: \(String(describing: error), privacy: .private)")
             failed = true
         }
     }

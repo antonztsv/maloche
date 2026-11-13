@@ -202,7 +202,7 @@ struct DailyImportView: View {
             try commit(preview.plan)
             dismiss()
         } catch {
-            appLog.error("importing from Daily failed: \(String(describing: error), privacy: .public)")
+            appLog.error("importing from Daily failed: \(String(describing: error), privacy: .private)")
             failed = true
         }
     }

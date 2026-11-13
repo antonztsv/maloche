@@ -177,7 +177,7 @@ public final class AppModel {
                     try database.insert(block: block)
                     booked = true
                 } catch {
-                    logger.error("booking failed: \(String(describing: error), privacy: .public)")
+                    logger.error("booking failed: \(String(describing: error), privacy: .private)")
                     presenter?.signalFailure()
                 }
             case .showCheckIn(let prompt):
@@ -424,7 +424,7 @@ public final class AppModel {
             lastBackup = try database.backUp(to: folder, at: now, keep: settings.backup.keep, calendar: calendar).date
             backupFailedAt = nil
         } catch {
-            logger.error("backup failed: \(String(describing: error), privacy: .public)")
+            logger.error("backup failed: \(String(describing: error), privacy: .private)")
             backupFailedAt = now
             throw error
         }
@@ -503,7 +503,7 @@ public final class AppModel {
             if activity.archived { try database.setArchived(false, activities: [id]) }
             return id
         } catch {
-            logger.error("choosing an activity failed: \(String(describing: error), privacy: .public)")
+            logger.error("choosing an activity failed: \(String(describing: error), privacy: .private)")
             presenter?.signalFailure()
             return nil
         }
@@ -569,7 +569,7 @@ public final class AppModel {
         do {
             return DashboardDay(period: period, blocks: try database.blocks(in: period.interval))
         } catch {
-            logger.error("loading the dashboard failed: \(String(describing: error), privacy: .public)")
+            logger.error("loading the dashboard failed: \(String(describing: error), privacy: .private)")
             return nil
         }
     }
@@ -592,7 +592,7 @@ public final class AppModel {
                 activities: activities, projects: try database.projects(),
                 customers: try database.customers(), todayBlocks: try database.blocks(in: today))
         } catch {
-            logger.error("loading the catalog failed: \(String(describing: error), privacy: .public)")
+            logger.error("loading the catalog failed: \(String(describing: error), privacy: .private)")
         }
     }
 
@@ -603,7 +603,7 @@ public final class AppModel {
             try JSONEncoder().encode(tracker.state).write(to: stateURL, options: .atomic)
             savedState = (tracker.state, now)
         } catch {
-            logger.error("saving the tracker state failed: \(String(describing: error), privacy: .public)")
+            logger.error("saving the tracker state failed: \(String(describing: error), privacy: .private)")
         }
     }
 
@@ -624,7 +624,7 @@ public final class AppModel {
         do {
             return try JSONDecoder().decode(TrackerState.self, from: data)
         } catch {
-            logger.error("tracker state unreadable, starting fresh: \(String(describing: error), privacy: .public)")
+            logger.error("tracker state unreadable, starting fresh: \(String(describing: error), privacy: .private)")
             return TrackerState()
         }
     }

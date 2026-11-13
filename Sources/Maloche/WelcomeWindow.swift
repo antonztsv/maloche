@@ -33,7 +33,7 @@ final class WelcomeWindowController: NSObject, NSWindowDelegate {
             do {
                 try setLoginItem(openAtLogin)
             } catch {
-                appLog.error("changing the login item failed: \(String(describing: error), privacy: .public)")
+                appLog.error("changing the login item failed: \(String(describing: error), privacy: .private)")
             }
         }
         model.finishWelcome(welcome)
