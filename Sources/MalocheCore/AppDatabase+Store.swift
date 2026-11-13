@@ -5,7 +5,6 @@ public enum MalocheError: Error, Equatable {
     case emptyName
     case projectAndCustomer
     case activityNotFound
-    case activityHasBlocks
     case builtInActivity
     case blockNotFound
     case duplicateName
@@ -145,16 +144,6 @@ extension AppDatabase {
         }
     }
 
-    public func deleteActivity(id: Int64) throws {
-        try dbQueue.write { db in
-            _ = try Self.regularActivity(db, id: id)
-            guard try Block.filter(Column("activityId") == id).isEmpty(db) else {
-                throw MalocheError.activityHasBlocks
-            }
-            _ = try Activity.deleteOne(db, id: id)
-        }
-    }
-
     /// Inserts the block and shortens, splits or deletes the stored blocks it overlaps.
     /// Times are rounded to whole seconds; a block that becomes empty is skipped and nil is returned.
     @discardableResult
@@ -162,35 +151,6 @@ extension AppDatabase {
         let block = Self.wholeSeconds(block)
         guard block.endedAt != block.startedAt else { return nil }
         return try dbQueue.write { db in try Self.insert(block, db) }
-    }
-
-    /// Replaces the blocks with one block of their activity and the source of the earliest over the interval,
-    /// which wins over the other blocks it overlaps like `insert(block:)`.
-    @discardableResult
-    public func replaceBlocks(_ ids: [Int64], over interval: DateInterval) throws -> Block {
-        try dbQueue.write { db in
-            guard let first = try Block.filter(ids: ids).order(Column("startedAt")).fetchOne(db) else {
-                throw MalocheError.blockNotFound
-            }
-            _ = try Block.deleteAll(db, ids: ids)
-            let block = Block(
-                activityId: first.activityId, startedAt: interval.start, endedAt: interval.end, source: first.source)
-            return try Self.insert(Self.wholeSeconds(block), db)
-        }
-    }
-
-    /// Books the blocks to another activity, their times stay.
-    public func moveBlocks(_ ids: [Int64], to activityId: Int64) throws {
-        try dbQueue.write { db in
-            _ = try Block.filter(ids: ids).updateAll(db, Column("activityId").set(to: activityId))
-            if let end = try Block.filter(ids: ids).fetchAll(db).map(\.endedAt).max() {
-                try Self.markUsed(activityId, at: end, db)
-            }
-        }
-    }
-
-    public func deleteBlocks(_ ids: [Int64]) throws {
-        _ = try dbQueue.write { db in try Block.deleteAll(db, ids: ids) }
     }
 
     /// Blocks overlapping the interval, sorted by start.
