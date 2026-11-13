@@ -1,13 +1,13 @@
 # maloche
 
-Native macOS menu bar time tracker. At an interval it asks "What are you working on?" and books the elapsed span to the answer. Open source, MIT, local only: no server, no account, no telemetry, no network access.
+Native macOS menu bar time tracker. At an interval it asks "What are you working on?" and books the elapsed span to the answer. Open source, MIT, local only: no server, no account, no telemetry. The only network access is the opt-in update check.
 
 ## Stack
 
 - Swift 6, SwiftUI with AppKit where SwiftUI falls short (`NSStatusItem`, `NSPanel`, `NSMenu`, Carbon hotkeys).
 - Swift Package Manager only, no Xcode project. `scripts/build-app.sh` assembles and signs the `.app` bundle.
 - Minimum macOS 26. No App Sandbox.
-- GRDB for SQLite is the only dependency. Ask before adding another one.
+- Dependencies: GRDB for SQLite and Sparkle for the opt-in update check. Ask before adding another one.
 - Swift Testing for tests.
 - Look up current library and framework docs (Context7) before using an API you are not sure about.
 
