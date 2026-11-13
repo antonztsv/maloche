@@ -68,16 +68,14 @@ import Testing
         #expect(model.panel?.isPrompt == true)
     }
 
-    @Test func clickOnTheIconThatClosedThePanelDoesNotReopenIt() throws {
+    @Test func aSessionRightAfterAClickOutsideOpensTheDashboardAgain() throws {
         let model = try makeModel()
         model.statusItemClicked()
         model.panelLostFocus()
 
         model.statusItemClicked()
-        #expect(!presenter.isVisible)
 
-        clock.now = clock.now.addingTimeInterval(1)
-        model.statusItemClicked()
         #expect(presenter.isVisible)
+        #expect(model.panel?.isPrompt == false)
     }
 }

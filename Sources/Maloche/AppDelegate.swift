@@ -16,7 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var welcomeWindow: WelcomeWindowController?
     private var iconMode: TrackerMode?
     private var resignObserver: NSObjectProtocol?
-    private var expandedSessionDiagnosis: AnyObject?
+    private var session: AnyObject?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
@@ -43,21 +43,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.presenter = controller
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.target = self
-        item.button?.action = #selector(statusItemClicked)
+        if #available(macOS 27, *) {
+            let session = StatusItemSession(model: model, controller: controller)
+            item.expandedInterfaceDelegate = session
+            self.session = session
+        } else {
+            item.button?.target = self
+            item.button?.action = #selector(statusItemClicked)
+        }
         statusItem = item
         controller.statusItem = item
-        #if DEBUG
-            if HighlightDiagnosis.suspect == .expandedSession, #available(macOS 27, *) {
-                let diagnosis = ExpandedSessionDiagnosis(model: model) { [weak controller] in
-                    controller?.isVisible ?? false
-                }
-                item.expandedInterfaceDelegate = diagnosis
-                // the session replaces target and action, both would toggle the panel
-                item.button?.action = nil
-                expandedSessionDiagnosis = diagnosis
-            }
-        #endif
         self.model = model
         panelController = controller
         showMode()
@@ -121,9 +116,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in self.showMode() }
         }
         guard mode != iconMode else { return }
-        #if DEBUG
-            if iconMode != nil, HighlightDiagnosis.suspect == .noIconUpdates { return }
-        #endif
         iconMode = mode
         statusItem?.button?.image = MenuBarIcon.image(for: mode)
     }
@@ -151,6 +143,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 #endif
             }, builtInNames: AppModel.localizedBuiltInNames)
+    }
+}
+
+/// On macOS 27 the panel opened by the icon is an expanded interface session, the menu bar shows the pill while it lasts.
+@available(macOS 27, *)
+@MainActor
+final class StatusItemSession: NSObject, @MainActor NSStatusItemExpandedInterfaceDelegate {
+    private let model: AppModel
+    private weak var controller: CheckInPanelController?
+
+    init(model: AppModel, controller: CheckInPanelController) {
+        self.model = model
+        self.controller = controller
+    }
+
+    func statusItem(_ statusItem: NSStatusItem, didBegin session: NSStatusItemExpandedInterfaceSession) {
+        model.statusItemClicked()
+        if controller?.isVisible != true { session.cancel() }
+    }
+
+    func statusItemDidEndExpandedInterfaceSession(_ statusItem: NSStatusItem, animated: Bool) {
+        model.panelLostFocus()
     }
 }
 

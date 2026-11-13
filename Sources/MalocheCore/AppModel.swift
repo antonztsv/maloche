@@ -116,7 +116,6 @@ public final class AppModel {
     @ObservationIgnored private var savedState: (state: TrackerState, at: Date)?
     /// The dashboard a prompt replaced, the panel goes back to it once the prompt is answered.
     @ObservationIgnored private var returnTo: Period?
-    @ObservationIgnored private var closedByClickOutside: Date?
     @ObservationIgnored private let settingsStore: (any SettingsStore)?
     @ObservationIgnored private let adjustTracker: (inout TrackerSettings) -> Void
     @ObservationIgnored private let defaultBackupFolder: URL?
@@ -217,11 +216,6 @@ public final class AppModel {
 
     /// Today's dashboard, or focus or close the visible panel.
     public func statusItemClicked() {
-        // the click on the icon itself took the focus and closed the panel, it must not reopen it
-        if let closed = closedByClickOutside, clock.now.timeIntervalSince(closed) < 0.5 {
-            closedByClickOutside = nil
-            return
-        }
         reveal(.statusItem) { showDashboard(today) }
     }
 
@@ -234,7 +228,6 @@ public final class AppModel {
         default: return
         }
         hidePanel()
-        closedByClickOutside = clock.now
     }
 
     public func shortcut(_ action: ShortcutAction) {

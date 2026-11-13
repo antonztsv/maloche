@@ -69,11 +69,6 @@ struct PanelView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            #if DEBUG
-                if let caption = HighlightDiagnosis.caption {
-                    Text(verbatim: caption).font(.caption).padding(.top, 6)
-                }
-            #endif
             // one branch per kind, so another kind of prompt starts with a fresh field
             switch model.panel {
             case .checkIn(let checkIn): CheckInView(model: model, content: .checkIn(checkIn))
@@ -109,18 +104,7 @@ struct PanelView: View {
 
 @MainActor
 final class CheckInPanelController: PanelPresenter {
-    weak var statusItem: NSStatusItem? {
-        didSet {
-            var center = NotificationCenter.default
-            #if DEBUG
-                if HighlightDiagnosis.suspect == .noObserver { center = NotificationCenter() }
-            #endif
-            highlight = StatusItemHighlight(button: statusItem?.button, center: center) { [weak self] in
-                self?.isVisible ?? false
-            }
-        }
-    }
-    private var highlight: StatusItemHighlight?
+    weak var statusItem: NSStatusItem?
     var onShowSettings: (() -> Void)?
     var onShowManageActivities: ((Int64?) -> Void)?
     let panel = CheckInPanel()
@@ -136,6 +120,20 @@ final class CheckInPanelController: PanelPresenter {
             forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
         ) { [weak model] _ in
             // a click outside closes the dashboard
+            MainActor.assumeIsolated { model?.panelLostFocus() }
+        }
+        let clicks: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        // the icon click reaches the model before the button, so the session or action cannot reopen the panel
+        _ = NSEvent.addLocalMonitorForEvents(matching: clicks) { [weak self] event in
+            guard let self,
+                Self.isIconClick(
+                    in: event.window, button: self.statusItem?.button?.window, panelVisible: self.isVisible)
+            else { return event }
+            self.model.statusItemClicked()
+            return nil
+        }
+        // clicks in other apps, the menu bar and other status items, mouse events need no permission
+        _ = NSEvent.addGlobalMonitorForEvents(matching: clicks) { [weak model] _ in
             MainActor.assumeIsolated { model?.panelLostFocus() }
         }
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -164,31 +162,25 @@ final class CheckInPanelController: PanelPresenter {
         panel.glass.contentView = view
         hosting = view
         position()
-        if focus && takesFocus { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
-        highlightStatusItem()
+        if focus { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
         logState("show focus=\(focus)")
-        #if DEBUG
-            HighlightDiagnosis.logAfterOpening(item: statusItem, panel: panel)
-        #endif
     }
 
     func update() {
         position()
         panel.orderFrontRegardless()
-        highlightStatusItem()
         logState("update")
     }
 
     func focus() {
         position()
-        if takesFocus { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
-        highlightStatusItem()
+        panel.makeKeyAndOrderFront(nil)
         logState("focus")
     }
 
     func hide() {
         panel.orderOut(nil)
-        highlightStatusItem()
+        if #available(macOS 27, *) { statusItem?.expandedInterfaceSession?.cancel() }
     }
 
     func signalFailure() {
@@ -203,19 +195,9 @@ final class CheckInPanelController: PanelPresenter {
         onShowManageActivities?(activityId)
     }
 
-    private var takesFocus: Bool {
-        #if DEBUG
-            HighlightDiagnosis.suspect != .noKeyPanel
-        #else
-            true
-        #endif
-    }
-
-    private func highlightStatusItem() {
-        highlight?.apply()
-        #if DEBUG
-            if #available(macOS 27, *), !panel.isVisible { statusItem?.expandedInterfaceSession?.cancel() }
-        #endif
+    /// A click on the icon while the panel shows goes to the model, so it closes or focuses the panel.
+    static func isIconClick(in window: NSWindow?, button: NSWindow?, panelVisible: Bool) -> Bool {
+        panelVisible && window != nil && window === button
     }
 
     private func contentResized() {
