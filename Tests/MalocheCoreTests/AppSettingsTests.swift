@@ -27,6 +27,7 @@ final class MemorySettingsStore: SettingsStore {
         #expect(settings.backup.automatic)
         #expect(settings.backup.keep == 30)
         #expect(settings.backup.folder == nil)
+        #expect(!settings.showInDock)
     }
 
     @Test func roundTripThroughTheStore() {
@@ -39,8 +40,10 @@ final class MemorySettingsStore: SettingsStore {
         settings.shortcuts[.toggleBreak] = nil
         settings.shortcuts[.openDashboard] = Shortcut(keyCode: 0x7A, modifiers: [.control, .shift])
         settings.backup = BackupSettings(automatic: false, folder: "/Volumes/Archive/maloche", keep: 7)
+        settings.showInDock = true
         settings.save(to: store)
         #expect(AppSettings.load(from: store) == settings)
+        #expect(AppSettings.load(from: store).showInDock)
         #expect(AppSettings.load(from: store).shortcuts[.toggleBreak] == nil)
     }
 
@@ -59,6 +62,7 @@ final class MemorySettingsStore: SettingsStore {
         var expected = AppSettings()
         expected.checkInInterval = 1800
         expected.welcomeDone = true
+        #expect(!expected.showInDock)
         #expect(AppSettings.load(from: store) == expected)
     }
 }

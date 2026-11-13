@@ -56,6 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.model = model
         panelController = controller
         showMode()
+        showInDock()
         #if DEBUG
             resignObserver = NotificationCenter.default.addObserver(
                 forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
@@ -118,6 +119,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard mode != iconMode else { return }
         iconMode = mode
         statusItem?.button?.image = MenuBarIcon.image(for: mode)
+    }
+
+    /// The Dock icon follows the setting.
+    private func showInDock() {
+        guard let model else { return }
+        NSWindow.showInDock = withObservationTracking {
+            model.settings.showInDock
+        } onChange: {
+            Task { @MainActor in self.showInDock() }
+        }
+        NSWindow.updateActivationPolicy()
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        model?.statusItemClicked()
+        return false
+    }
+
+    @objc func showSettings() {
+        settingsWindow?.show()
     }
 
     @objc private func statusItemClicked() {

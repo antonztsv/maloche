@@ -182,6 +182,16 @@
         }
       }
     },
+    "About maloche" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Über maloche"
+          }
+        }
+      }
+    },
     "Activity" : {
       "localizations" : {
         "de" : {
@@ -1986,6 +1996,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vorherigen Tab zeigen"
+          }
+        }
+      }
+    },
+    "Show in Dock" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Im Dock anzeigen"
           }
         }
       }

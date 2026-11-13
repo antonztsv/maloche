@@ -11,6 +11,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     /// Set once the welcome window was started or closed.
     public var welcomeDone = false
     public var backup = BackupSettings()
+    public var showInDock = false
 
     public init() {}
 
@@ -26,6 +27,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         rounding = value(.rounding, rounding)
         shortcuts = value(.shortcuts, shortcuts)
         backup = value(.backup, backup)
+        showInDock = value(.showInDock, showInDock)
         // settings stored before the welcome existed belong to someone already using the app
         welcomeDone = value(.welcomeDone, true)
     }

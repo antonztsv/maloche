@@ -9,9 +9,22 @@ extension NSWindow {
         makeKeyAndOrderFront(nil)
     }
 
-    /// `.regular` while a visible window other than panels and the closing one remains, else `.accessory`.
-    static func activationPolicy(for windows: [NSWindow], closing: NSWindow?) -> NSApplication.ActivationPolicy {
-        windows.contains { $0.isVisible && !($0 is NSPanel) && $0 !== closing } ? .regular : .accessory
+    /// A visible titled window other than panels (the status bar window is borderless) and the closing one.
+    static func hasNormalWindow(in windows: [NSWindow], closing: NSWindow?) -> Bool {
+        windows.contains { $0.isVisible && $0.styleMask.contains(.titled) && !($0 is NSPanel) && $0 !== closing }
+    }
+
+    static func activationPolicy(showInDock: Bool, hasNormalWindow: Bool) -> NSApplication.ActivationPolicy {
+        showInDock || hasNormalWindow ? .regular : .accessory
+    }
+
+    static var showInDock = true
+
+    /// Applies the policy for the Dock setting and the windows open, ignoring a window that is closing.
+    static func updateActivationPolicy(closing: NSWindow? = nil) {
+        NSApp.setActivationPolicy(
+            activationPolicy(
+                showInDock: showInDock, hasNormalWindow: hasNormalWindow(in: NSApp.windows, closing: closing)))
     }
 
     private static var closeObserver: NSObjectProtocol?
@@ -26,7 +39,7 @@ extension NSWindow {
                 let windows = NSApp.windows
                 guard let closing = windows.first(where: { ObjectIdentifier($0) == closing }), !(closing is NSPanel)
                 else { return }
-                NSApp.setActivationPolicy(activationPolicy(for: NSApp.windows, closing: closing))
+                updateActivationPolicy(closing: closing)
             }
         }
     }

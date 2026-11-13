@@ -1,12 +1,19 @@
 import AppKit
 import SwiftUI
 
-/// Never visible for an LSUIElement app, but its key equivalents reach text fields (Cmd+A, C, V, X, Z), Close, Quit
-/// and the tabs of the settings.
+/// Visible with the Dock icon, its key equivalents also reach text fields (Cmd+A, C, V, X, Z), Close, Quit and the tabs
+/// of the settings.
 @MainActor
 enum MainMenu {
     static func make() -> NSMenu {
         let appMenu = NSMenu()
+        appMenu.addItem(
+            withTitle: String(localized: "About maloche"),
+            action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(.separator())
+        appMenu.addItem(
+            withTitle: String(localized: "Settings…"), action: #selector(AppDelegate.showSettings), keyEquivalent: ",")
+        appMenu.addItem(.separator())
         appMenu.addItem(
             withTitle: String(localized: "Close"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         appMenu.addItem(

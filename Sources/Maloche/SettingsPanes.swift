@@ -45,6 +45,7 @@ struct GeneralSettingsView: View {
                     Text("When you come back, maloche asks what you did.")
                 }
                 Toggle("Open at login", isOn: Binding(get: { openAtLogin }, set: setOpenAtLogin))
+                Toggle("Show in Dock", isOn: model.setting(\.showInDock))
             }
             ShortcutsSection(model: model, onRecording: onRecording)
         }

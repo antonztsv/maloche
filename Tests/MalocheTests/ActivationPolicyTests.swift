@@ -3,7 +3,7 @@ import Testing
 
 @testable import Maloche
 
-/// Without a Dock icon the app is `.regular` while a window the user opened is visible, `.accessory` otherwise.
+/// Without the Dock setting the app is `.regular` while a window the user opened is visible, `.accessory` otherwise.
 @MainActor @Suite struct ActivationPolicyTests {
     private func window(visible: Bool) -> NSWindow {
         final class Probe: NSWindow {
@@ -15,14 +15,29 @@ import Testing
         return window
     }
 
-    @Test func aVisibleNormalWindowNeedsTheRegularPolicy() {
-        #expect(NSWindow.activationPolicy(for: [window(visible: true)], closing: nil) == .regular)
+    private func borderless() -> NSWindow {
+        final class Probe: NSWindow {
+            override var isVisible: Bool { true }
+        }
+        return Probe(contentRect: .zero, styleMask: .borderless, backing: .buffered, defer: true)
     }
 
-    @Test func panelsHiddenWindowsAndTheClosingOneDoNotCount() {
+    @Test func aVisibleNormalWindowCounts() {
+        #expect(NSWindow.hasNormalWindow(in: [window(visible: true)], closing: nil))
+    }
+
+    @Test func panelsBorderlessHiddenWindowsAndTheClosingOneDoNotCount() {
         let closing = window(visible: true)
         let panel = NSPanel(contentRect: .zero, styleMask: .titled, backing: .buffered, defer: true)
         #expect(
-            NSWindow.activationPolicy(for: [closing, panel, window(visible: false)], closing: closing) == .accessory)
+            !NSWindow.hasNormalWindow(
+                in: [closing, panel, window(visible: false), borderless()], closing: closing))
+    }
+
+    @Test func theDockSettingAndOpenWindowsDecideThePolicy() {
+        #expect(NSWindow.activationPolicy(showInDock: true, hasNormalWindow: false) == .regular)
+        #expect(NSWindow.activationPolicy(showInDock: true, hasNormalWindow: true) == .regular)
+        #expect(NSWindow.activationPolicy(showInDock: false, hasNormalWindow: true) == .regular)
+        #expect(NSWindow.activationPolicy(showInDock: false, hasNormalWindow: false) == .accessory)
     }
 }
