@@ -23,8 +23,7 @@ final class WelcomeWindowController: NSObject, NSWindowDelegate {
 
     /// At launch only; a normal window needs the app active.
     func show() {
-        NSApp.activate()
-        window.makeKeyAndOrderFront(nil)
+        window.bringToFront()
     }
 
     func start(_ welcome: Welcome, openAtLogin: Bool) {

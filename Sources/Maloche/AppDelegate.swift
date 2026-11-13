@@ -15,6 +15,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var manageWindow: ManageActivitiesWindowController?
     private var welcomeWindow: WelcomeWindowController?
     private var iconMode: TrackerMode?
+    private let windowOrder = WindowOrderKeeper { windows in
+        for window in windows.reversed() { window.orderFrontRegardless() }
+    }
+    private var resignObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
@@ -48,6 +52,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.model = model
         panelController = controller
         showMode()
+        resignObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.willResignActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                let windows = NSApp.orderedWindows.filter { $0.isVisible && !($0 is NSPanel) }
+                self?.windowOrder.appResigned(frontWindows: windows, at: .now)
+            }
+        }
 
         model.send(.appLaunched)
         presence = PresenceMonitor(model: model)
@@ -105,6 +117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func statusItemClicked() {
+        windowOrder.statusItemClicked(at: .now)
         model?.statusItemClicked()
     }
 

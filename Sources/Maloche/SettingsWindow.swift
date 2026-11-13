@@ -26,8 +26,7 @@ final class SettingsWindowController {
 
     /// From Settings… in the more menu only; a normal window needs the app active.
     func show() {
-        NSApp.activate()
-        window.makeKeyAndOrderFront(nil)
+        window.bringToFront()
     }
 
     private func makeWindow() -> NSWindow {
