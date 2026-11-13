@@ -31,6 +31,7 @@ RESOURCES="$BIN_DIR/Maloche_Maloche.bundle/Contents/Resources"
 if [[ -d "$RESOURCES" ]]; then
   cp -R "$RESOURCES/" "$APP/Contents/Resources/"
 fi
+cp LICENSE THIRD_PARTY_LICENSES.md "$APP/Contents/Resources/"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

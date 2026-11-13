@@ -46,4 +46,4 @@ maloche backs up the database once a day (the last 30 are kept), by default into
 
 ## License
 
-MIT.
+MIT, see [LICENSE](LICENSE). The bundled GRDB.swift and Sparkle are MIT licensed as well (Sparkle also contains code under BSD, MIT and zlib style licenses), see [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
