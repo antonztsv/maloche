@@ -38,6 +38,10 @@ scripts/build-app.sh
 
 For a release build run `scripts/build-app.sh --release`. `scripts/release.sh` builds from a clean commit, signs, verifies and zips the app into `build/release/`.
 
+`scripts/release.sh` needs the signing identity whose SHA-256 is in `scripts/signing-fingerprint.txt` and uses the GitHub appcast as the update feed.
+
+`scripts/test-update.sh` runs a local update test and uses the Sparkle private key from your keychain.
+
 ## Data
 
 maloche keeps one SQLite database in the Application Support folder under its bundle ID: `~/Library/Application Support/io.github.antonztsv.maloche/`. Nothing leaves your Mac.
