@@ -104,7 +104,12 @@ struct PanelView: View {
 
 @MainActor
 final class CheckInPanelController: PanelPresenter {
-    weak var statusItem: NSStatusItem?
+    weak var statusItem: NSStatusItem? {
+        didSet {
+            highlight = StatusItemHighlight(button: statusItem?.button) { [weak self] in self?.isVisible ?? false }
+        }
+    }
+    private var highlight: StatusItemHighlight?
     var onShowSettings: (() -> Void)?
     var onShowManageActivities: (() -> Void)?
     let panel = CheckInPanel()
@@ -215,15 +220,8 @@ final class CheckInPanelController: PanelPresenter {
         onShowManageActivities?()
     }
 
-    /// Highlighted while the panel shows, like a menu bar extra with its menu open.
     private func highlightStatusItem() {
-        // default mode only, the click on the icon drops the highlight at mouse up while tracking in another mode
-        RunLoop.main.perform(inModes: [.default]) { [weak self] in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.statusItem?.button?.highlight(self.panel.isVisible)
-            }
-        }
+        highlight?.apply()
     }
 
     private func contentResized() {
