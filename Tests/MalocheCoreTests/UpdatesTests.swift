@@ -22,4 +22,16 @@ import Testing
         #expect(!Updates.isConfigured(info: ["SUFeedURL": "appcast.xml", "SUPublicEDKey": key]))
         #expect(!Updates.isConfigured(info: ["SUFeedURL": 42, "SUPublicEDKey": key]))
     }
+
+    @Test func acceptsSecureFeedsAndLocalhostOnly() {
+        let accepted = [
+            "https://example.com/appcast.xml", "http://localhost:8000/appcast.xml", "http://127.0.0.1:8000/a.xml",
+        ]
+        for url in accepted {
+            #expect(Updates.isConfigured(info: ["SUFeedURL": url, "SUPublicEDKey": key]))
+        }
+        for url in ["http://example.com/appcast.xml", "ftp://example.com/a.xml", "file:///tmp/a.xml"] {
+            #expect(!Updates.isConfigured(info: ["SUFeedURL": url, "SUPublicEDKey": key]))
+        }
+    }
 }
