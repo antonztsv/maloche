@@ -441,7 +441,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Jetzt eintragen"
+            "value" : "Jetzt erfassen"
           }
         }
       }
@@ -1279,7 +1279,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Eintragen"
+            "value" : "Erfassen"
           }
         }
       }
@@ -2153,7 +2153,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Schönen Feierabend"
+            "value" : "Feierabend"
           }
         }
       }

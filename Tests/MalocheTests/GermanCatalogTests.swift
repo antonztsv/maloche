@@ -67,8 +67,8 @@ import Testing
 
     @Test func germanUsesTheChosenWords() {
         let chosen = [
-            "Log": "Eintragen", "Check In Now": "Jetzt eintragen", "Start": "Start",
-            "Done for today": "Feierabend", "That’s it for today": "Schönen Feierabend",
+            "Log": "Erfassen", "Check In Now": "Jetzt erfassen", "Start": "Start",
+            "Done for today": "Feierabend", "That’s it for today": "Feierabend",
             "Move to Project": "In Projekt verschieben",
             "Restore the backup from %@?": "Backup vom %@ wiederherstellen?",
             "Schedule": "Arbeitszeiten", "Back Up Now": "Backup jetzt erstellen",
