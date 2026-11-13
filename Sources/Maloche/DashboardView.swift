@@ -119,7 +119,7 @@ struct DashboardView: View {
         }
         .buttonStyle(.borderless)
         .keyboardShortcut(key, modifiers: .command)
-        .foregroundStyle(enabled ? .secondary : .tertiary)
+        .foregroundStyle(enabled ? .primary : .tertiary)
         .disabled(!enabled)
         .help(label)
         .accessibilityLabel(label)
