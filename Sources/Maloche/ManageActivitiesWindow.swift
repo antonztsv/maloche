@@ -10,19 +10,21 @@ final class ManageActivitiesWindowController {
     static let minSize = NSSize(width: 640, height: 360)
 
     private let model: AppModel
+    let request = ManageActivitiesRequest()
     private(set) lazy var window = makeWindow()
 
     init(model: AppModel) {
         self.model = model
     }
 
-    /// From Manage Activities… in the more menu only; a normal window needs the app active.
-    func show() {
+    /// From Manage Activities… in the more menu, or from the day with its activity; a normal window needs the app active.
+    func show(selecting activityId: Int64? = nil) {
+        if let activityId { request.activity = activityId }
         window.bringToFront()
     }
 
     private func makeWindow() -> NSWindow {
-        let hosting = NSHostingController(rootView: ManageActivitiesView(model: model))
+        let hosting = NSHostingController(rootView: ManageActivitiesView(model: model, request: request))
         hosting.sizingOptions = []
         let window = NSWindow(contentViewController: hosting)
         window.identifier = Self.identifier
@@ -34,6 +36,11 @@ final class ManageActivitiesWindowController {
         window.center()
         return window
     }
+}
+
+/// The activity to select and scroll to, cleared once the window shows it.
+@MainActor @Observable final class ManageActivitiesRequest {
+    var activity: Int64?
 }
 
 /// Customers with their projects in the sidebar, the activities of the selected entry in the table.
@@ -55,15 +62,22 @@ struct ManageActivitiesView: View {
     }
 
     let model: AppModel
+    var request = ManageActivitiesRequest()
     @State private var filter: Filter
     @State private var selection: Set<Int64>
     @State private var query = ""
     @State private var overview = ActivityOverview(catalog: Catalog(), thisMonth: [])
     @State private var sheet: Sheet?
+    /// Selected once the table shows the rows of the new filter, it drops a selection it cannot show.
+    @State private var revealing: Int64?
     @FocusState private var searching: Bool
 
-    init(model: AppModel, filter: Filter = .all, selection: Set<Int64> = []) {
+    init(
+        model: AppModel, request: ManageActivitiesRequest = ManageActivitiesRequest(), filter: Filter = .all,
+        selection: Set<Int64> = []
+    ) {
         self.model = model
+        self.request = request
         _filter = State(initialValue: filter)
         _selection = State(initialValue: selection)
     }
@@ -95,7 +109,6 @@ struct ManageActivitiesView: View {
             minHeight: ManageActivitiesWindowController.minSize.height, maxHeight: .infinity
         )
         .onChange(of: model.catalog, initial: true) { reload() }
-        .onChange(of: filter) { selection = [] }
         .sheet(item: $sheet) { sheet in
             switch sheet {
             case .name(let subject): nameSheet(subject)
@@ -246,7 +259,40 @@ struct ManageActivitiesView: View {
         .frame(height: 52)
     }
 
+    /// Shows the requested activity selected in the sidebar entry that lists it.
+    private func showRequested(_ scroll: ScrollViewProxy) {
+        guard let id = request.activity else { return }
+        request.activity = nil
+        guard let shown = overview.filter(showing: id) else { return }
+        query = ""
+        if filter == shown {
+            reveal(id, scroll)
+        } else {
+            revealing = id
+            filter = shown
+        }
+    }
+
+    private func reveal(_ id: Int64, _ scroll: ScrollViewProxy) {
+        selection = [id]
+        scroll.scrollTo(id)
+    }
+
     private var table: some View {
+        ScrollViewReader { scroll in
+            rows
+                .onChange(of: request.activity, initial: true) { showRequested(scroll) }
+                .onChange(of: filter) {
+                    selection = []
+                    if let id = revealing {
+                        revealing = nil
+                        reveal(id, scroll)
+                    }
+                }
+        }
+    }
+
+    private var rows: some View {
         Table(overview.rows(filter, query: query), selection: $selection) {
             TableColumn("Activity") { row in
                 Text(row.activity.name)

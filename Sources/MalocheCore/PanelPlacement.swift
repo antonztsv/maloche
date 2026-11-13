@@ -24,17 +24,4 @@ public enum PanelPlacement {
         let x = min(max(centeredX, visibleFrame.minX + margin), visibleFrame.maxX - margin - size.width)
         return CGRect(x: x, y: visibleFrame.maxY - margin - size.height, width: size.width, height: size.height)
     }
-
-    /// Centered under the clicked row or block, above it when there is no room below, always inside the visible frame.
-    public static func editorFrame(
-        size: CGSize, below anchor: CGRect, visibleFrame: CGRect, margin: CGFloat
-    ) -> CGRect {
-        let gap: CGFloat = 4
-        let x = min(
-            max(anchor.midX - size.width / 2, visibleFrame.minX + margin), visibleFrame.maxX - margin - size.width)
-        var y = anchor.minY - gap - size.height
-        if y < visibleFrame.minY + margin { y = anchor.maxY + gap }
-        y = max(min(y, visibleFrame.maxY - margin - size.height), visibleFrame.minY + margin)
-        return CGRect(x: x, y: y, width: size.width, height: size.height)
-    }
 }

@@ -66,8 +66,6 @@ final class CheckInPanel: NSPanel {
 struct PanelView: View {
     let model: AppModel
     let onResize: () -> Void
-    /// A row or block of the dashboard was clicked, with its frame in the global coordinate space.
-    let onEdit: (Int64, CGRect) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -95,10 +93,12 @@ struct PanelView: View {
             period: day.period, blocks: day.blocks, activities: catalog.activities, projects: catalog.projects,
             customers: catalog.customers, schedule: model.schedule, current: model.nowRow,
             now: model.now, calendar: model.calendar, rounding: model.settings.rounding)
-        data.editable = Set(day.blocks.map(\.activityId)).filter { model.entry(activityId: $0) != nil }
+        let overview = ActivityOverview(catalog: catalog, thisMonth: [])
+        data.manageable = Set(day.blocks.map(\.activityId)).filter { overview.filter(showing: $0) != nil }
         return DashboardView(
             data: data, moreActions: MoreActionsMenu(model: model), onShowPeriod: model.showDashboard,
-            onCheckIn: model.checkIn, onKeepTracking: model.keepTracking, onEdit: onEdit)
+            onCheckIn: model.checkIn, onKeepTracking: model.keepTracking,
+            onSelect: { model.openManageActivities(selecting: $0) })
     }
 }
 
@@ -111,24 +111,21 @@ final class CheckInPanelController: PanelPresenter {
     }
     private var highlight: StatusItemHighlight?
     var onShowSettings: (() -> Void)?
-    var onShowManageActivities: (() -> Void)?
+    var onShowManageActivities: ((Int64?) -> Void)?
     let panel = CheckInPanel()
     private let model: AppModel
-    private let editor: EntryEditorController
     private var hosting: NSView?
     private var activationObserver: NSObjectProtocol?
-    private var resignKeyObservers: [NSObjectProtocol] = []
+    private var resignKeyObserver: NSObjectProtocol?
 
     init(model: AppModel) {
         self.model = model
-        editor = EntryEditorController(model: model)
         panel.onCancel = { [weak model] in model?.close() }
-        resignKeyObservers = [panel, editor.panel].map { window in
-            NotificationCenter.default.addObserver(
-                forName: NSWindow.didResignKeyNotification, object: window, queue: .main
-            ) { [weak self] _ in
-                MainActor.assumeIsolated { self?.keyResigned() }
-            }
+        resignKeyObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
+        ) { [weak model] _ in
+            // a click outside closes the dashboard
+            MainActor.assumeIsolated { model?.panelLostFocus() }
         }
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
@@ -143,18 +140,16 @@ final class CheckInPanelController: PanelPresenter {
     }
 
     var isVisible: Bool { panel.isVisible }
-    var isKey: Bool { panel.isKeyWindow || editor.panel.isKeyWindow }
+    var isKey: Bool { panel.isKeyWindow }
 
     func show(focus: Bool) {
-        editor.close(focusDashboard: false)
         // a fresh hosting view per opening resets the field and its focus
         let view = NSHostingView(
             rootView: PanelView(
                 model: model,
                 onResize: { [weak self] in
                     DispatchQueue.main.async { self?.contentResized() }
-                },
-                onEdit: { [weak self] activityId, frame in self?.edit(activityId, frame: frame) }))
+                }))
         panel.glass.contentView = view
         hosting = view
         position()
@@ -164,8 +159,6 @@ final class CheckInPanelController: PanelPresenter {
     }
 
     func update() {
-        // the editor belongs to the dashboard, the prompt in its place must not get the key status from it
-        if model.panel?.isPrompt == true { editor.close(focusDashboard: false) }
         position()
         panel.orderFrontRegardless()
         highlightStatusItem()
@@ -180,32 +173,8 @@ final class CheckInPanelController: PanelPresenter {
     }
 
     func hide() {
-        editor.close(focusDashboard: false)
         panel.orderOut(nil)
         highlightStatusItem()
-    }
-
-    /// The editor of the clicked row or block, beside it.
-    private func edit(_ activityId: Int64, frame: CGRect) {
-        guard let hosting else { return }
-        let anchor = panel.convertToScreen(hosting.convert(frame, to: nil))
-        editor.show(activityId: activityId, anchor: anchor, parent: panel)
-    }
-
-    /// A click outside closes the dashboard, the editor closes like a transient popover.
-    private func keyResigned() {
-        guard editor.isVisible else { return model.panelLostFocus() }
-        // the window taking the key status is known a run loop turn later
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            switch PanelFocus.afterResignKey(key: NSApp.keyWindow, dashboard: panel, editor: editor.panel) {
-            case .keep: break
-            case .closeEditor: editor.close()
-            case .closeAll:
-                editor.close(focusDashboard: false)
-                model.panelLostFocus()
-            }
-        }
     }
 
     func signalFailure() {
@@ -216,8 +185,8 @@ final class CheckInPanelController: PanelPresenter {
         onShowSettings?()
     }
 
-    func showManageActivities() {
-        onShowManageActivities?()
+    func showManageActivities(selecting activityId: Int64?) {
+        onShowManageActivities?(activityId)
     }
 
     private func highlightStatusItem() {

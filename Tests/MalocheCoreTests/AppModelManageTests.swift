@@ -47,6 +47,19 @@ import Testing
         #expect(presenter.calls.suffix(2) == ["hide", "showManageActivities"])
     }
 
+    /// K27: a row or block of the day opens the window with its activity selected.
+    @Test func anActivityOfTheDayOpensManageActivitiesWithItSelected() throws {
+        let model = try makeModel()
+        let writing = try writingFrom0900(model)
+        tick(model, at: "09:30")
+        model.statusItemClicked()
+
+        model.openManageActivities(selecting: writing)
+
+        #expect(model.panel == nil)
+        #expect(presenter.calls.suffix(2) == ["hide", "showManageActivities(\(writing))"])
+    }
+
     @Test func aChangeReloadsTheCatalogAndTheShownDay() throws {
         let model = try makeModel()
         let writing = try writingFrom0900(model)

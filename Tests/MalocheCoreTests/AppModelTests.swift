@@ -35,7 +35,9 @@ final class FakePresenter: PanelPresenter {
 
     func showSettings() { calls.append("showSettings") }
 
-    func showManageActivities() { calls.append("showManageActivities") }
+    func showManageActivities(selecting activityId: Int64?) {
+        calls.append(activityId.map { "showManageActivities(\($0))" } ?? "showManageActivities")
+    }
 }
 
 final class TestClock: WallClock, @unchecked Sendable {

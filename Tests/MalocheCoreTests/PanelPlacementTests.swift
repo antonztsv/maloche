@@ -58,32 +58,4 @@ import Testing
             visibleFrame: visible, margin: 6)
         #expect(frame.minX == 6)
     }
-
-    @Test func editorHangsCenteredUnderItsRow() {
-        let visible = CGRect(x: 0, y: 0, width: 1728, height: 1080)
-        let row = CGRect(x: 1200, y: 800, width: 340, height: 28)
-        let frame = PanelPlacement.editorFrame(
-            size: CGSize(width: 300, height: 160), below: row, visibleFrame: visible, margin: 6)
-        #expect(frame == CGRect(x: 1220, y: 636, width: 300, height: 160))
-    }
-
-    @Test func editorGoesAboveItsRowWhenBelowIsTooLow() {
-        let visible = CGRect(x: 0, y: 0, width: 1728, height: 1080)
-        let row = CGRect(x: 1200, y: 100, width: 340, height: 28)
-        let frame = PanelPlacement.editorFrame(
-            size: CGSize(width: 300, height: 160), below: row, visibleFrame: visible, margin: 6)
-        #expect(frame == CGRect(x: 1220, y: 132, width: 300, height: 160))
-    }
-
-    @Test func editorStaysInsideTheVisibleFrame() {
-        let visible = CGRect(x: -1920, y: 0, width: 1920, height: 400)
-        let block = CGRect(x: -30, y: 150, width: 20, height: 24)
-        let frame = PanelPlacement.editorFrame(
-            size: CGSize(width: 300, height: 300), below: block, visibleFrame: visible, margin: 6)
-        #expect(frame == CGRect(x: -306, y: 94, width: 300, height: 300))
-        let left = PanelPlacement.editorFrame(
-            size: CGSize(width: 300, height: 100), below: CGRect(x: -1920, y: 300, width: 10, height: 24),
-            visibleFrame: visible, margin: 6)
-        #expect(left == CGRect(x: -1914, y: 196, width: 300, height: 100))
-    }
 }

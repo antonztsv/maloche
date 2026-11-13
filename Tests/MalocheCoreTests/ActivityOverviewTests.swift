@@ -59,6 +59,14 @@ import Testing
         #expect(overview.count(.archived) == 1)
     }
 
+    /// K27: an activity opened from the day shows under All Activities, an archived one under Archived.
+    @Test func anActivityIsShownUnderAllActivitiesOrArchived() {
+        #expect(overview.filter(showing: 1) == .all)
+        #expect(overview.filter(showing: 7) == .archived)
+        #expect(overview.filter(showing: 100) == nil)
+        #expect(overview.filter(showing: 999) == nil)
+    }
+
     @Test func rowsAreMostRecentlyUsedFirstNeverUsedLast() {
         #expect(names(.all) == ["Code Review", "Weekly", "Writing", "Tooling", "Kickoff", "Backups"])
         #expect(names(.customer(1)) == ["Code Review", "Kickoff", "Backups"])

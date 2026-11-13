@@ -72,7 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.onShowSettings = { settingsWindow.show() }
         self.settingsWindow = settingsWindow
         let manageWindow = ManageActivitiesWindowController(model: model)
-        controller.onShowManageActivities = { manageWindow.show() }
+        controller.onShowManageActivities = { manageWindow.show(selecting: $0) }
         self.manageWindow = manageWindow
 
         // launches with debug arguments are for manual testing and skip the welcome

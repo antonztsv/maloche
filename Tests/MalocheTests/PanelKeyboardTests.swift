@@ -10,7 +10,7 @@ import Testing
     /// What the dashboard asked for, in order.
     private final class Calls {
         var periods: [Period] = []
-        var edited: [Int64] = []
+        var selected: [Int64] = []
         var checkIns = 0
         var keepTracking = 0
     }
@@ -29,7 +29,7 @@ import Testing
         func hide() {}
         func signalFailure() {}
         func showSettings() { settingsShown += 1 }
-        func showManageActivities() {}
+        func showManageActivities(selecting activityId: Int64?) {}
     }
 
     private let calendar = Calendar.current
@@ -54,12 +54,12 @@ import Testing
             period: Period(kind, containing: day, calendar: calendar), blocks: blocks,
             activities: [Activity(id: 1, name: "Writing"), Activity(id: 2, name: "Review")], projects: [],
             customers: [], schedule: WorkSchedule(plans: [:]), current: current, now: now, calendar: calendar)
-        data.editable = [1, 2]
+        data.manageable = [1, 2]
         let calls = calls
         return DashboardView(
             data: data, moreActions: MoreActionsMenu(model: model), onShowPeriod: { calls.periods.append($0) },
             onCheckIn: { calls.checkIns += 1 }, onKeepTracking: { calls.keepTracking += 1 },
-            onEdit: { id, _ in calls.edited.append(id) })
+            onSelect: { calls.selected.append($0) })
     }
 
     private func host(_ view: some View) -> (NSWindow, NSView) {
@@ -141,14 +141,14 @@ import Testing
             press(" ", keyCode: 49, in: window)
         }
         settle(hosting)
-        #expect(calls.edited == [2, 1])
+        #expect(calls.selected == [2, 1])
     }
 
     /// Escape reaches no cancelOperation without a text field, it is a key equivalent like Cancel in a dialog.
     @Test func escapeClosesTheDashboard() throws {
         let model = try AppModel(database: .inMemory(), stateURL: nil, clock: FixedClock(now: now))
         model.showDashboard(Period(.day, containing: day, calendar: calendar))
-        let (window, hosting) = host(PanelView(model: model, onResize: {}, onEdit: { _, _ in }))
+        let (window, hosting) = host(PanelView(model: model, onResize: {}))
         window.makeFirstResponder(hosting)
         window.selectPreviousKeyView(nil)
         settle(hosting)
@@ -211,7 +211,7 @@ import Testing
         let model = try AppModel(database: .inMemory(), stateURL: nil, clock: FixedClock(now: now))
         model.showDashboard(Period(.day, containing: now, calendar: calendar))
         #expect(model.nowRow == .off)
-        let (window, hosting) = host(PanelView(model: model, onResize: {}, onEdit: { _, _ in }))
+        let (window, hosting) = host(PanelView(model: model, onResize: {}))
         window.makeFirstResponder(hosting)
         window.selectPreviousKeyView(nil)
         settle(hosting)

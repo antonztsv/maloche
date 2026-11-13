@@ -53,13 +53,6 @@
                 list.projectId = projectId
                 return list
             }
-            let editing = try Sample.editing()
-            func editor(confirmingDelete: Bool = false) -> AnyView {
-                AnyView(
-                    EntryEditorView(
-                        model: editing.model, activityId: editing.activityId, period: editing.period,
-                        confirmingDelete: confirmingDelete, onClose: { _ in }))
-            }
             /// Default settings, changed by `edit`, never stored.
             func settings(_ edit: (inout AppSettings) -> Void = { _ in }) throws -> AppModel {
                 let model = try AppModel(database: .inMemory(), stateURL: nil)
@@ -159,8 +152,6 @@
                 ("dashboard-done", AnyView(DashboardView.sample(.doneForToday, model: model))),
                 ("dashboard-week", AnyView(DashboardView.sample(.week, model: model))),
                 ("dashboard-month", AnyView(DashboardView.sample(.month, model: model))),
-                ("edit-entry", editor()),
-                ("edit-entry-delete", editor(confirmingDelete: true)),
                 ("settings-general", AnyView(GeneralSettingsView(model: try settings(), isLoginItem: { true }))),
                 ("settings-schedule", AnyView(ScheduleSettingsView(model: try settings()))),
                 (
@@ -329,27 +320,6 @@
                     preview.prefixes[index].isOn = index < 3
                 }
                 return preview
-            }
-
-            /// Code Review 10:00 to 12:15 and 16:00 to 17:00, today's dashboard shown at 17:30.
-            static func editing() throws -> (model: AppModel, activityId: Int64, period: Period) {
-                let database = try AppDatabase.inMemory()
-                let acme = try database.createCustomer(name: "Acme")
-                let relaunch = try database.createProject(name: "Relaunch", customerId: acme.id)
-                let review = try database.createActivity(name: "Code Review", projectId: relaunch.id)
-                _ = try database.createActivity(name: "Writing")
-                for (start, end) in [((10, 0), (12, 15)), ((16, 0), (17, 0))] {
-                    try database.insert(
-                        block: Block(
-                            activityId: review.id!, startedAt: at(start.0, start.1), endedAt: at(end.0, end.1),
-                            source: .checkIn))
-                }
-                let model = try AppModel(
-                    database: database, stateURL: nil, builtInNames: AppModel.localizedBuiltInNames,
-                    clock: FixedClock(now: at(17, 30)))
-                let period = Period(.day, containing: today, calendar: model.calendar)
-                model.showDashboard(period)
-                return (model, review.id!, period)
             }
         }
 

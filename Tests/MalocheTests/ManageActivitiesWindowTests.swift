@@ -115,6 +115,31 @@ import Testing
         settle(hosting)
     }
 
+    /// K27: opened from the day, the activity is selected under All Activities and scrolled to.
+    @Test(arguments: [false, true])
+    func anActivityFromTheDayIsSelectedAndScrolledTo(fromACustomer: Bool) throws {
+        let (model, acme, _) = try makeModel()
+        var last: Int64 = 0
+        try model.manage {
+            for index in 1...60 { last = try $0.createActivity(name: "Task \(index)").id! }
+        }
+        let request = ManageActivitiesRequest()
+        let (_, hosting) = host(
+            ManageActivitiesView(model: model, request: request, filter: fromACustomer ? .customer(acme) : .all))
+
+        request.activity = last
+        settle(hosting)
+        settle(hosting)
+
+        let table = try table(in: hosting)
+        let rows = ActivityOverview(catalog: model.catalog, thisMonth: []).rows(.all).map(\.id)
+        let row = try #require(rows.firstIndex(of: last))
+        #expect(table.numberOfRows == rows.count)
+        #expect(table.selectedRowIndexes == [row])
+        #expect(table.visibleRect.intersects(table.rect(ofRow: row)), "row \(row) of \(rows.count)")
+        #expect(request.activity == nil)
+    }
+
     @Test func commandFFocusesTheSearch() throws {
         let (window, hosting) = host(ManageActivitiesView(model: try makeModel().0))
 

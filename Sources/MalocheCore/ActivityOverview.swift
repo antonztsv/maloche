@@ -90,6 +90,11 @@ public struct ActivityOverview: Sendable {
         }
     }
 
+    /// The sidebar entry that lists the activity, nil for Break, Private and unknown activities.
+    public func filter(showing id: Int64) -> Filter? {
+        all.first { $0.id == id }.map { $0.activity.archived ? .archived : .all }
+    }
+
     /// Where a new activity goes with the filter selected.
     public static func placement(for filter: Filter) -> (projectId: Int64?, customerId: Int64?) {
         switch filter {

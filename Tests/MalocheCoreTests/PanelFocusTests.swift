@@ -20,14 +20,4 @@ import Testing
         #expect(PanelFocus.action(for: .shortcut, visible: true, key: false) == .focus)
         #expect(PanelFocus.action(for: .shortcut, visible: true, key: true) == .focus)
     }
-
-    @Test func theEditorStaysWhileItIsKeyAClickIntoTheDashboardClosesOnlyTheEditorAnotherAppClosesBoth() {
-        func outcome(_ key: String?) -> PanelFocus.Outcome {
-            PanelFocus.afterResignKey(key: key, dashboard: "dashboard", editor: "editor")
-        }
-        #expect(outcome("editor") == .keep)
-        #expect(outcome("dashboard") == .closeEditor)
-        #expect(outcome(nil) == .closeAll)
-        #expect(outcome("other app") == .closeAll)
-    }
 }

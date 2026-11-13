@@ -70,23 +70,6 @@
         }
       }
     },
-    "%@ on %@" : {
-      "comment" : "The time of an entry and its day, below the question whether to delete it",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ am %2$@"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ on %2$@"
-          }
-        }
-      }
-    },
     "%@ to %@" : {
       "localizations" : {
         "de" : {
@@ -129,42 +112,12 @@
         }
       }
     },
-    "+15" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "+15"
-          }
-        }
-      }
-    },
     "1 selected. Double-click to rename." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "1 ausgewählt. Doppelklick zum Umbenennen."
-          }
-        }
-      }
-    },
-    "15 minutes less" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "15 Minuten weniger"
-          }
-        }
-      }
-    },
-    "15 minutes more" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "15 Minuten mehr"
           }
         }
       }
@@ -483,16 +436,6 @@
         }
       }
     },
-    "Change times or activity" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zeiten oder Aktivität ändern"
-          }
-        }
-      }
-    },
     "Check In Now" : {
       "localizations" : {
         "de" : {
@@ -763,36 +706,6 @@
         }
       }
     },
-    "Delete" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Löschen"
-          }
-        }
-      }
-    },
-    "Delete “%@”?" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "„%@“ löschen?"
-          }
-        }
-      }
-    },
-    "Delete…" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Löschen …"
-          }
-        }
-      }
-    },
     "Divider between %@ and %@" : {
       "localizations" : {
         "de" : {
@@ -805,16 +718,6 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Divider between %1$@ and %2$@"
-          }
-        }
-      }
-    },
-    "Done" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fertig"
           }
         }
       }
@@ -895,26 +798,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bearbeiten"
-          }
-        }
-      }
-    },
-    "Edit %@" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ bearbeiten"
-          }
-        }
-      }
-    },
-    "End of part %lld" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ende von Teil %lld"
           }
         }
       }
@@ -1741,16 +1624,6 @@
         }
       }
     },
-    "Part %lld" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Teil %lld"
-          }
-        }
-      }
-    },
     "Part %lld, %@" : {
       "localizations" : {
         "de" : {
@@ -2117,6 +1990,16 @@
         }
       }
     },
+    "Show in Manage Activities" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In „Aktivitäten verwalten“ zeigen"
+          }
+        }
+      }
+    },
     "Since %@" : {
       "localizations" : {
         "de" : {
@@ -2181,16 +2064,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Start"
-          }
-        }
-      }
-    },
-    "Start of part %lld" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Beginn von Teil %lld"
           }
         }
       }
@@ -2785,16 +2658,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "„%@“ ist kein maloche-Backup. Deine Daten bleiben, wie sie sind."
-          }
-        }
-      }
-    },
-    "−15" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "−15"
           }
         }
       }

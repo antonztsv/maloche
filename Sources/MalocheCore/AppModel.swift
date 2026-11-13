@@ -19,8 +19,8 @@ public protocol PanelPresenter: AnyObject {
     func signalFailure()
     /// Opens the settings window, after the panel closed.
     func showSettings()
-    /// Opens the Manage Activities window, after the panel closed.
-    func showManageActivities()
+    /// Opens the Manage Activities window after the panel closed, with the activity selected when one is given.
+    func showManageActivities(selecting activityId: Int64?)
 }
 
 public enum PanelContent: Equatable, Sendable {
@@ -387,64 +387,6 @@ public final class AppModel {
         reloadCatalog()
     }
 
-    // MARK: Editing an entry of the shown day
-
-    /// The activity's finished spans on the day the panel shows, nil without a shown day or without such time.
-    /// The running span belongs to the tracker, which books it again until the next answer.
-    public func entry(activityId: Int64) -> DayEntry? {
-        guard case .dashboard(let day) = panel else { return nil }
-        let finished = day.blocks.filter { block in editLimit.map { block.startedAt < $0 } ?? true }
-        return DayEntry(activityId: activityId, day: day.period.interval, blocks: finished)
-    }
-
-    /// The start of the running span, nil when nothing runs.
-    private var editLimit: Date? { tracker.runningSince.map { min($0, now) } }
-
-    /// New start and end of the span: after the start, before the running span or now, on the entry's day
-    /// (a part outside may stay).
-    public func setSpan(_ span: DayEntry.Span, of entry: DayEntry, start: Date, end: Date) {
-        let day = entry.day
-        let allowed = DateInterval(start: min(day.start, span.interval.start), end: max(day.end, span.interval.end))
-        guard start < end, end <= editLimit ?? now, allowed.start <= start, end <= allowed.end, start < day.end,
-            day.start < end
-        else {
-            presenter?.signalFailure()
-            return
-        }
-        edit { try database.replaceBlocks(span.blockIds, over: DateInterval(start: start, end: end)) }
-    }
-
-    /// Moves the end by the seconds: a later end stops at the running span or now, an earlier one keeps the span
-    /// at least a minute long.
-    public func extendSpan(_ span: DayEntry.Span, of entry: DayEntry, by seconds: TimeInterval) {
-        let end = seconds > 0 ? min(span.interval.end + seconds, editLimit ?? now) : span.interval.end + seconds
-        guard seconds > 0 ? end > span.interval.end : end.timeIntervalSince(span.interval.start) >= 60 else {
-            presenter?.signalFailure()
-            return
-        }
-        setSpan(span, of: entry, start: span.interval.start, end: end)
-    }
-
-    /// Books every span of the entry to the other activity, Break and Private included.
-    public func moveEntry(_ entry: DayEntry, to activityId: Int64) {
-        guard activityId != entry.activityId else { return }
-        edit { try database.moveBlocks(entry.blockIds, to: activityId) }
-    }
-
-    /// Deletes every span of the entry, a block over midnight as a whole.
-    public func deleteEntry(_ entry: DayEntry) {
-        edit { try database.deleteBlocks(entry.blockIds) }
-    }
-
-    private func edit(_ change: () throws -> Void) {
-        do {
-            try manage { _ in try change() }
-        } catch {
-            logger.error("editing an entry failed: \(String(describing: error), privacy: .public)")
-            presenter?.signalFailure()
-        }
-    }
-
     // MARK: Backup
 
     public var backupFolder: URL? {
@@ -490,10 +432,11 @@ public final class AppModel {
 
     // MARK: Manage Activities
 
-    public func openManageActivities() {
+    /// From the more menu, or from a row or block of the day with its activity.
+    public func openManageActivities(selecting activityId: Int64? = nil) {
         dismiss()
         hidePanel()
-        presenter?.showManageActivities()
+        presenter?.showManageActivities(selecting: activityId)
     }
 
     /// A change to activities, projects or customers; the catalog and the shown day follow it.

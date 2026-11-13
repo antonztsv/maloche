@@ -33,7 +33,7 @@ struct MoreActionsMenu: View {
                 }
             }
             Divider()
-            Button("Manage Activities…", action: model.openManageActivities)
+            Button("Manage Activities…") { model.openManageActivities() }
             Button("Settings…", action: model.openSettings).keyboardShortcut(",")
             Divider()
             Button("Quit maloche") { NSApp.terminate(nil) }.keyboardShortcut("q")

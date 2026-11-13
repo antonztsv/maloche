@@ -44,7 +44,7 @@
                 activities: sampleActivities, projects: sampleProjects, customers: sampleCustomers,
                 schedule: WorkSchedule(plans: [2: .init(start: 9 * 60, end: 17 * 60)]), current: current,
                 now: empty ? at(8, 50) : few ? at(10, 5) : at(17, 30), calendar: calendar)
-            data.editable = Set(blocks.map(\.activityId))
+            data.manageable = Set(blocks.map(\.activityId))
             return DashboardView(
                 data: data, moreActions: MoreActionsMenu(model: model), onShowPeriod: { _ in },
                 onCheckIn: {}, onKeepTracking: {})

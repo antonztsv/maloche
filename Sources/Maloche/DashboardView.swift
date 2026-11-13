@@ -11,8 +11,8 @@ struct DashboardView: View {
     /// Switches the panel to the check-in, from the Now row and from Check In Now.
     var onCheckIn: () -> Void
     var onKeepTracking: () -> Void
-    /// A row or block was clicked, with its frame in the global coordinate space.
-    var onEdit: (Int64, CGRect) -> Void = { _, _ in }
+    /// The activity of the clicked row or block, opened in Manage Activities.
+    var onSelect: (Int64) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -20,12 +20,12 @@ struct DashboardView: View {
             periodPicker
             if data.period.kind == .day, let timeline = data.timeline, let day = data.day {
                 totals(day)
-                TimelineChart(data: data, timeline: timeline, onEdit: onEdit)
+                TimelineChart(data: data, timeline: timeline, onSelect: onSelect)
                     .padding(.horizontal, 4)
                 legend
                 Divider()
                     .padding(.horizontal, 4)
-                DashboardList(data: data, onEdit: onEdit)
+                DashboardList(data: data, onSelect: onSelect)
             } else if data.period.kind != .day, data.summary.work > 0 || data.summary.breaks > 0 {
                 periodTotals
                 if data.period.kind == .week { WeekChart(data: data) } else { MonthGrid(data: data) }
@@ -376,7 +376,7 @@ struct DashboardView: View {
 /// Work by customer, then project, each activity with its share of the day as a bar.
 struct DashboardList: View {
     var data: DashboardData
-    var onEdit: (Int64, CGRect) -> Void = { _, _ in }
+    var onSelect: (Int64) -> Void = { _ in }
     @State private var collapsed: Set<Int64?> = []
 
     var body: some View {
@@ -434,12 +434,15 @@ struct DashboardList: View {
     }
 
     @ViewBuilder private func row(_ total: ActivityTotal, customer: Customer?) -> some View {
-        if let id = total.activity.id, data.editable.contains(id) {
-            EditableRow {
-                onEdit(id, $0)
+        if let id = total.activity.id, data.manageable.contains(id) {
+            Button {
+                onSelect(id)
             } label: {
-                rowContent(total, customer: customer)
+                rowContent(total, customer: customer).contentShape(.rect)
             }
+            .buttonStyle(.plain)
+            .keyboardRow { onSelect(id) }
+            .accessibilityHint(Text("Show in Manage Activities"))
         } else {
             rowContent(total, customer: customer)
         }
@@ -460,28 +463,5 @@ struct DashboardList: View {
         }
         .frame(height: 28)
         .accessibilityElement(children: .combine)
-    }
-}
-
-/// A row that opens the entry editor beside itself.
-private struct EditableRow<Label: View>: View {
-    let onEdit: (CGRect) -> Void
-    @ViewBuilder var label: Label
-    @State private var frame = CGRect.zero
-
-    var body: some View {
-        Button {
-            onEdit(frame)
-        } label: {
-            label.contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .keyboardRow { onEdit(frame) }
-        .onGeometryChange(for: CGRect.self) {
-            $0.frame(in: .global)
-        } action: {
-            frame = $0
-        }
-        .accessibilityHint(Text("Change times or activity"))
     }
 }
