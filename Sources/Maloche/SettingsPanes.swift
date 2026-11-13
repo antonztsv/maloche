@@ -330,7 +330,9 @@ struct AboutSettingsView: View {
                         .frame(width: 64, height: 64)
                         .accessibilityHidden(true)
                     Text("maloche")
-                        .font(.title.bold())
+                        .font(.title)
+                        .fontDesign(.rounded)
+                        .fontWeight(.semibold)
                     Text(Self.version(info: info))
                         .foregroundStyle(.secondary)
                     Text(
