@@ -3,7 +3,7 @@ import Testing
 
 @testable import MalocheCore
 
-/// S14: automatic backups at launch and once a day, restore with a backup of the current data first.
+/// Automatic backups at launch and once a day, restore with a backup of the current data first.
 @MainActor @Suite struct AppModelBackupTests {
     private let clock = TestClock("09:00")
     private let presenter = FakePresenter()

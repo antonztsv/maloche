@@ -3,7 +3,7 @@ import Testing
 
 @testable import MalocheCore
 
-/// S13: writing a Daily import into the database in one transaction.
+/// Writing a Daily import into the database in one transaction.
 @Suite struct DailyImportStoreTests {
     private let database: AppDatabase
     private let export: DailyExport
@@ -68,7 +68,7 @@ import Testing
         #expect(blocks.map { $0.endedAt.timeIntervalSince($0.startedAt) } == [3600, 1800, 900, 1800, 600])
     }
 
-    /// K22: in German an imported Pause or Privat is Break or Private, also next to a regular Pause from before the
+    /// In German an imported Pause or Privat is Break or Private, also next to a regular Pause from before the
     /// translation, and no customer gets one of these names.
     @Test func inGermanPauseAndPrivatAreTheBuiltIns() throws {
         _ = try database.createActivity(name: "Pause")

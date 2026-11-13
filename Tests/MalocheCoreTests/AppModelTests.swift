@@ -252,7 +252,7 @@ final class TestClock: WallClock, @unchecked Sendable {
         #expect(model.tracker.state == before)
     }
 
-    /// K26: switching from the Now row closes the panel like an answered timed check-in.
+    /// Switching from the Now row closes the panel like an answered timed check-in.
     @Test func theNowRowOpensTheCheckInByHandAndLogClosesThePanel() throws {
         let model = try makeModel()
         let writing = try writingFrom0900(model)

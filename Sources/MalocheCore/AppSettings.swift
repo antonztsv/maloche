@@ -64,7 +64,7 @@ extension UserDefaults: SettingsStore {
     public func storeSettings(_ data: Data) { set(data, forKey: AppSettings.defaultsKey) }
 }
 
-/// S14: daily backups into a folder, a fixed number of them kept.
+/// Daily backups into a folder, a fixed number of them kept.
 public struct BackupSettings: Codable, Equatable, Sendable {
     public var automatic = true
     /// A chosen folder's path, nil for the Backups folder next to the database.

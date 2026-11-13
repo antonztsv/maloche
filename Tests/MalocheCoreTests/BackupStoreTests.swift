@@ -18,7 +18,7 @@ final class TemporaryFolder: @unchecked Sendable {
     }
 }
 
-/// S14: backups are complete copies made with SQLite's online backup, restoring one replaces the content.
+/// Backups are complete copies made with SQLite's online backup, restoring one replaces the content.
 @Suite struct BackupStoreTests {
     private let folder: TemporaryFolder
     private let database: AppDatabase

@@ -3,7 +3,7 @@ import Testing
 
 @testable import MalocheCore
 
-/// K6: a click outside closes what the user opened, prompts the app showed by itself stay.
+/// A click outside closes what the user opened, prompts the app showed by itself stay.
 @MainActor @Suite struct AppModelClickOutsideTests {
     private let clock = TestClock("09:00")
     private let presenter = FakePresenter()

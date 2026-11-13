@@ -4,7 +4,7 @@ import Testing
 
 @testable import Maloche
 
-/// D4: text reads at 4.5:1, and every other color is a semantic system color the system keeps readable.
+/// Text reads at 4.5:1, and every other color is a semantic system color the system keeps readable.
 @MainActor @Suite struct ContrastTests {
     /// Increased contrast resolves system colors like the standard appearances here, it is checked by hand.
     private static let appearances: [NSAppearance.Name] = [.aqua, .darkAqua]

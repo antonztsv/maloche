@@ -78,7 +78,7 @@ import Testing
         #expect(ShortcutAction.toggleBreak.title == "Start or end break")
     }
 
-    /// D10: the window grows to the pane with the system resize, with Reduce Motion at once.
+    /// The window grows to the pane with the system resize, with Reduce Motion at once.
     @Test func reduceMotionResizesTheWindowAtOnce() {
         #expect(SettingsWindowController.animatesResize(visible: true, reduceMotion: false))
         #expect(!SettingsWindowController.animatesResize(visible: true, reduceMotion: true))

@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-/// S15, D7: every string of the catalog has a translated German version with the arguments of the source.
+/// Every string of the catalog has a translated German version with the arguments of the source.
 @Suite struct GermanCatalogTests {
     private typealias Object = [String: Any]
 

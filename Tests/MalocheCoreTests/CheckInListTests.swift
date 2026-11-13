@@ -146,7 +146,7 @@ import Testing
         return german
     }
 
-    /// K22: in German Break and Private are found under both names ahead of a regular namesake, never created.
+    /// In German Break and Private are found under both names ahead of a regular namesake, never created.
     @Test(
         arguments: [("pause", 100), ("BREAK", 100), (" Pause ", 100), ("privat", 101), ("Private", 101)]
             as [(String, Int64)])

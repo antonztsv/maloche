@@ -3,7 +3,7 @@ import Testing
 
 @testable import MalocheCore
 
-/// S8: the Manage Activities window changes activities while the tracker runs.
+/// The Manage Activities window changes activities while the tracker runs.
 @MainActor @Suite struct AppModelManageTests {
     private let clock = TestClock("09:00")
     private let presenter = FakePresenter()
@@ -47,7 +47,7 @@ import Testing
         #expect(presenter.calls.suffix(2) == ["hide", "showManageActivities"])
     }
 
-    /// K27: a row or block of the day opens the window with its activity selected.
+    /// A row or block of the day opens the window with its activity selected.
     @Test func anActivityOfTheDayOpensManageActivitiesWithItSelected() throws {
         let model = try makeModel()
         let writing = try writingFrom0900(model)
@@ -98,7 +98,7 @@ import Testing
         #expect(presenter.failures == 0)
     }
 
-    /// K22: the names the app shows for Break and Private reach the database through the model.
+    /// The names the app shows for Break and Private reach the database through the model.
     @Test func theShownNamesAreReservedInTheWindow() throws {
         let model = try AppModel(
             database: .inMemory(), stateURL: nil, builtInNames: [.break: "Pause", .private: "Privat"], clock: clock,

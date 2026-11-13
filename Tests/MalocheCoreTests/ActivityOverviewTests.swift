@@ -3,7 +3,7 @@ import Testing
 
 @testable import MalocheCore
 
-/// S8: the sidebar and the table of the Manage Activities window.
+/// The sidebar and the table of the Manage Activities window.
 @Suite struct ActivityOverviewTests {
     private static func daysAgo(_ days: Double) -> Date {
         Fixture.at("12:00").addingTimeInterval(-days * 86400)
@@ -59,7 +59,7 @@ import Testing
         #expect(overview.count(.archived) == 1)
     }
 
-    /// K27: an activity opened from the day shows under All Activities, an archived one under Archived.
+    /// An activity opened from the day shows under All Activities, an archived one under Archived.
     @Test func anActivityIsShownUnderAllActivitiesOrArchived() {
         #expect(overview.filter(showing: 1) == .all)
         #expect(overview.filter(showing: 7) == .archived)

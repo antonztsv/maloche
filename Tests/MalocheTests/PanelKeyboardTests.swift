@@ -5,7 +5,7 @@ import Testing
 
 @testable import Maloche
 
-/// D6: the panel by keyboard, hosted in a window that is never shown or key.
+/// The panel by keyboard, hosted in a window that is never shown or key.
 @MainActor @Suite struct PanelKeyboardTests {
     /// What the dashboard asked for, in order.
     private final class Calls {

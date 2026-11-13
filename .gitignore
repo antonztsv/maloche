@@ -3,3 +3,7 @@
 build/
 *.xcodeproj/
 .DS_Store
+*.p12
+*.pem
+*.key
+appcast.xml

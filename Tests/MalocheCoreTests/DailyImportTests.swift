@@ -37,7 +37,7 @@ enum DailyFixture {
     }
 }
 
-/// S13: reading the Daily export and previewing what the import adds.
+/// Reading the Daily export and previewing what the import adds.
 @Suite struct DailyImportTests {
     private func preview(
         _ export: DailyExport, activities: [Activity] = [], customers: [Customer] = [], blocks: [Block] = []

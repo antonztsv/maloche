@@ -20,7 +20,7 @@ import Testing
         #expect(NSApplication.shared.keyWindow == nil)
     }
 
-    /// K30: at its smallest the window still shows the sidebar and every column at its least width, the window
+    /// At its smallest the window still shows the sidebar and every column at its least width, the window
     /// cannot go below it.
     @Test func atItsMinimumSizeTheSidebarAndAllColumnsStayReadable() throws {
         let (model, acme, _) = try makeModel()
@@ -135,7 +135,7 @@ import Testing
         settle(hosting)
     }
 
-    /// K27: opened from the day, the activity is selected under All Activities and scrolled to.
+    /// Opened from the day, the activity is selected under All Activities and scrolled to.
     @Test(arguments: [false, true])
     func anActivityFromTheDayIsSelectedAndScrolledTo(fromACustomer: Bool) throws {
         let (model, acme, _) = try makeModel()
@@ -237,7 +237,7 @@ import Testing
         }
     }
 
-    /// K30, D6: in the merge the user asked for, Merge is the default button on the right, Cancel left of it.
+    /// In the merge the user asked for, Merge is the default button on the right, Cancel left of it.
     @Test func returnMergesAndCancelSitsLeftOfMerge() throws {
         var merged: [Int64] = []
         let target = ActivityOverview(catalog: try makeModel().0.catalog, thisMonth: []).rows(.all)[0]

@@ -4,7 +4,7 @@ import Testing
 
 @testable import MalocheCore
 
-/// S8: renaming, archiving, moving and merging in the Manage Activities window.
+/// Renaming, archiving, moving and merging in the Manage Activities window.
 @Suite struct ManageStoreTests {
     private let database: AppDatabase
     private let acme: Customer
@@ -59,7 +59,7 @@ import Testing
         #expect(elsewhere.map(\.name) == ["Code Review", "Weekly", "Weekly", "Writing"])
     }
 
-    /// K22: the names the app shows for Break and Private are reserved too, English keeps Pause and Privat free.
+    /// The names the app shows for Break and Private are reserved too, English keeps Pause and Privat free.
     @Test func theShownNamesOfBreakAndPrivateAreReservedUnderEveryParent() throws {
         let legacy = try database.createActivity(name: "Pause", customerId: northwind.id).id!
         var german = database

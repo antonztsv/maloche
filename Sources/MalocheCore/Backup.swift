@@ -1,7 +1,7 @@
 import Foundation
 import GRDB
 
-/// S14: a backup file, named by its local time so that name order is time order.
+/// A backup file, named by its local time so that name order is time order.
 public struct Backup: Equatable, Sendable {
     public let url: URL
     public let date: Date
