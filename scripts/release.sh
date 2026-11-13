@@ -12,8 +12,10 @@ if [[ -n "$(git status --porcelain)" ]]; then
 fi
 
 [[ -f "$FINGERPRINT_FILE" ]] || { echo "$FINGERPRINT_FILE is missing." >&2; exit 1; }
-EXPECTED="$(tr -d '[:space:]' < "$FINGERPRINT_FILE" | tr a-f A-F)"
-ACTUAL="$(security find-certificate -c "$IDENTITY" -Z | awk '/SHA-256 hash:/ {print $3; exit}')"
+EXPECTED="${MALOCHE_SIGNING_FINGERPRINT:-$(tr -d '[:space:]' < "$FINGERPRINT_FILE")}"
+EXPECTED="$(print -r -- "$EXPECTED" | tr a-f A-F)"
+ACTUAL="$(security find-certificate -c "$IDENTITY" -Z 2>/dev/null | awk '/SHA-256 hash:/ {print $3; exit}' || true)"
+[[ -n "$ACTUAL" ]] || { echo "Signing identity \"$IDENTITY\" not found in the keychain. Not signing." >&2; exit 1; }
 if [[ "$ACTUAL" != "$EXPECTED" ]]; then
   echo "Certificate \"$IDENTITY\" has SHA-256 ${ACTUAL:-none}, expected $EXPECTED. Not signing." >&2
   exit 1
