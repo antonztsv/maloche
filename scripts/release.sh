@@ -6,13 +6,14 @@ cd "${0:A:h}/.."
 IDENTITY="${MALOCHE_SIGNING_IDENTITY:-maloche Local Signing}"
 FINGERPRINT_FILE="scripts/signing-fingerprint.txt"
 
-if [[ "${MALOCHE_APPCAST_URL:-}" != https://* ]]; then
-  echo "Set MALOCHE_APPCAST_URL to the https URL of the appcast, e.g. MALOCHE_APPCAST_URL=https://host/appcast.xml scripts/release.sh" >&2
-  exit 1
-fi
 for name in MALOCHE_VERSION MALOCHE_BUILD_NUMBER MALOCHE_APPCAST_URL MALOCHE_SIGNING_IDENTITY; do
   [[ -z "${(P)name:-}" ]] || echo "$name=${(P)name}"
 done
+export MALOCHE_APPCAST_URL="${MALOCHE_APPCAST_URL:-https://github.com/antonztsv/maloche/releases/latest/download/appcast.xml}"
+if [[ "$MALOCHE_APPCAST_URL" != https://* ]]; then
+  echo "MALOCHE_APPCAST_URL must be an https URL." >&2
+  exit 1
+fi
 
 if [[ -n "$(git status --porcelain)" ]]; then
   echo "Uncommitted changes, commit or stash first." >&2
