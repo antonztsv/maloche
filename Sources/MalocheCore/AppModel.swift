@@ -360,12 +360,19 @@ public final class AppModel {
         }
     }
 
-    /// A timed prompt books its span, one opened by hand switches now, a return answers for the time away.
+    /// A timed prompt books its span, one opened by hand switches now and closes the panel, a return answers for the
+    /// time away.
     public func log(_ choice: CheckInList.Choice) {
         guard let content = panel, content.isPrompt, let id = resolve(choice) else { return }
         logger.info("answered the panel with \(id)")
         switch content {
-        case .checkIn(let checkIn): act(checkIn.mode == .timed ? .checkInAnswered(id) : .switchActivity(id))
+        case .checkIn(let checkIn) where checkIn.mode == .timed: act(.checkInAnswered(id))
+        case .checkIn:
+            // a switch by hand closes the panel, an ignored one keeps the way back to the dashboard
+            let back = returnTo
+            returnTo = nil
+            act(.switchActivity(id))
+            if panel != nil { returnTo = back }
         case .awayReturn:
             act(.awayAnswered(id == builtIns.breakId ? .break : id == builtIns.privateId ? .private : .activity(id)))
         case .breakReturn: act(.breakReturnAnswered(id))

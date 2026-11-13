@@ -252,7 +252,8 @@ final class TestClock: WallClock, @unchecked Sendable {
         #expect(model.tracker.state == before)
     }
 
-    @Test func theNowRowOpensTheCheckInByHandAndLogGoesBackToTheDashboard() throws {
+    /// K26: switching from the Now row closes the panel like an answered timed check-in.
+    @Test func theNowRowOpensTheCheckInByHandAndLogClosesThePanel() throws {
         let model = try makeModel()
         let writing = try writingFrom0900(model)
         let reading = try model.database.createActivity(name: "Reading").id!
@@ -263,9 +264,10 @@ final class TestClock: WallClock, @unchecked Sendable {
         model.checkIn()
         #expect(model.panel == .checkIn(CheckIn(mode: .manual, span: Fixture.span("09:00", "09:10"), prefill: writing)))
         model.log(.existing(reading))
-        #expect(presenter.calls.isEmpty)
-        #expect(shownDay(model)?.period == today)
-        #expect(shownDay(model)?.blocks.map(\.activityId) == [writing])
+        #expect(presenter.calls == ["hide"])
+        #expect(model.panel == nil)
+        let blocks = try model.database.blocks(in: Fixture.span("00:00", "23:59"))
+        #expect(blocks.map(\.activityId) == [writing])
         #expect(model.nowRow == .activity(id: reading))
         #expect(model.tracker.currentActivity == reading)
     }
@@ -282,7 +284,9 @@ final class TestClock: WallClock, @unchecked Sendable {
         model.checkIn()
         #expect(model.panel == .checkIn(CheckIn(mode: .manual, span: Fixture.span("09:00", "09:05"), prefill: nil)))
         model.log(.existing(writing))
-        #expect(shownDay(model)?.blocks.map(\.activityId) == [writing])
+        #expect(model.panel == nil)
+        let blocks = try model.database.blocks(in: Fixture.span("00:00", "23:59"))
+        #expect(blocks.map(\.activityId) == [writing])
     }
 
     /// Writing ran the day before; the next morning it only prefills the check-in until the first answer.
@@ -307,7 +311,8 @@ final class TestClock: WallClock, @unchecked Sendable {
                         mode: .manual, span: Fixture.span("2026-11-10 08:00", "2026-11-10 08:10"), prefill: writing)))
         model.log(.existing(writing))
         #expect(model.nowRow == .activity(id: writing))
-        #expect(shownDay(model)?.blocks.map(\.interval) == [Fixture.span("2026-11-10 08:00", "2026-11-10 08:10")])
+        let blocks = try model.database.blocks(in: Fixture.span("2026-11-10 00:00", "2026-11-10 23:59"))
+        #expect(blocks.map(\.interval) == [Fixture.span("2026-11-10 08:00", "2026-11-10 08:10")])
     }
 
     /// Away from 08:05 to 08:30 before the first answer, the return closed with Escape.

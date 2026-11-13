@@ -153,7 +153,7 @@ struct DashboardView: View {
         .padding(.leading, 10)
         .padding(.trailing, 4)
         .frame(height: 32)
-        .background(Color(nsColor: .quaternarySystemFill), in: .rect(cornerRadius: 8))
+        .background(Color(nsColor: .tertiarySystemFill), in: .rect(cornerRadius: 8))
     }
 
     private func nowButton(name: String, customer: String?, swatch: some View) -> some View {
@@ -180,7 +180,7 @@ struct DashboardView: View {
             .padding(.leading, 10)
             .padding(.trailing, 8)
             .frame(height: 32)
-            .background(Color(nsColor: .quaternarySystemFill), in: .rect(cornerRadius: 8))
+            .background(Color(nsColor: .tertiarySystemFill), in: .rect(cornerRadius: 8))
             .contentShape(.rect(cornerRadius: 8))
         }
         .buttonStyle(.plain)
