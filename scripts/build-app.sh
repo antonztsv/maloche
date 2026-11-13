@@ -23,7 +23,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Framewor
 cp "$BIN_DIR/Maloche" "$APP/Contents/MacOS/Maloche"
 ditto "$BIN_DIR/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
 # absolute rpaths point into .build, the bundle loads Sparkle from Contents/Frameworks
-otool -l "$APP/Contents/MacOS/Maloche" | awk '/cmd LC_RPATH/ {getline; getline; print $2}' | grep '^/' |
+otool -l "$APP/Contents/MacOS/Maloche" | awk '/cmd LC_RPATH/ {getline; getline; print $2}' | { grep '^/' || true; } |
   while read -r rpath; do install_name_tool -delete_rpath "$rpath" "$APP/Contents/MacOS/Maloche"; done
 install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/Maloche"
 # compiled String Catalog goes into the main bundle, Bundle.module would need the resource bundle in the app root
@@ -50,6 +50,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
   <key>SUEnableAutomaticChecks</key><false/>
+  <key>SUAllowsAutomaticUpdates</key><false/>
 </dict>
 </plist>
 PLIST
@@ -63,7 +64,7 @@ if [[ -n "${MALOCHE_APPCAST_URL:-}" ]]; then
 fi
 
 IDENTITY="${MALOCHE_SIGNING_IDENTITY:-maloche Local Signing}"
-if ! security find-identity -p codesigning | grep -qF "\"$IDENTITY\""; then
+if ! security find-identity -p codesigning | grep -qF -e "\"$IDENTITY\"" -e ") $IDENTITY "; then
   echo "Signing identity \"$IDENTITY\" not found. Run scripts/make-signing-cert.sh once." >&2
   exit 1
 fi

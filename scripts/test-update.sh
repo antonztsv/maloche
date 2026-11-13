@@ -1,10 +1,10 @@
 #!/bin/zsh
 # Local update test: builds the dev app as 0.1.0 and 0.1.1 into a temporary folder, signs an appcast with the
-# Sparkle key from your keychain, serves it on localhost and starts 0.1.0. Then use Settings > General > Check Now.
+# Sparkle key from your keychain, serves it on localhost and starts 0.1.0. Then use Settings > About > Check Now.
 set -euo pipefail
 cd "${0:A:h}/.."
 
-[[ -s scripts/sparkle-public-key.txt ]] || { echo "scripts/sparkle-public-key.txt is missing, see M7-CHECKS.md." >&2; exit 1; }
+[[ -s scripts/sparkle-public-key.txt ]] || { echo "scripts/sparkle-public-key.txt is missing, it must contain the Sparkle public key." >&2; exit 1; }
 TMP="$(mktemp -d -t maloche-update)"
 FEED="$TMP/feed"
 mkdir -p "$FEED"
@@ -21,14 +21,14 @@ MALOCHE_APPCAST_URL= scripts/build-app.sh >/dev/null
 python3 -m http.server 8000 --bind 127.0.0.1 --directory "$FEED" >/dev/null 2>&1 &
 SERVER=$!
 trap 'kill $SERVER 2>/dev/null; rm -rf "$TMP"' EXIT
-# a still running copy with the same bundle ID would only be activated by open, so wait until it is gone
-pkill -f "MacOS/Maloche" || true
-while pgrep -f "MacOS/Maloche" >/dev/null; do sleep 0.2; done
+# a still running dev copy with the same bundle ID would only be activated by open, so wait until it is gone
+pkill -f "maloche Dev.app/Contents/MacOS/Maloche" || true
+while pgrep -f "maloche Dev.app/Contents/MacOS/Maloche" >/dev/null; do sleep 0.2; done
 APP="$TMP/maloche Dev.app"
 open -n "$APP"
 sleep 2
 echo "Started $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist") (build $(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.plist")) from $APP"
-echo "Running: $(pgrep -fl "MacOS/Maloche")"
-echo "Settings > General > Check Now should offer 0.1.1."
+echo "Running: $(pgrep -fl "maloche Dev.app/Contents/MacOS/Maloche")"
+echo "Settings > About > Check Now should offer 0.1.1."
 echo "Press Return when done to stop the server and delete the folder."
 read -r

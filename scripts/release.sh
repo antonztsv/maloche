@@ -6,6 +6,14 @@ cd "${0:A:h}/.."
 IDENTITY="${MALOCHE_SIGNING_IDENTITY:-maloche Local Signing}"
 FINGERPRINT_FILE="scripts/signing-fingerprint.txt"
 
+if [[ "${MALOCHE_APPCAST_URL:-}" != https://* ]]; then
+  echo "Set MALOCHE_APPCAST_URL to the https URL of the appcast, e.g. MALOCHE_APPCAST_URL=https://host/appcast.xml scripts/release.sh" >&2
+  exit 1
+fi
+for name in MALOCHE_VERSION MALOCHE_BUILD_NUMBER MALOCHE_APPCAST_URL MALOCHE_SIGNING_IDENTITY; do
+  [[ -z "${(P)name:-}" ]] || echo "$name=${(P)name}"
+done
+
 if [[ -n "$(git status --porcelain)" ]]; then
   echo "Uncommitted changes, commit or stash first." >&2
   exit 1
@@ -21,7 +29,11 @@ if [[ "$ACTUAL" != "$EXPECTED" ]]; then
   exit 1
 fi
 
-scripts/build-app.sh --release
+rm -rf build/release
+CERT_SHA1="$(security find-certificate -c "$IDENTITY" -Z 2>/dev/null | awk '/SHA-256 hash:/ {found = ($3 == a)} /SHA-1 hash:/ && found {print $3; exit}' a="$ACTUAL" || true)"
+[[ -n "$CERT_SHA1" ]] || { echo "Could not read the SHA-1 of the verified certificate. Not signing." >&2; exit 1; }
+
+MALOCHE_SIGNING_IDENTITY="$CERT_SHA1" scripts/build-app.sh --release
 APP="build/maloche.app"
 
 codesign --verify --deep --strict "$APP"
