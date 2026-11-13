@@ -182,6 +182,16 @@
         }
       }
     },
+    "About" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Über"
+          }
+        }
+      }
+    },
     "About maloche" : {
       "localizations" : {
         "de" : {
@@ -2368,6 +2378,22 @@
         }
       }
     },
+    "Version %@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Version %1$@ (%2$@)"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %1$@ (%2$@)"
+          }
+        }
+      }
+    },
     "Week" : {
       "localizations" : {
         "de" : {
@@ -2588,6 +2614,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "iCloud Drive"
+          }
+        }
+      }
+    },
+    "maloche" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "maloche"
           }
         }
       }

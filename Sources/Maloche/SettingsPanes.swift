@@ -20,12 +20,10 @@ private func durationName(_ seconds: TimeInterval) -> String {
     Duration.seconds(seconds).formatted(.units(allowed: [.hours, .minutes], width: .wide))
 }
 
-/// Check-in interval, away threshold, open at login, updates and the global shortcuts.
+/// Check-in interval, away threshold, open at login and the global shortcuts.
 struct GeneralSettingsView: View {
     let model: AppModel
     var isLoginItem: () -> Bool = { LoginItem.isEnabled }
-    /// Nil in a bundle without updates, which then shows no update settings.
-    var checkForUpdates: (() -> Void)?
     var onRecording: (Bool) -> Void = { _ in }
     @State private var openAtLogin = false
 
@@ -48,15 +46,6 @@ struct GeneralSettingsView: View {
                 }
                 Toggle("Open at login", isOn: Binding(get: { openAtLogin }, set: setOpenAtLogin))
                 Toggle("Show in Dock", isOn: model.setting(\.showInDock))
-            }
-            if let checkForUpdates {
-                Section {
-                    HStack {
-                        Toggle("Check for updates automatically", isOn: model.setting(\.checkForUpdates))
-                        Spacer()
-                        Button("Check Now", action: checkForUpdates)
-                    }
-                }
             }
             ShortcutsSection(model: model, onRecording: onRecording)
         }
@@ -316,5 +305,59 @@ struct BackupSettingsView: View {
         panel.directoryURL = model.backupFolder
         guard panel.runModal() == .OK, let url = panel.url else { return }
         model.setting(\.backup.folder).wrappedValue = url.path(percentEncoded: false)
+    }
+}
+
+/// Icon, name, version and the principle; the update settings only with an updater.
+struct AboutSettingsView: View {
+    let model: AppModel
+    /// Nil in a bundle without updates, which then shows no update settings.
+    var checkForUpdates: (() -> Void)?
+    var info: [String: Any] = Bundle.main.infoDictionary ?? [:]
+
+    static func version(info: [String: Any]) -> String {
+        let version = info["CFBundleShortVersionString"] as? String ?? "0"
+        let build = info["CFBundleVersion"] as? String ?? "0"
+        return String(localized: "Version \(version) (\(build))")
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                VStack(spacing: 8) {
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
+                        .frame(width: 64, height: 64)
+                        .accessibilityHidden(true)
+                    Text("maloche")
+                        .font(.title.bold())
+                    Text(Self.version(info: info))
+                        .foregroundStyle(.secondary)
+                    Text(
+                        "Every now and then, maloche asks what you are working on. One answer, and your day fills itself."
+                    )
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 400)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 4)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+            }
+            if let checkForUpdates {
+                Section {
+                    HStack {
+                        Toggle("Check for updates automatically", isOn: model.setting(\.checkForUpdates))
+                        Spacer()
+                        Button("Check Now", action: checkForUpdates)
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .scrollDisabled(true)
+        .frame(width: SettingsWindowController.width)
+        .fixedSize(horizontal: false, vertical: true)
     }
 }

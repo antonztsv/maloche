@@ -12,7 +12,7 @@ import Testing
         let tabs = try #require(window.contentViewController as? NSTabViewController)
         #expect(tabs.tabStyle == .toolbar)
         #expect(!window.styleMask.contains(.resizable))
-        #expect(tabs.tabViewItems.map(\.label) == ["General", "Schedule", "Rounding", "Backup"])
+        #expect(tabs.tabViewItems.map(\.label) == ["General", "Schedule", "Rounding", "Backup", "About"])
 
         var heights: [CGFloat] = []
         for index in tabs.tabViewItems.indices.reversed() {
@@ -66,6 +66,12 @@ import Testing
         for (key, modifiers, action) in expected {
             #expect(menu.item(withKey: key, modifiers: modifiers)?.action == action, "\(key)")
         }
+    }
+
+    @Test func theAboutPaneShowsVersionAndBuild() {
+        let info = ["CFBundleShortVersionString": "0.1.1", "CFBundleVersion": "7"]
+        #expect(AboutSettingsView.version(info: info) == "Version 0.1.1 (7)")
+        #expect(AboutSettingsView.version(info: ["CFBundleShortVersionString": "0.1.1"]) == "Version 0.1.1 (0)")
     }
 
     @Test func theBreakShortcutSaysItStartsAndEndsTheBreak() {

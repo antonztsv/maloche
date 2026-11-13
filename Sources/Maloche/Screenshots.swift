@@ -154,7 +154,7 @@
                 ("dashboard-month", AnyView(DashboardView.sample(.month, model: model))),
                 (
                     "settings-general",
-                    AnyView(GeneralSettingsView(model: try settings(), isLoginItem: { true }, checkForUpdates: {}))
+                    AnyView(GeneralSettingsView(model: try settings(), isLoginItem: { true }))
                 ),
                 ("settings-schedule", AnyView(ScheduleSettingsView(model: try settings()))),
                 (
@@ -162,6 +162,7 @@
                     AnyView(RoundingSettingsView(model: try settings { $0.rounding.stepMinutes = 15 }))
                 ),
                 ("settings-backup", AnyView(BackupSettingsView(model: try Sample.backedUp(in: backupRoot)))),
+                ("settings-about", AnyView(AboutSettingsView(model: try settings(), checkForUpdates: {}))),
                 ("import-preview", AnyView(DailyImportView(preview: try Sample.dailyImport()) { _ in })),
                 (
                     "welcome",
