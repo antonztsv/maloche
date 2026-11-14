@@ -141,6 +141,8 @@ import Testing
         let reading = try #require(model.catalog.activities.first { $0.name == "Reading" }?.id)
         #expect(model.currentActivity == reading)
         model.statusItemClicked()
+        #expect(model.panel == nil)
+        model.statusItemClicked()
         #expect(model.panel != nil)
 
         let backup = try AppDatabase.readBackup(at: saved.url, calendar: Fixture.berlin)

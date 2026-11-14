@@ -9,9 +9,9 @@ import Testing
         #expect(PanelFocus.action(for: .timer, visible: true, key: true) == .update)
     }
 
-    @Test func statusItemOpensFocusedFocusesAnUnfocusedPanelAndClosesAFocusedOne() {
+    @Test func statusItemOpensFocusedAndClosesAVisiblePanelFocusedOrNot() {
         #expect(PanelFocus.action(for: .statusItem, visible: false, key: false) == .show(focus: true))
-        #expect(PanelFocus.action(for: .statusItem, visible: true, key: false) == .focus)
+        #expect(PanelFocus.action(for: .statusItem, visible: true, key: false) == .close)
         #expect(PanelFocus.action(for: .statusItem, visible: true, key: true) == .close)
     }
 

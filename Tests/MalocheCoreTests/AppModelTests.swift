@@ -174,19 +174,18 @@ final class TestClock: WallClock, @unchecked Sendable {
         #expect(!model.tracker.state.checkInShown)
     }
 
-    @Test func iconClickFocusesAnUnfocusedPromptAndClosesAFocusedOne() throws {
+    @Test func iconClickClosesATimedPromptAsDismissed() throws {
         let model = try makeModel()
         let writing = try model.database.createActivity(name: "Writing").id!
         tick(model, at: "09:00")
         model.shortcut(.openCheckIn)
         model.log(.existing(writing))
         tick(model, at: "09:15")
+        #expect(model.panel?.isPrompt == true)
 
         model.statusItemClicked()
-        #expect(presenter.calls.last == "focus")
-        #expect(model.panel == .checkIn(CheckIn(mode: .timed, span: Fixture.span("09:00", "09:15"), prefill: writing)))
-        model.statusItemClicked()
         #expect(presenter.calls.last == "hide")
+        #expect(model.panel == nil)
         #expect(!model.tracker.state.checkInShown)
     }
 

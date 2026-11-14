@@ -17,7 +17,7 @@ public enum PanelFocus {
         case (.timer, false): .show(focus: false)
         case (.timer, true): .update
         case (_, false): .show(focus: true)
-        case (.statusItem, true): key ? .close : .focus
+        case (.statusItem, true): .close
         case (.shortcut, true): .focus
         }
     }
