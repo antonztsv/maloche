@@ -61,7 +61,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.model = model
         panelController = controller
         showMode()
-        ActivationKeeper.start()
         showInDock()
         #if DEBUG
             ActivationLog.start()
@@ -157,7 +156,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func statusItemClicked() {
-        ActivationKeeper.statusItemClicked()
         model?.statusItemClicked()
     }
 
@@ -197,7 +195,6 @@ final class StatusItemSession: NSObject, @MainActor NSStatusItemExpandedInterfac
 
     func statusItem(_ statusItem: NSStatusItem, didBegin session: NSStatusItemExpandedInterfaceSession) {
         logActivation("session didBegin panel=\(model.panel.kindForLog) visible=\(controller?.isVisible == true)")
-        ActivationKeeper.statusItemClicked()
         model.statusItemClicked()
         logActivation("session after click panel=\(model.panel.kindForLog) visible=\(controller?.isVisible == true)")
         if controller?.isVisible != true { session.cancel() }
