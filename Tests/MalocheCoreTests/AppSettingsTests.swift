@@ -69,4 +69,28 @@ final class MemorySettingsStore: SettingsStore {
         #expect(!expected.checkForUpdates)
         #expect(AppSettings.load(from: store) == expected)
     }
+
+    /// Values edited by hand outside what the settings offer would trap in duration formatting or time math.
+    @Test func valuesOutOfRangeFallBackToTheirDefaults() {
+        let json = """
+            {"checkInInterval": 1e300, "awayThreshold": -5, "schedule": {"plans": {"3": {"start": 0, "end": 9223372036854775807}}}, \
+            "rounding": {"stepMinutes": -3, "mode": "up", "level": "entry"}, \
+            "backup": {"automatic": true, "keep": 0}}
+            """
+        store.data = Data(json.utf8)
+        let settings = AppSettings.load(from: store)
+        #expect(settings.checkInInterval == AppSettings().checkInInterval)
+        #expect(settings.awayThreshold == AppSettings().awayThreshold)
+        #expect(settings.schedule == .standard)
+        #expect(settings.rounding == RoundingSettings())
+        #expect(settings.backup.keep == BackupSettings().keep)
+    }
+
+    @Test(arguments: [#"{"2": {"start": 900, "end": 600}}"#, #"{"9": {"start": 0, "end": 60}}"#])
+    func aPlanOutsideTheDayOrWeekKeepsTheStandardSchedule(plans: String) {
+        store.data = Data(#"{"schedule": {"plans": \#(plans)}}"#.utf8)
+        #expect(AppSettings.load(from: store).schedule == .standard)
+        store.data = Data(#"{"schedule": {"plans": {"2": {"start": 600, "end": 900}}}}"#.utf8)
+        #expect(AppSettings.load(from: store).schedule.plans == [2: .init(start: 600, end: 900)])
+    }
 }

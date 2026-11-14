@@ -263,6 +263,8 @@ struct ManageActivitiesView: View {
     private func showRequested(_ scroll: ScrollViewProxy) {
         guard let id = request.activity else { return }
         request.activity = nil
+        // on the first open this runs before the catalog reload
+        reload()
         guard let shown = overview.filter(showing: id) else { return }
         query = ""
         if filter == shown {

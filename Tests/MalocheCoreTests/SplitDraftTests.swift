@@ -88,4 +88,23 @@ import Testing
         draft.addPart(CheckInList(catalog: Catalog(), prefill: nil))
         #expect(draft.choices == nil)
     }
+
+    @Test func aLongerSpanKeepsPartsAndDividersAndGrowsTheLastPart() {
+        var draft = draft()
+        draft.addPart(CheckInList(catalog: catalog, prefill: 3))
+        draft.moveDivider(0, to: Fixture.at("10:30"))
+        let longer = draft.spanning(Fixture.span("10:15", "11:15"))
+        #expect(longer.span == Fixture.span("10:15", "11:15"))
+        #expect(clocks(longer) == clocks(draft))
+        #expect(longer.parts == draft.parts)
+        #expect(longer.intervals.last?.end == Fixture.at("11:15"))
+    }
+
+    @Test func dividersOutsideAShorterSpanAreClampedIntoIt() {
+        var draft = draft()
+        draft.moveDivider(0, to: Fixture.at("10:55"))
+        let shorter = draft.spanning(Fixture.span("10:15", "10:45"))
+        #expect(clocks(shorter) == ["10:44"])
+        #expect(shorter.intervals.last?.end == Fixture.at("10:45"))
+    }
 }

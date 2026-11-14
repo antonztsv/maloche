@@ -160,6 +160,22 @@ import Testing
         #expect(request.activity == nil)
     }
 
+    /// The first open from the day sets the request before the view exists.
+    @Test func anActivityRequestedBeforeTheWindowExistsIsSelected() throws {
+        let (model, _, _) = try makeModel()
+        let rows = ActivityOverview(catalog: model.catalog, thisMonth: []).rows(.all).map(\.id)
+        let writing = try #require(rows.last)
+        let request = ManageActivitiesRequest()
+        request.activity = writing
+        let (_, hosting) = host(ManageActivitiesView(model: model, request: request))
+        settle(hosting)
+        settle(hosting)
+
+        let row = try #require(rows.firstIndex(of: writing))
+        #expect(try table(in: hosting).selectedRowIndexes == [row])
+        #expect(request.activity == nil)
+    }
+
     @Test func commandFFocusesTheSearch() throws {
         let (window, hosting) = host(ManageActivitiesView(model: try makeModel().0))
 

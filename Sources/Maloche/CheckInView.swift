@@ -75,6 +75,10 @@ struct CheckInView: View {
         .padding(12)
         .padding(.top, 6)
         .frame(width: 380)
+        // a prompt asked again while open covers a longer span, the open split follows it
+        .onChange(of: content) {
+            if case .checkIn(let checkIn) = content, let span = checkIn.span { split = split?.spanning(span) }
+        }
     }
 
     private var header: some View {

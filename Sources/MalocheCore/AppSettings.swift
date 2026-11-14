@@ -19,15 +19,22 @@ public struct AppSettings: Codable, Equatable, Sendable {
     /// A missing or unreadable field keeps its default, the others are read.
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
-        func value<T: Decodable>(_ key: CodingKeys, _ fallback: T) -> T {
-            (try? values.decodeIfPresent(T.self, forKey: key)) ?? fallback
+        // a value outside what the settings offer, edited by hand, keeps its default too
+        func value<T: Decodable>(_ key: CodingKeys, _ fallback: T, valid: (T) -> Bool = { _ in true }) -> T {
+            (try? values.decodeIfPresent(T.self, forKey: key)).flatMap { valid($0) ? $0 : nil } ?? fallback
         }
-        checkInInterval = value(.checkInInterval, checkInInterval)
-        awayThreshold = value(.awayThreshold, awayThreshold)
-        schedule = value(.schedule, schedule)
-        rounding = value(.rounding, rounding)
+        let minutesOfDay = 0...(24 * 60 - 1)
+        checkInInterval = value(.checkInInterval, checkInInterval) { (60...86_400).contains($0) }
+        awayThreshold = value(.awayThreshold, awayThreshold) { (60...86_400).contains($0) }
+        schedule = value(.schedule, schedule) { schedule in
+            schedule.plans.allSatisfy { weekday, plan in
+                (1...7).contains(weekday) && minutesOfDay.contains(plan.start) && minutesOfDay.contains(plan.end)
+                    && plan.start < plan.end
+            }
+        }
+        rounding = value(.rounding, rounding) { (0...minutesOfDay.upperBound).contains($0.stepMinutes ?? 0) }
         shortcuts = value(.shortcuts, shortcuts)
-        backup = value(.backup, backup)
+        backup = value(.backup, backup) { (1...10_000).contains($0.keep) }
         showInDock = value(.showInDock, showInDock)
         checkForUpdates = value(.checkForUpdates, checkForUpdates)
         // settings stored before the welcome existed belong to someone already using the app

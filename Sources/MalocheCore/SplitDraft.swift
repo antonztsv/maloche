@@ -2,7 +2,7 @@ import Foundation
 
 /// The parts of a span in the split view: dividers on whole minutes from its start, every part at least a minute.
 public struct SplitDraft: Equatable, Sendable {
-    public let span: DateInterval
+    public private(set) var span: DateInterval
     /// Whole minutes from the start of the span to each divider, ascending.
     public private(set) var minutes: [Int] = [0]
     /// The activity field of each part.
@@ -13,6 +13,20 @@ public struct SplitDraft: Equatable, Sendable {
         self.span = span
         parts = [first, second]
         minutes[0] = clamped(Int(span.duration / 60) / 2, at: 0)
+    }
+
+    /// The same parts and dividers over another span of the same prompt, dividers kept a minute inside it.
+    public func spanning(_ span: DateInterval) -> SplitDraft {
+        var draft = self
+        draft.span = span
+        let total = Int(span.duration / 60)
+        var lower = 1
+        for (index, divider) in dividers.enumerated() {
+            let minute = Int((divider.timeIntervalSince(span.start) / 60).rounded())
+            draft.minutes[index] = min(max(minute, lower), total - (minutes.count - index))
+            lower = draft.minutes[index] + 1
+        }
+        return draft
     }
 
     public var dividers: [Date] {
