@@ -24,7 +24,9 @@ extension NSWindow {
 
     static func updateActivationPolicy() {
         logActivation("setActivationPolicy begin showInDock=\(showInDock)")
-        NSApp.setActivationPolicy(activationPolicy(showInDock: showInDock))
+        let policy = activationPolicy(showInDock: showInDock)
+        ActivationKeeper.policyWillChange(to: policy)
+        NSApp.setActivationPolicy(policy)
         logActivation("setActivationPolicy end")
     }
 }

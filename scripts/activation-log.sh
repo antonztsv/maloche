@@ -9,17 +9,21 @@ APP="build/maloche Dev.app"
 scripts/build-app.sh >/dev/null
 pkill -f "maloche Dev.app/Contents/MacOS/Maloche" || true
 sleep 1
-: > "$LOG"
-log stream --level debug --style compact --predicate 'subsystem == "io.github.antonztsv.maloche.dev"' >> "$LOG" &
-STREAM=$!
-trap 'kill $STREAM 2>/dev/null; echo "Log: $PWD/$LOG"' EXIT
-sleep 1
+MARKS="$(mktemp)"
+START="$(date '+%Y-%m-%d %H:%M:%S')"
+finish() {
+  log show --start "$START" --debug --info --style compact \
+    --predicate 'subsystem == "io.github.antonztsv.maloche.dev"' | cat - "$MARKS" | sort > "$LOG"
+  rm -f "$MARKS"
+  echo "Log: $PWD/$LOG"
+}
+trap finish EXIT
 open "$APP" --args -DebugCheckInInterval 90
 
 step() {
   print -r -- "$1"
   read -r "?Enter, wenn erledigt. "
-  print -r -- "$(date '+%Y-%m-%d %H:%M:%S') ==== Schritt erledigt: $1" >> "$LOG"
+  print -r -- "$(date '+%Y-%m-%d %H:%M:%S') ==== Schritt erledigt: $1" >> "$MARKS"
 }
 
 step "1. Falls maloche nicht trackt: Symbol klicken, im Dashboard einschalten. Dann auf die Timer-Abfrage warten (bis 90 s) und aufs Symbol klicken."
