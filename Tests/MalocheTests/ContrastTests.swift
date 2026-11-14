@@ -39,6 +39,17 @@ import Testing
         }
     }
 
+    @Test func labelTextReadsOnTheNowRowTint() {
+        for name in Self.appearances {
+            let back = Self.rgba(.windowBackgroundColor, in: name)
+            let tint = Self.rgba(DashboardView.nowTint, in: name)
+            let mix = (0..<3).map { tint[$0] * tint[3] + back[$0] * (1 - tint[3]) }
+            let row = NSColor(srgbRed: mix[0], green: mix[1], blue: mix[2], alpha: 1)
+            let ratio = Self.contrast(.labelColor, row, in: name)
+            #expect(ratio >= 4.5, "\(name.rawValue): \(String(format: "%.2f", ratio)):1")
+        }
+    }
+
     /// Fixed color values in the sources, besides the black that tints the menu bar template image.
     @Test func theAppDefinesNoColorsOfItsOwn() throws {
         let sources = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()

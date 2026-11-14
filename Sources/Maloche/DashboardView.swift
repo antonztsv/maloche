@@ -140,6 +140,9 @@ struct DashboardView: View {
         }
     }
 
+    /// The Now row in every state sits on a light tint of the accent color.
+    static let nowTint = NSColor.controlAccentColor.withAlphaComponent(0.15)
+
     private var offersKeepTracking: Bool { data.current == .off || data.current == .doneForToday }
 
     private func keepTrackingRow(_ message: Text) -> some View {
@@ -153,7 +156,7 @@ struct DashboardView: View {
         .padding(.leading, 10)
         .padding(.trailing, 4)
         .frame(height: 32)
-        .background(Color(nsColor: .tertiarySystemFill), in: .rect(cornerRadius: 8))
+        .background(Color(nsColor: Self.nowTint), in: .rect(cornerRadius: 8))
     }
 
     private func nowButton(name: String, customer: String?, swatch: some View) -> some View {
@@ -180,7 +183,7 @@ struct DashboardView: View {
             .padding(.leading, 10)
             .padding(.trailing, 8)
             .frame(height: 32)
-            .background(Color(nsColor: .tertiarySystemFill), in: .rect(cornerRadius: 8))
+            .background(Color(nsColor: Self.nowTint), in: .rect(cornerRadius: 8))
             .contentShape(.rect(cornerRadius: 8))
         }
         .buttonStyle(.plain)
