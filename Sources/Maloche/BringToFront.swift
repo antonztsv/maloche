@@ -3,6 +3,7 @@ import AppKit
 extension NSWindow {
     /// A window the user opened comes to the front and takes the keyboard, with or without a Dock icon.
     func bringToFront() {
+        logActivation("bringToFront begin \(identifier?.rawValue ?? "?")")
         // cooperative activation, a plain activate() from the nonactivating panel is declined while another app is active
         if let front = NSWorkspace.shared.frontmostApplication, front != .current {
             NSRunningApplication.current.activate(from: front)
@@ -11,6 +12,7 @@ extension NSWindow {
         }
         makeKeyAndOrderFront(nil)
         orderFrontRegardless()
+        logActivation("bringToFront end \(identifier?.rawValue ?? "?")")
     }
 
     /// The Dock icon follows only the setting, open windows do not change it.
@@ -21,6 +23,8 @@ extension NSWindow {
     static var showInDock = false
 
     static func updateActivationPolicy() {
+        logActivation("setActivationPolicy begin showInDock=\(showInDock)")
         NSApp.setActivationPolicy(activationPolicy(showInDock: showInDock))
+        logActivation("setActivationPolicy end")
     }
 }

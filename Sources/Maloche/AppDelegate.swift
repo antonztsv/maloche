@@ -63,6 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         showMode()
         showInDock()
         #if DEBUG
+            ActivationLog.start()
             resignObserver = NotificationCenter.default.addObserver(
                 forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
             ) { _ in
@@ -145,6 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        logActivation("reopen (Dock click) panel=\(model?.panel.kindForLog ?? "-")")
         model?.statusItemClicked()
         return false
     }
@@ -192,12 +194,28 @@ final class StatusItemSession: NSObject, @MainActor NSStatusItemExpandedInterfac
     }
 
     func statusItem(_ statusItem: NSStatusItem, didBegin session: NSStatusItemExpandedInterfaceSession) {
+        logActivation("session didBegin panel=\(model.panel.kindForLog) visible=\(controller?.isVisible == true)")
         model.statusItemClicked()
+        logActivation("session after click panel=\(model.panel.kindForLog) visible=\(controller?.isVisible == true)")
         if controller?.isVisible != true { session.cancel() }
     }
 
     func statusItemDidEndExpandedInterfaceSession(_ statusItem: NSStatusItem, animated: Bool) {
+        logActivation("session didEnd panel=\(model.panel.kindForLog)")
         model.panelLostFocus()
+    }
+}
+
+extension Optional where Wrapped == PanelContent {
+    /// The kind of panel content without names, for the log.
+    var kindForLog: String {
+        switch self {
+        case .checkIn(let checkIn): "checkIn.\(checkIn.mode)"
+        case .awayReturn: "awayReturn"
+        case .breakReturn: "breakReturn"
+        case .dashboard: "dashboard"
+        case nil: "none"
+        }
     }
 }
 
