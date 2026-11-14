@@ -12,7 +12,7 @@ sleep 1
 MARKS="$(mktemp)"
 START="$(date '+%Y-%m-%d %H:%M:%S')"
 finish() {
-  log show --start "$START" --debug --info --style compact \
+  /usr/bin/log show --start "$START" --debug --info --style compact \
     --predicate 'subsystem == "io.github.antonztsv.maloche.dev"' | cat - "$MARKS" | sort > "$LOG"
   rm -f "$MARKS"
   echo "Log: $PWD/$LOG"
@@ -27,6 +27,6 @@ step() {
 }
 
 step "1. Falls maloche nicht trackt: Symbol klicken, im Dashboard einschalten. Dann auf die Timer-Abfrage warten (bis 90 s) und aufs Symbol klicken."
-step "2. In Einstellungen \"Im Dock anzeigen\" aus. Symbol klicken, im Dashboard ⌘, drücken. Dann aufs Symbol klicken, damit das Dashboard aufgeht, und hineinklicken."
+step "2. \"Im Dock anzeigen\" bleibt aus, nicht umschalten. Symbol klicken, im Dashboard ⌘, drücken. Dann aufs Symbol klicken, damit das Dashboard aufgeht, und hineinklicken."
 step "3. Symbol klicken, im Dashboard \"Aktivitäten verwalten\" öffnen. Dann aufs Symbol klicken und ins Dashboard klicken."
 step "4. Einstellungen und Aktivitätenfenster offen lassen. \"Im Dock anzeigen\" einschalten, kurz warten, wieder ausschalten."

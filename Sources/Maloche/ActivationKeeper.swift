@@ -23,8 +23,8 @@ enum ActivationKeeper {
             center.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { _ in
                 MainActor.assumeIsolated {
                     resignedAt = .now
+                    // the system hands activation away a second time about 120 ms after the switch
                     guard SystemDeactivation.caused(by: policyChangedAt, resignedAt: resignedAt) else { return }
-                    policyChangedAt = nil
                     logActivation("keeper: policy change deactivated the app, reactivating")
                     restore(activating: true)
                 }
