@@ -32,6 +32,11 @@ if [[ -d "$RESOURCES" ]]; then
   cp -R "$RESOURCES/" "$APP/Contents/Resources/"
 fi
 cp LICENSE THIRD_PARTY_LICENSES.md "$APP/Contents/Resources/"
+# actool resolves relative paths against another directory, so pass absolute ones
+ICON_PLIST="$PWD/build/AppIcon-partial.plist"
+xcrun actool "$PWD/Resources/AppIcon.icon" --compile "$PWD/$APP/Contents/Resources" --platform macosx \
+  --minimum-deployment-target 26.0 --app-icon AppIcon --output-partial-info-plist "$ICON_PLIST" \
+  --output-format human-readable-text --errors --warnings
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -55,6 +60,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
+/usr/libexec/PlistBuddy -c "Merge $ICON_PLIST" "$APP/Contents/Info.plist" > /dev/null
 # updates run only with both a public key and a feed, see Updates.isConfigured
 KEY_FILE="scripts/sparkle-public-key.txt"
 if [[ -s "$KEY_FILE" ]]; then
