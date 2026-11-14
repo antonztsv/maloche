@@ -245,8 +245,8 @@ extension AppDatabase {
     // stored dates keep milliseconds, sub-second fragments could round to empty blocks
     private static func wholeSeconds(_ block: Block) -> Block {
         var block = block
-        block.startedAt = Date(timeIntervalSinceReferenceDate: block.startedAt.timeIntervalSinceReferenceDate.rounded())
-        block.endedAt = Date(timeIntervalSinceReferenceDate: block.endedAt.timeIntervalSinceReferenceDate.rounded())
+        block.startedAt = block.startedAt.roundedToSecond
+        block.endedAt = block.endedAt.roundedToSecond
         return block
     }
 

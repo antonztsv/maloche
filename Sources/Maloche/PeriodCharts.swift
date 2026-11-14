@@ -52,10 +52,10 @@ struct WeekChart: View {
         guard day.work > 0 else { return "" }
         let parts = data.summary.stack(of: day).map { part in
             String(
-                localized: "\(DashboardData.name(of: part.customer)) \(DashboardData.spoken(part.duration))",
+                localized: "\(DashboardData.name(of: part.customer)) \(DurationFormat.spoken(part.duration))",
                 comment: "A customer and its work, for VoiceOver")
         }
-        return ([DashboardData.spoken(day.work)] + parts).formatted(.list(type: .and, width: .narrow))
+        return ([DurationFormat.spoken(day.work)] + parts).formatted(.list(type: .and, width: .narrow))
     }
 }
 
@@ -116,7 +116,7 @@ struct MonthGrid: View {
         .contrastEdge(cornerRadius: 6, contrast: contrast)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(day.interval.start, format: .dateTime.month(.wide).day()))
-        .accessibilityValue(day.work > 0 ? DashboardData.spoken(day.work) : "")
+        .accessibilityValue(day.work > 0 ? DurationFormat.spoken(day.work) : "")
         .accessibilityAddTraits(.isStaticText)
     }
 }

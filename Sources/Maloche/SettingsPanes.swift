@@ -49,10 +49,7 @@ struct GeneralSettingsView: View {
             }
             ShortcutsSection(model: model, onRecording: onRecording)
         }
-        .formStyle(.grouped)
-        .scrollDisabled(true)
-        .frame(width: SettingsWindowController.width)
-        .fixedSize(horizontal: false, vertical: true)
+        .settingsPane()
         .onAppear { openAtLogin = isLoginItem() }
     }
 
@@ -88,10 +85,7 @@ struct ScheduleSettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .formStyle(.grouped)
-        .scrollDisabled(true)
-        .frame(width: SettingsWindowController.width)
-        .fixedSize(horizontal: false, vertical: true)
+        .settingsPane()
     }
 
     private var template: WorkSchedule.Plan {
@@ -196,10 +190,7 @@ struct RoundingSettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .formStyle(.grouped)
-        .scrollDisabled(true)
-        .frame(width: SettingsWindowController.width)
-        .fixedSize(horizontal: false, vertical: true)
+        .settingsPane()
     }
 }
 
@@ -258,10 +249,7 @@ struct BackupSettingsView: View {
                 }
             }
         }
-        .formStyle(.grouped)
-        .scrollDisabled(true)
-        .frame(width: SettingsWindowController.width)
-        .fixedSize(horizontal: false, vertical: true)
+        .settingsPane()
         .dailyImport(importFlow, model: model)
         .restore(restoreFlow, model: model)
     }
@@ -357,9 +345,15 @@ struct AboutSettingsView: View {
                 }
             }
         }
-        .formStyle(.grouped)
-        .scrollDisabled(true)
-        .frame(width: SettingsWindowController.width)
-        .fixedSize(horizontal: false, vertical: true)
+        .settingsPane()
+    }
+}
+
+extension View {
+    func settingsPane() -> some View {
+        formStyle(.grouped)
+            .scrollDisabled(true)
+            .frame(width: SettingsWindowController.width)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

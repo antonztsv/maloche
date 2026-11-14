@@ -45,9 +45,7 @@ struct NewProjectForm: View {
                 .padding(.trailing, CustomerField.listOutset.trailing)
                 .overlay(alignment: .leading) {
                     if let match {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(Color(nsColor: CustomerColor.nsColor(for: match)))
-                            .frame(width: 8, height: 8)
+                        CustomerSwatch(customer: match)
                             .padding(.leading, 8)
                     }
                 }

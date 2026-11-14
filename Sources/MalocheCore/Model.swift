@@ -115,3 +115,9 @@ extension Activity: FetchableRecord, MutablePersistableRecord {
 extension Block: FetchableRecord, MutablePersistableRecord {
     public mutating func didInsert(_ inserted: InsertionSuccess) { id = inserted.rowID }
 }
+
+extension Date {
+    var roundedToSecond: Date {
+        Date(timeIntervalSinceReferenceDate: timeIntervalSinceReferenceDate.rounded())
+    }
+}

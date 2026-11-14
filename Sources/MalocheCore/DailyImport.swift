@@ -108,7 +108,7 @@ public struct DailyImport: Sendable {
                 withTime += 1
                 continue
             }
-            var start = min(max(Self.wholeSeconds(started), interval.start), interval.end - total)
+            var start = min(max(started.roundedToSecond, interval.start), interval.end - total)
             days.append(
                 PlannedDay(
                     interval: interval,
@@ -216,10 +216,6 @@ public struct DailyImport: Sendable {
         let components = DateComponents(year: parts[0], month: parts[1], day: parts[2])
         guard components.isValidDate(in: calendar), let date = calendar.date(from: components) else { return nil }
         return calendar.dateInterval(of: .day, for: date)
-    }
-
-    private static func wholeSeconds(_ date: Date) -> Date {
-        Date(timeIntervalSinceReferenceDate: date.timeIntervalSinceReferenceDate.rounded())
     }
 
     private static func later(_ a: Date?, _ b: Date?) -> Date? {

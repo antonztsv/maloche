@@ -271,9 +271,7 @@ struct DashboardView: View {
         VStack(spacing: 0) {
             ForEach(data.summary.customers, id: \.customer?.id) { total in
                 HStack(spacing: 8) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(DashboardData.color(of: total.customer))
-                        .frame(width: 8, height: 8)
+                    CustomerSwatch(customer: total.customer)
                     Text(DashboardData.name(of: total.customer))
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -313,9 +311,7 @@ struct DashboardView: View {
     @ViewBuilder private var legendItems: some View {
         ForEach(data.summary.customers, id: \.customer?.id) { total in
             legendItem(DashboardData.name(of: total.customer)) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(DashboardData.color(of: total.customer))
-                    .frame(width: 8, height: 8)
+                CustomerSwatch(customer: total.customer)
             }
         }
         if data.day?.breaks ?? 0 > 0 {
@@ -402,9 +398,7 @@ struct DashboardList: View {
                     .padding(.trailing, 4)
                 } label: {
                     HStack(spacing: 6) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(DashboardData.color(of: total.customer))
-                            .frame(width: 8, height: 8)
+                        CustomerSwatch(customer: total.customer)
                         subtotal(DashboardData.name(of: total.customer), total.duration)
                             .fontWeight(.semibold)
                     }

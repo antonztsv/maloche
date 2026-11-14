@@ -147,13 +147,8 @@ private struct SplitBar: View {
 
     /// "10:15 to 10:37 Code Review, 10:37 to 11:00 Writing"
     private var description: String {
-        zip(split.intervals, names).map { interval, name in
-            let span = String(
-                localized:
-                    "\(interval.start, format: DashboardData.time) to \(interval.end, format: DashboardData.time)")
-            return String(localized: "\(span) \(name)", comment: "A time span and what it was spent on, for VoiceOver")
-        }
-        .joined(separator: ", ")
+        zip(split.intervals, names).map(DashboardData.spanLabel)
+            .joined(separator: ", ")
     }
 
     private func x(of date: Date, width: CGFloat) -> CGFloat {

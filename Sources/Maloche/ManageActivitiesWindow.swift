@@ -192,9 +192,7 @@ struct ManageActivitiesView: View {
     }
 
     private func swatch(_ customer: Customer?) -> some View {
-        RoundedRectangle(cornerRadius: 2)
-            .fill(Color(nsColor: CustomerColor.nsColor(for: customer)))
-            .frame(width: 8, height: 8)
+        CustomerSwatch(customer: customer)
     }
 
     private func colorPicker(_ customer: Customer) -> some View {
@@ -585,8 +583,8 @@ struct MergeSheet: View {
                     Text(label(row)).tag(Int64?.some(row.id))
                 }
             }
-            message(DashboardData.duration(moving))
-                .accessibilityLabel(message(DashboardData.spoken(moving)))
+            message(DurationFormat.hoursMinutes(moving))
+                .accessibilityLabel(message(DurationFormat.spoken(moving)))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()

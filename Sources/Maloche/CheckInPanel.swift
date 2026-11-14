@@ -93,8 +93,7 @@ struct PanelView: View {
             period: day.period, blocks: day.blocks, activities: catalog.activities, projects: catalog.projects,
             customers: catalog.customers, schedule: model.schedule, current: model.nowRow,
             now: model.now, calendar: model.calendar, rounding: model.settings.rounding)
-        let overview = ActivityOverview(catalog: catalog, thisMonth: [])
-        data.manageable = Set(day.blocks.map(\.activityId)).filter { overview.filter(showing: $0) != nil }
+        data.manageable = Set(day.blocks.map(\.activityId)).filter { catalog.activity($0)?.kind == .regular }
         return DashboardView(
             data: data, moreActions: MoreActionsMenu(model: model), onShowPeriod: model.showDashboard,
             onCheckIn: model.checkIn, onKeepTracking: model.keepTracking,
@@ -121,7 +120,6 @@ final class CheckInPanelController: PanelPresenter {
         ) { [weak model] _ in
             // a click outside closes the dashboard
             MainActor.assumeIsolated {
-                logActivation("panel resignKey -> panelLostFocus panel=\(model?.panel.kindForLog ?? "-")")
                 model?.panelLostFocus()
             }
         }
@@ -132,17 +130,12 @@ final class CheckInPanelController: PanelPresenter {
                 Self.isIconClick(
                     in: event.window, button: self.statusItem?.button?.window, panelVisible: self.isVisible)
             else { return event }
-            logActivation("icon click local monitor panel=\(self.model.panel.kindForLog)")
             self.model.statusItemClicked()
-            logActivation("icon click local monitor done panel=\(self.model.panel.kindForLog)")
             return nil
         }
         // clicks in other apps, the menu bar and other status items, mouse events need no permission
-        _ = NSEvent.addGlobalMonitorForEvents(matching: clicks) { [weak model] event in
-            MainActor.assumeIsolated {
-                logActivation("global click type=\(event.type.rawValue) panel=\(model?.panel.kindForLog ?? "-")")
-                model?.panelLostFocus()
-            }
+        _ = NSEvent.addGlobalMonitorForEvents(matching: clicks) { [weak model] _ in
+            MainActor.assumeIsolated { model?.panelLostFocus() }
         }
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
@@ -187,7 +180,6 @@ final class CheckInPanelController: PanelPresenter {
     }
 
     func hide() {
-        logActivation("panel hide")
         panel.orderOut(nil)
         if #available(macOS 27, *) { statusItem?.expandedInterfaceSession?.cancel() }
     }
@@ -214,7 +206,6 @@ final class CheckInPanelController: PanelPresenter {
     }
 
     private func logState(_ action: String) {
-        logActivation("panel \(action)")
         #if DEBUG
             logPanel(action)
         #endif

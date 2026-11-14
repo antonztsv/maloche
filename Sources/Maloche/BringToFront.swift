@@ -3,12 +3,10 @@ import AppKit
 extension NSWindow {
     /// A window the user opened comes to the front and takes the keyboard; the app shows in the Dock while it is open.
     func bringToFront() {
-        logActivation("bringToFront begin \(identifier?.rawValue ?? "?")")
         NSApp.setActivationPolicy(.regular)
         // without a Dock icon a plain activate() is often declined
         NSApp.activate(ignoringOtherApps: true)
         makeKeyAndOrderFront(nil)
-        logActivation("bringToFront end \(identifier?.rawValue ?? "?")")
     }
 
     /// A visible titled window other than panels (the status bar window is borderless) and the closing one.
@@ -27,7 +25,6 @@ extension NSWindow {
         followClosing()
         let policy = activationPolicy(
             showInDock: showInDock, hasNormalWindow: hasNormalWindow(in: NSApp.windows, closing: closing))
-        logActivation("setActivationPolicy \(policy == .regular ? "regular" : "accessory")")
         NSApp.setActivationPolicy(policy)
     }
 

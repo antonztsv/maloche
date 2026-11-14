@@ -47,6 +47,7 @@ struct DashboardData {
             of: period, blocks: blocks, activities: activities, projects: projects, customers: customers,
             calendar: calendar
         ).rounded(by: rounding)
+        guard period.kind == .day else { return }
         let shown = blocks.filter { block in self.activities[block.activityId].map { $0.kind != .private } ?? false }
         timeline = DayTimeline(
             day: period.interval, blocks: shown, plan: schedule.interval(on: period.interval.start, calendar: calendar))
@@ -87,9 +88,12 @@ struct DashboardData {
         Color(nsColor: CustomerColor.nsColor(for: customer))
     }
 
-    static func duration(_ seconds: TimeInterval) -> String { DurationFormat.hoursMinutes(seconds) }
-
-    static func spoken(_ seconds: TimeInterval) -> String { DurationFormat.spoken(seconds) }
+    /// "8:30 to 10:00 Internal", for VoiceOver.
+    static func spanLabel(_ interval: DateInterval, _ name: String) -> String {
+        let span = String(
+            localized: "\(interval.start, format: time) to \(interval.end, format: time)")
+        return String(localized: "\(span) \(name)", comment: "A time span and what it was spent on, for VoiceOver")
+    }
 
     /// Clock time in the system 12 or 24 hour format, without a leading zero.
     static let time = Date.FormatStyle().hour(.defaultDigits(amPM: .abbreviated)).minute(.twoDigits)
@@ -102,6 +106,6 @@ struct DashboardData {
 extension Text {
     /// "7:45" on screen, "7 hours 45 minutes" for VoiceOver.
     init(duration: TimeInterval) {
-        self = Text(verbatim: DashboardData.duration(duration)).accessibilityLabel(DashboardData.spoken(duration))
+        self = Text(verbatim: DurationFormat.hoursMinutes(duration)).accessibilityLabel(DurationFormat.spoken(duration))
     }
 }

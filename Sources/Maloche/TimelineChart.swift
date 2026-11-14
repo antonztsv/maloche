@@ -69,11 +69,7 @@ struct TimelineChart: View {
                 case .onBreak: String(localized: "Break")
                 case .work(let customerId): DashboardData.name(of: customerId.flatMap { data.customers[$0] })
                 }
-            let span = String(
-                localized:
-                    "\(lane.interval.start, format: DashboardData.time) to \(lane.interval.end, format: DashboardData.time)"
-            )
-            return String(localized: "\(span) \(name)", comment: "A time span and what it was spent on, for VoiceOver")
+            return DashboardData.spanLabel(lane.interval, name)
         }
         .formatted(.list(type: .and, width: .narrow))
     }
@@ -89,6 +85,17 @@ struct TimelineChart: View {
         }
         context.stroke(stripes, with: .color(Color(nsColor: .tertiaryLabelColor)), lineWidth: 1.5)
         context.contrastEdge(path, contrast: context.environment.colorSchemeContrast)
+    }
+}
+
+/// Legend square in the customer color.
+struct CustomerSwatch: View {
+    let customer: Customer?
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 2)
+            .fill(DashboardData.color(of: customer))
+            .frame(width: 8, height: 8)
     }
 }
 
