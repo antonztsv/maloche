@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Builds, signs and packs build/release/maloche-<version>.zip and build/dmg/maloche-<version>.dmg from a clean commit. Usage: scripts/release.sh
+# Builds, signs and packs zip, dmg and appcast.xml into build/upload/ from a clean commit. Usage: scripts/release.sh
 set -euo pipefail
 cd "${0:A:h}/.."
 
@@ -32,7 +32,7 @@ if [[ "$ACTUAL" != "$EXPECTED" ]]; then
   exit 1
 fi
 
-rm -rf build/release build/dmg
+rm -rf build/release build/dmg build/upload
 CERT_SHA1="$(security find-certificate -c "$IDENTITY" -Z 2>/dev/null | awk '/SHA-256 hash:/ {found = ($3 == a)} /SHA-1 hash:/ && found {print $3; exit}' a="$ACTUAL" || true)"
 [[ -n "$CERT_SHA1" ]] || { echo "Could not read the SHA-1 of the verified certificate. Not signing." >&2; exit 1; }
 
@@ -47,8 +47,6 @@ ZIP="build/release/maloche-$VERSION.zip"
 mkdir -p build/release
 rm -f "$ZIP"
 ditto -c -k --keepParent "$APP" "$ZIP"
-echo "$ZIP"
-shasum -a 256 "$ZIP"
 
 # outside build/release so generate_appcast only lists the zip
 DMG="build/dmg/maloche-$VERSION.dmg"
@@ -56,11 +54,11 @@ mkdir -p build/dmg
 uvx --from dmgbuild==1.6.7 dmgbuild -s scripts/dmg-settings.py -D app="$APP" maloche "$DMG"
 codesign --sign "$CERT_SHA1" "$DMG"
 codesign --verify --strict "$DMG"
-echo "$DMG"
-shasum -a 256 "$DMG"
 
-GENERATE_APPCAST=".build/artifacts/sparkle/Sparkle/bin/generate_appcast"
-if [[ -x "$GENERATE_APPCAST" ]]; then
-  echo "To write build/release/appcast.xml, signed with the key in your keychain, run:"
-  echo "  $GENERATE_APPCAST --download-url-prefix https://github.com/antonztsv/maloche/releases/download/v$VERSION/ build/release"
-fi
+.build/artifacts/sparkle/Sparkle/bin/generate_appcast \
+  --download-url-prefix "https://github.com/antonztsv/maloche/releases/download/v$VERSION/" build/release
+
+mkdir -p build/upload
+cp "$ZIP" "$DMG" build/release/appcast.xml build/upload/
+echo "Upload these files to the release v$VERSION:"
+shasum -a 256 build/upload/*
