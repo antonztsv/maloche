@@ -5,7 +5,7 @@ set -euo pipefail
 cd "${0:A:h}/.."
 
 BASE_ID="io.github.antonztsv.maloche"
-VERSION="${MALOCHE_VERSION:-0.1.0}"
+VERSION="${MALOCHE_VERSION:-0.1.1}"
 BUILD_NUMBER="${MALOCHE_BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
 
 case "${1:-}" in

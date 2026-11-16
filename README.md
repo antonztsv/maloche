@@ -10,9 +10,9 @@ A native macOS menu bar time tracker. At an interval it asks "What are you worki
 
 ## Install
 
-1. Download the zip from the Releases page and unzip it.
-2. Move `maloche.app` to your Applications folder.
-3. Open it. macOS blocks the first launch because the app is signed with a self-signed certificate (see below).
+1. Download `maloche-<version>.dmg` from the Releases page and open it.
+2. Drag `maloche.app` onto the Applications folder in the window that opens.
+3. Open maloche from Applications. macOS blocks the first launch because the app is signed with a self-signed certificate (see below).
 4. Open System Settings > Privacy & Security, scroll to the Security section, click "Open Anyway" next to the message about maloche and confirm. On macOS 15 and later this button only appears after you have tried to open the app once.
 5. Open maloche again.
 
@@ -36,7 +36,7 @@ scripts/build-app.sh
 
 `scripts/build-app.sh` signs the app, so it needs a local signing identity. `scripts/make-signing-cert.sh` creates a self-signed one in your login keychain (read the script first). The dev build lands in `build/maloche Dev.app` and uses its own bundle ID with a `.dev` suffix, so it never touches your real data.
 
-For a release build run `scripts/build-app.sh --release`. `scripts/release.sh` builds from a clean commit, signs, verifies and zips the app into `build/release/`.
+For a release build run `scripts/build-app.sh --release`. `scripts/release.sh` builds from a clean commit, signs, verifies and zips the app into `build/release/` (the Sparkle update format) and packs a signed disk image into `build/dmg/`. The disk image needs [create-dmg](https://github.com/create-dmg/create-dmg) (`brew install create-dmg`); laying out its Finder window asks for Automation access, `scripts/release.sh --skip-jenkins` leaves that out.
 
 `scripts/release.sh` needs the signing identity whose SHA-256 is in `scripts/signing-fingerprint.txt` and uses the GitHub appcast as the update feed.
 
