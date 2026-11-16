@@ -226,9 +226,7 @@ final class CheckInPanelController: PanelPresenter {
 
     private func position() {
         let size = hosting?.fittingSize ?? panel.frame.size
-        guard size.height > 0,
-            let screen = Self.screenWithFrontmostWindow() ?? NSScreen.main ?? NSScreen.screens.first
-        else { return }
+        guard size.height > 0, let screen = NSScreen.active else { return }
         var anchorOffset: CGFloat = 200
         if let button = statusItem?.button, let window = button.window, let buttonScreen = window.screen {
             anchorOffset = buttonScreen.frame.maxX - window.frame.midX
@@ -237,22 +235,5 @@ final class CheckInPanelController: PanelPresenter {
             size: size, anchorOffsetFromRight: anchorOffset, screenFrame: screen.frame,
             visibleFrame: screen.visibleFrame, margin: 6)
         panel.setFrame(frame, display: true)
-    }
-
-    /// Window bounds and owner are readable without the screen recording permission, titles are not needed.
-    private static func screenWithFrontmostWindow() -> NSScreen? {
-        guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
-            let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
-                as? [[String: Any]],
-            let info = list.first(where: {
-                ($0[kCGWindowOwnerPID as String] as? pid_t) == pid && ($0[kCGWindowLayer as String] as? Int) == 0
-            }),
-            let boundsDict = info[kCGWindowBounds as String] as? NSDictionary,
-            let bounds = CGRect(dictionaryRepresentation: boundsDict),
-            let primaryHeight = NSScreen.screens.first?.frame.height
-        else { return nil }
-        let window = PanelPlacement.cocoaRect(fromWindowListRect: bounds, primaryScreenHeight: primaryHeight)
-        let screens = NSScreen.screens
-        return PanelPlacement.screenIndex(containing: window, screens: screens.map(\.frame)).map { screens[$0] }
     }
 }
