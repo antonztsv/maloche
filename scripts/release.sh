@@ -1,12 +1,9 @@
 #!/bin/zsh
-# Builds, signs and packs build/release/maloche-<version>.zip and build/dmg/maloche-<version>.dmg from a clean commit. Usage: scripts/release.sh [--skip-jenkins]
+# Builds, signs and packs build/release/maloche-<version>.zip and build/dmg/maloche-<version>.dmg from a clean commit. Usage: scripts/release.sh
 set -euo pipefail
 cd "${0:A:h}/.."
 
-CREATE_DMG_EXTRA=()
-# --skip-jenkins leaves out the Finder window layout, which needs Automation access and opens Finder windows
-[[ "${1:-}" == --skip-jenkins ]] && CREATE_DMG_EXTRA+=(--skip-jenkins)
-command -v create-dmg >/dev/null || { echo "create-dmg not found, install it with: brew install create-dmg" >&2; exit 1; }
+command -v uvx >/dev/null || { echo "uvx not found, install uv first: https://docs.astral.sh/uv/" >&2; exit 1; }
 
 IDENTITY="${MALOCHE_SIGNING_IDENTITY:-maloche Local Signing}"
 FINGERPRINT_FILE="scripts/signing-fingerprint.txt"
@@ -35,7 +32,7 @@ if [[ "$ACTUAL" != "$EXPECTED" ]]; then
   exit 1
 fi
 
-rm -rf build/release build/dmg build/dmg-source
+rm -rf build/release build/dmg
 CERT_SHA1="$(security find-certificate -c "$IDENTITY" -Z 2>/dev/null | awk '/SHA-256 hash:/ {found = ($3 == a)} /SHA-1 hash:/ && found {print $3; exit}' a="$ACTUAL" || true)"
 [[ -n "$CERT_SHA1" ]] || { echo "Could not read the SHA-1 of the verified certificate. Not signing." >&2; exit 1; }
 
@@ -55,12 +52,9 @@ shasum -a 256 "$ZIP"
 
 # outside build/release so generate_appcast only lists the zip
 DMG="build/dmg/maloche-$VERSION.dmg"
-mkdir -p build/dmg build/dmg-source
-ditto "$APP" build/dmg-source/maloche.app
-create-dmg --volname maloche --window-size 540 360 --icon-size 128 \
-  --icon maloche.app 140 170 --hide-extension maloche.app --app-drop-link 400 170 \
-  --codesign "$CERT_SHA1" "${CREATE_DMG_EXTRA[@]}" "$DMG" build/dmg-source
-rm -rf build/dmg-source
+mkdir -p build/dmg
+uvx --from dmgbuild==1.6.7 dmgbuild -s scripts/dmg-settings.py -D app="$APP" maloche "$DMG"
+codesign --sign "$CERT_SHA1" "$DMG"
 codesign --verify --strict "$DMG"
 echo "$DMG"
 shasum -a 256 "$DMG"

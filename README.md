@@ -36,7 +36,7 @@ scripts/build-app.sh
 
 `scripts/build-app.sh` signs the app, so it needs a local signing identity. `scripts/make-signing-cert.sh` creates a self-signed one in your login keychain (read the script first). The dev build lands in `build/maloche Dev.app` and uses its own bundle ID with a `.dev` suffix, so it never touches your real data.
 
-For a release build run `scripts/build-app.sh --release`. `scripts/release.sh` builds from a clean commit, signs, verifies and zips the app into `build/release/` (the Sparkle update format) and packs a signed disk image into `build/dmg/`. The disk image needs [create-dmg](https://github.com/create-dmg/create-dmg) (`brew install create-dmg`); laying out its Finder window asks for Automation access, `scripts/release.sh --skip-jenkins` leaves that out.
+For a release build run `scripts/build-app.sh --release`. `scripts/release.sh` builds from a clean commit, signs, verifies and zips the app into `build/release/` (the Sparkle update format) and packs a signed disk image into `build/dmg/`. The disk image is built by [dmgbuild](https://github.com/dmgbuild/dmgbuild), which `scripts/release.sh` runs through `uvx` from [uv](https://docs.astral.sh/uv/); its layout lives in `scripts/dmg-settings.py`.
 
 `scripts/release.sh` needs the signing identity whose SHA-256 is in `scripts/signing-fingerprint.txt` and uses the GitHub appcast as the update feed.
 
