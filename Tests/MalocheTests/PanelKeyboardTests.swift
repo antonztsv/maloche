@@ -53,7 +53,7 @@ import Testing
         var data = DashboardData(
             period: Period(kind, containing: day, calendar: calendar), blocks: blocks,
             activities: [Activity(id: 1, name: "Writing"), Activity(id: 2, name: "Review")], projects: [],
-            customers: [], schedule: WorkSchedule(plans: [:]), current: current, now: now, calendar: calendar)
+            customers: [], current: current, now: now, calendar: calendar)
         data.manageable = [1, 2]
         let calls = calls
         return DashboardView(

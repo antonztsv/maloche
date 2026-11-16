@@ -2,7 +2,8 @@ import AppKit
 import MalocheCore
 import SwiftUI
 
-/// The day as blocks in customer colors with breaks hatched on a track, above an axis labelled every second hour.
+/// The day as blocks in customer colors with breaks hatched on a track, above an axis of full hours; each block shows
+/// what it was and how long as a tooltip.
 struct TimelineChart: View {
     var data: DashboardData
     var timeline: DayTimeline
@@ -14,7 +15,6 @@ struct TimelineChart: View {
     private static let axisTop: CGFloat = barHeight + 4
 
     var body: some View {
-        let ticks = timeline.hourTicks(calendar: data.calendar)
         Canvas { context, size in
             let track = CGRect(x: 0, y: 0, width: size.width, height: Self.barHeight)
             let trackPath = Path(roundedRect: track, cornerRadius: 4)
@@ -31,16 +31,31 @@ struct TimelineChart: View {
                     context.fill(path, with: .color(DashboardData.color(of: data.customer(of: bar.key))))
                 }
             }
-            for tick in ticks {
-                let label = context.resolve(
-                    Text(tick, format: DashboardData.time).font(.caption).monospacedDigit()
+            func label(_ hour: Date) -> GraphicsContext.ResolvedText {
+                context.resolve(
+                    Text(hour, format: DashboardData.time).font(.caption).monospacedDigit()
                         .foregroundStyle(Color(nsColor: .secondaryLabelColor)))
-                let half = label.measure(in: size).width / 2
+            }
+            let labelWidth = timeline.fullHours(calendar: data.calendar).map { label($0).measure(in: size).width }.max()
+            let half = (labelWidth ?? 0) / 2
+            for tick in timeline.hourTicks(calendar: data.calendar, width: size.width, labelWidth: labelWidth ?? 0) {
                 let x = min(max(timeline.fraction(of: tick) * size.width, half), size.width - half)
-                context.draw(label, at: CGPoint(x: x, y: Self.axisTop), anchor: .top)
+                context.draw(label(tick), at: CGPoint(x: x, y: Self.axisTop), anchor: .top)
             }
         }
         .frame(height: Self.axisTop + 14)
+        .overlay(alignment: .topLeading) {
+            GeometryReader { proxy in
+                ForEach(data.bars.indices, id: \.self) { index in
+                    let bar = data.bars[index]
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .frame(width: max((bar.end - bar.start) * proxy.size.width, 1), height: Self.barHeight)
+                        .offset(x: bar.start * proxy.size.width)
+                        .help(data.tooltip(of: bar))
+                }
+            }
+        }
         .onGeometryChange(for: CGRect.self) {
             $0.frame(in: .global)
         } action: {
