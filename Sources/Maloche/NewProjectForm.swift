@@ -147,15 +147,50 @@ private struct CustomerField: NSViewRepresentable {
             set {}
         }
 
+        private var clickMonitor: Any?
+
         /// A click or Tab into the field shows the list before anything is typed.
         override func becomeFirstResponder() -> Bool {
             guard super.becomeFirstResponder() else { return false }
-            // after the field editor took over, the accessibility setter is the only public way to open the list
+            openList()
+            // while editing, clicks reach the field editor and not this field, a closed list opens again on each one
+            clickMonitor =
+                clickMonitor
+                ?? NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+                    if let self, event.window == self.window,
+                        self.bounds.contains(self.convert(event.locationInWindow, from: nil))
+                    {
+                        self.openList()
+                    }
+                    return event
+                }
+            return true
+        }
+
+        override func textDidEndEditing(_ notification: Notification) {
+            super.textDidEndEditing(notification)
+            stopWatchingClicks()
+        }
+
+        /// The panel can close while the field is still being edited.
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window == nil { stopWatchingClicks() }
+        }
+
+        private func stopWatchingClicks() {
+            if let clickMonitor { NSEvent.removeMonitor(clickMonitor) }
+            clickMonitor = nil
+        }
+
+        /// After the field editor took over; the accessibility setter is the only public way to open the list.
+        private func openList() {
             DispatchQueue.main.async { [weak self] in
-                guard let self, self.currentEditor() != nil, self.numberOfItems > 0 else { return }
+                guard let self, self.currentEditor() != nil, self.numberOfItems > 0,
+                    self.cell?.isAccessibilityExpanded() == false
+                else { return }
                 self.cell?.setAccessibilityExpanded(true)
             }
-            return true
         }
 
         // zero horizontally, so the padding around the field places the frame and with it the list
