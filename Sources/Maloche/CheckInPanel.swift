@@ -76,7 +76,10 @@ struct PanelView: View {
                 CheckInView(model: model, content: .awayReturn(span: span, prefill: prefill))
             case .breakReturn(let span, let prefill):
                 CheckInView(model: model, content: .breakReturn(span: span, prefill: prefill))
-            case .dashboard(let day): dashboard(day).keyCommand(.escape, modifiers: [], action: model.close)
+            case .dashboard(let day):
+                // today's timeline grows with the clock, which views do not observe
+                TimelineView(.everyMinute) { _ in dashboard(day) }
+                    .keyCommand(.escape, modifiers: [], action: model.close)
             case nil: EmptyView()
             }
         }
@@ -91,7 +94,7 @@ struct PanelView: View {
         let catalog = model.catalog
         var data = DashboardData(
             period: day.period, blocks: day.blocks, activities: catalog.activities, projects: catalog.projects,
-            customers: catalog.customers, schedule: model.schedule, current: model.nowRow,
+            customers: catalog.customers, current: model.nowRow,
             now: model.now, calendar: model.calendar, rounding: model.settings.rounding)
         data.manageable = Set(day.blocks.map(\.activityId)).filter { catalog.activity($0)?.kind == .regular }
         return DashboardView(

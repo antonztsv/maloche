@@ -32,7 +32,7 @@ struct DashboardData {
 
     init(
         period: Period, blocks: [Block], activities: [Activity], projects: [Project], customers: [Customer],
-        schedule: WorkSchedule, current: NowRow, now: Date, calendar: Calendar,
+        current: NowRow, now: Date, calendar: Calendar,
         rounding: RoundingSettings = RoundingSettings()
     ) {
         self.period = period
@@ -49,8 +49,7 @@ struct DashboardData {
         ).rounded(by: rounding)
         guard period.kind == .day else { return }
         let shown = blocks.filter { block in self.activities[block.activityId].map { $0.kind != .private } ?? false }
-        timeline = DayTimeline(
-            day: period.interval, blocks: shown, plan: schedule.interval(on: period.interval.start, calendar: calendar))
+        timeline = DayTimeline(day: period.interval, blocks: shown, now: now, calendar: calendar)
         if let timeline {
             bars = timeline.segments(of: shown) { $0.activityId }
             lanes = timeline.segments(of: shown) { lane(of: $0.activityId) }
@@ -78,6 +77,19 @@ struct DashboardData {
                 activity.customerId
             }
         return customerId.flatMap { customers[$0] }
+    }
+
+    /// "Code Review, Relaunch, Acme" over "2:15, 10:00 to 12:15", breaks as "Break".
+    func tooltip(of bar: DayTimeline.Segment<Int64>) -> String {
+        let activity = activities[bar.key]
+        let names =
+            isBreak(bar.key)
+            ? [String(localized: "Break")]
+            : [activity?.name, activity?.projectId.flatMap { projects[$0]?.name }, customer(of: bar.key)?.name]
+                .compactMap { $0 }
+        let span = String(
+            localized: "\(bar.interval.start, format: Self.time) to \(bar.interval.end, format: Self.time)")
+        return names.joined(separator: ", ") + "\n" + DurationFormat.hoursMinutes(bar.interval.duration) + ", " + span
     }
 
     static func name(of customer: Customer?) -> String {

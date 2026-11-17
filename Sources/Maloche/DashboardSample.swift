@@ -42,7 +42,7 @@
             var data = DashboardData(
                 period: Period(.day, containing: day, calendar: calendar), blocks: blocks,
                 activities: sampleActivities, projects: sampleProjects, customers: sampleCustomers,
-                schedule: WorkSchedule(plans: [2: .init(start: 9 * 60, end: 17 * 60)]), current: current,
+                current: current,
                 now: empty ? at(8, 50) : few ? at(10, 5) : at(17, 30), calendar: calendar)
             data.manageable = Set(blocks.map(\.activityId))
             return DashboardView(
@@ -77,8 +77,7 @@
             }
             let data = DashboardData(
                 period: period, blocks: blocks, activities: sampleActivities, projects: sampleProjects,
-                customers: sampleCustomers, schedule: WorkSchedule(plans: [:]),
-                current: .activity(id: sampleCodeReviewId),
+                customers: sampleCustomers, current: .activity(id: sampleCodeReviewId),
                 now: calendar.date(from: DateComponents(year: 2026, month: 11, day: 10, hour: 12))!, calendar: calendar)
             return DashboardView(
                 data: data, moreActions: MoreActionsMenu(model: model), onShowPeriod: { _ in },
