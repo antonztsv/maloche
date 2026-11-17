@@ -33,17 +33,16 @@
         }
 
         /// The app icon at 128 pt, the check-in beside the day and the week beside the month, dark, on a desktop with
-        /// a menu bar, the left panel under the maloche item.
+        /// an empty menu bar.
         static func renderReadme(from screens: [(name: String, view: AnyView)], to directory: URL) throws {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             let dark = NSAppearance(named: .darkAqua)!
-            for (name, panels, clock) in [
-                ("hero", ["checkin", "dashboard-day"], "Mon 9 Nov 10:30"),
-                ("periods", ["dashboard-week", "dashboard-month"], "Tue 10 Nov 12:00"),
+            for (name, panels) in [
+                ("hero", ["checkin", "dashboard-day"]), ("periods", ["dashboard-week", "dashboard-month"]),
             ] {
                 let views = panels.compactMap { name in screens.first { $0.name == name }?.view }
                 try write(
-                    image(of: AnyView(Desktop(panels: views, clock: clock)), appearance: dark, panel: false),
+                    image(of: AnyView(Desktop(panels: views)), appearance: dark, panel: false),
                     to: directory.appending(path: "\(name).png"))
             }
             let icon = try bitmap(pixels: 256)
@@ -418,46 +417,22 @@
         }
     }
 
-    /// A desktop cut-out for the README: a drawn wallpaper, a menu bar with the maloche item open and a clock, the
-    /// first panel hanging below the item and the others beside it.
+    /// A desktop cut-out for the README: a drawn wallpaper below an empty menu bar, the panels side by side.
     private struct Desktop: View {
         let panels: [AnyView]
-        let clock: String
 
         private static let menuBarHeight: CGFloat = 24
 
         var body: some View {
             HStack(alignment: .top, spacing: 40) {
                 ForEach(panels.indices, id: \.self) { index in
-                    VStack(spacing: 6) {
-                        Group {
-                            if index == 0 {
-                                Image(nsImage: MenuBarIcon.image(for: .tracking))
-                                    .renderingMode(.template)
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 8)
-                                    .frame(height: Self.menuBarHeight - 2)
-                                    .background(.white.opacity(0.2), in: .rect(cornerRadius: 5))
-                            } else {
-                                Color.clear
-                            }
-                        }
-                        .frame(height: Self.menuBarHeight)
-                        panels[index].panel().shadow(color: .black.opacity(0.4), radius: 24, y: 12)
-                    }
+                    panels[index].panel().shadow(color: .black.opacity(0.4), radius: 24, y: 12)
                 }
             }
+            .padding(.top, Self.menuBarHeight + 6)
             .padding([.horizontal, .bottom], 56)
             .background(alignment: .top) {
-                HStack {
-                    Spacer()
-                    Text(verbatim: clock)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.white)
-                }
-                .padding(.horizontal, 16)
-                .frame(height: Self.menuBarHeight)
-                .background(.black.opacity(0.3))
+                Rectangle().fill(.black.opacity(0.3)).frame(height: Self.menuBarHeight)
             }
             .background { Wallpaper() }
             .clipShape(.rect(cornerRadius: 16))
