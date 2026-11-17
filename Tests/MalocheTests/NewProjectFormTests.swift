@@ -182,6 +182,23 @@ import Testing
         #expect(NSApplication.shared.windows.allSatisfy { !$0.isVisible })
     }
 
+    /// A click or Tab into the empty field shows every customer, at most 8 rows before the list scrolls; the list
+    /// itself only opens in a visible window.
+    @Test func focusingTheCustomerFieldOpensTheWholeList() throws {
+        let form = NewProjectForm(
+            draft: .constant(ProjectDraft(name: "Relaunch")), customers: Self.customers, onCancel: {}, onCreate: {})
+        let (window, hosting) = host(form)
+        settle(hosting)
+        let field = try #require(comboBox(in: hosting))
+
+        window.makeFirstResponder(field)
+        settle(hosting)
+
+        #expect(items(of: field) == ["Acme", "Northwind", "Ångström Labs"])
+        #expect(field.numberOfVisibleItems == 8)
+        #expect(NSApplication.shared.windows.allSatisfy { !$0.isVisible })
+    }
+
     @Test func pickingACustomerSetsTheDraft() throws {
         var draft = ProjectDraft(name: "Relaunch")
         let form = NewProjectForm(

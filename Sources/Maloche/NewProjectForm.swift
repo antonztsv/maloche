@@ -116,6 +116,8 @@ private struct CustomerField: NSViewRepresentable {
         field.setContentHuggingPriority(.defaultLow, for: .vertical)
         field.font = .preferredFont(forTextStyle: .body)
         field.usesDataSource = true
+        // longer lists scroll
+        field.numberOfVisibleItems = 8
         field.dataSource = context.coordinator
         field.delegate = context.coordinator
         field.stringValue = text
@@ -143,6 +145,17 @@ private struct CustomerField: NSViewRepresentable {
         override class var cellClass: AnyClass? {
             get { Cell.self }
             set {}
+        }
+
+        /// A click or Tab into the field shows the list before anything is typed.
+        override func becomeFirstResponder() -> Bool {
+            guard super.becomeFirstResponder() else { return false }
+            // after the field editor took over, the accessibility setter is the only public way to open the list
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.currentEditor() != nil, self.numberOfItems > 0 else { return }
+                self.cell?.setAccessibilityExpanded(true)
+            }
+            return true
         }
 
         // zero horizontally, so the padding around the field places the frame and with it the list
