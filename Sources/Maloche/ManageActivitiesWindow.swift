@@ -33,7 +33,7 @@ final class ManageActivitiesWindowController {
         window.isReleasedWhenClosed = false
         window.setContentSize(Self.size)
         window.contentMinSize = Self.minSize
-        window.center()
+        window.centerOnActiveScreen()
         return window
     }
 }

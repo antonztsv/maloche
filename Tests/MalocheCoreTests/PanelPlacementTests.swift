@@ -58,4 +58,16 @@ import Testing
             visibleFrame: visible, margin: 6)
         #expect(frame.minX == 6)
     }
+
+    @Test func windowSitsInTheMiddleOfTheVisibleFrame() {
+        let visible = CGRect(x: -1920, y: 0, width: 1920, height: 1055)
+        let origin = PanelPlacement.centeredOrigin(size: CGSize(width: 560, height: 501), visibleFrame: visible)
+        #expect(origin == CGPoint(x: -1240, y: 277))
+    }
+
+    @Test func aWindowTallerThanTheScreenKeepsItsTitleBarBelowTheMenuBar() {
+        let visible = CGRect(x: 0, y: 0, width: 1440, height: 870)
+        let origin = PanelPlacement.centeredOrigin(size: CGSize(width: 640, height: 1000), visibleFrame: visible)
+        #expect(origin == CGPoint(x: 400, y: -130))
+    }
 }

@@ -1,6 +1,6 @@
 import CoreGraphics
 
-/// Geometry for the check-in panel. All rects are in Cocoa screen coordinates unless named otherwise.
+/// Geometry for the check-in panel and the windows. All rects are in Cocoa screen coordinates unless named otherwise.
 public enum PanelPlacement {
     public static func screenIndex(containing windowBounds: CGRect, screens: [CGRect]) -> Int? {
         let areas = screens.map { screen -> CGFloat in
@@ -23,5 +23,13 @@ public enum PanelPlacement {
         let centeredX = screenFrame.maxX - anchorOffsetFromRight - size.width / 2
         let x = min(max(centeredX, visibleFrame.minX + margin), visibleFrame.maxX - margin - size.width)
         return CGRect(x: x, y: visibleFrame.maxY - margin - size.height, width: size.width, height: size.height)
+    }
+
+    /// The middle of the visible frame, not AppKit's center() which sits higher; a taller window keeps its top edge
+    /// below the menu bar.
+    public static func centeredOrigin(size: CGSize, visibleFrame: CGRect) -> CGPoint {
+        let y = (visibleFrame.midY - size.height / 2).rounded(.down)
+        return CGPoint(
+            x: (visibleFrame.midX - size.width / 2).rounded(.down), y: min(y, visibleFrame.maxY - size.height))
     }
 }

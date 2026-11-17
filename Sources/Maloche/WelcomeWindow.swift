@@ -48,14 +48,17 @@ final class WelcomeWindowController: NSObject, NSWindowDelegate {
         let view = WelcomeView(model: model, openAtLogin: true, showsUpdates: showsUpdates) { [weak self] in
             self?.start($0, openAtLogin: $1)
         }
-        let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+        let hosting = NSHostingController(rootView: view)
+        let window = NSWindow(contentViewController: hosting)
         window.title = String(localized: "Welcome to maloche")
         window.styleMask = [.titled, .closable, .fullSizeContentView]
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
         window.delegate = self
-        window.center()
+        // the hosting controller sizes the window only on its first layout, which would grow it off center
+        window.setContentSize(hosting.view.fittingSize)
+        window.centerOnActiveScreen()
         return window
     }
 }
