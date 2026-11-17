@@ -32,26 +32,18 @@
             try renderReadme(from: screens, to: directory.appending(path: "readme", directoryHint: .isDirectory))
         }
 
-        /// The app icon at 128 pt, the check-in beside the day and the week beside the month, dark, as panels with a
-        /// shadow on a transparent background.
+        /// The app icon at 128 pt, the check-in beside the day and the week beside the month, dark, on a desktop with
+        /// a menu bar, the left panel under the maloche item.
         static func renderReadme(from screens: [(name: String, view: AnyView)], to directory: URL) throws {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             let dark = NSAppearance(named: .darkAqua)!
-            func showcase(_ names: [String]) -> AnyView {
-                let panels = names.compactMap { name in screens.first { $0.name == name }?.view }
-                return AnyView(
-                    HStack(alignment: .top, spacing: 40) {
-                        ForEach(panels.indices, id: \.self) { index in
-                            panels[index].panel().shadow(color: .black.opacity(0.35), radius: 24, y: 12)
-                        }
-                    }
-                    .padding(56))
-            }
-            for (name, panels) in [
-                ("hero", ["checkin", "dashboard-day"]), ("periods", ["dashboard-week", "dashboard-month"]),
+            for (name, panels, clock) in [
+                ("hero", ["checkin", "dashboard-day"], "Mon 9 Nov 10:30"),
+                ("periods", ["dashboard-week", "dashboard-month"], "Tue 10 Nov 12:00"),
             ] {
+                let views = panels.compactMap { name in screens.first { $0.name == name }?.view }
                 try write(
-                    image(of: showcase(panels), appearance: dark, panel: false),
+                    image(of: AnyView(Desktop(panels: views, clock: clock)), appearance: dark, panel: false),
                     to: directory.appending(path: "\(name).png"))
             }
             let icon = try bitmap(pixels: 256)
@@ -423,6 +415,95 @@
             }
             hosting.cacheDisplay(in: hosting.bounds, to: rep)
             return rep
+        }
+    }
+
+    /// A desktop cut-out for the README: a drawn wallpaper, a menu bar with the maloche item open and a clock, the
+    /// first panel hanging below the item and the others beside it.
+    private struct Desktop: View {
+        let panels: [AnyView]
+        let clock: String
+
+        private static let menuBarHeight: CGFloat = 24
+
+        var body: some View {
+            HStack(alignment: .top, spacing: 40) {
+                ForEach(panels.indices, id: \.self) { index in
+                    VStack(spacing: 6) {
+                        Group {
+                            if index == 0 {
+                                Image(nsImage: MenuBarIcon.image(for: .tracking))
+                                    .renderingMode(.template)
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 8)
+                                    .frame(height: Self.menuBarHeight - 2)
+                                    .background(.white.opacity(0.2), in: .rect(cornerRadius: 5))
+                            } else {
+                                Color.clear
+                            }
+                        }
+                        .frame(height: Self.menuBarHeight)
+                        panels[index].panel().shadow(color: .black.opacity(0.4), radius: 24, y: 12)
+                    }
+                }
+            }
+            .padding([.horizontal, .bottom], 56)
+            .background(alignment: .top) {
+                HStack {
+                    Spacer()
+                    Text(verbatim: clock)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.white)
+                }
+                .padding(.horizontal, 16)
+                .frame(height: Self.menuBarHeight)
+                .background(.black.opacity(0.3))
+            }
+            .background { Wallpaper() }
+            .clipShape(.rect(cornerRadius: 16))
+            .environment(\.colorScheme, .dark)
+        }
+    }
+
+    /// Soft night-blue, violet and orange light in the manner of a macOS wallpaper, drawn rather than loaded.
+    private struct Wallpaper: View {
+        var body: some View {
+            Canvas { context, size in
+                let full = CGRect(origin: .zero, size: size)
+                context.fill(
+                    Path(full),
+                    with: .linearGradient(
+                        Gradient(colors: [
+                            Color(red: 0.05, green: 0.07, blue: 0.20), Color(red: 0.16, green: 0.08, blue: 0.30),
+                        ]),
+                        startPoint: .zero, endPoint: CGPoint(x: size.width, y: size.height)))
+                for (x, y, radius, color) in [
+                    (0.15, 0.85, 0.75, Color(red: 0.45, green: 0.20, blue: 0.75)),
+                    (0.85, 0.20, 0.65, Color(red: 0.15, green: 0.35, blue: 0.85)),
+                    (0.70, 1.00, 0.55, Color(red: 0.95, green: 0.45, blue: 0.20)),
+                ] {
+                    let center = CGPoint(x: size.width * x, y: size.height * y)
+                    let reach = max(size.width, size.height) * radius
+                    context.fill(
+                        Path(full),
+                        with: .radialGradient(
+                            Gradient(colors: [color.opacity(0.55), color.opacity(0)]), center: center, startRadius: 0,
+                            endRadius: reach))
+                }
+                for (index, opacity) in [0.10, 0.07, 0.05].enumerated() {
+                    let base = size.height * (0.45 + 0.15 * Double(index))
+                    var wave = Path()
+                    wave.move(to: CGPoint(x: 0, y: base))
+                    wave.addCurve(
+                        to: CGPoint(x: size.width, y: base - size.height * 0.2),
+                        control1: CGPoint(x: size.width * 0.35, y: base - size.height * 0.35),
+                        control2: CGPoint(x: size.width * 0.65, y: base + size.height * 0.25))
+                    wave.addLine(to: CGPoint(x: size.width, y: size.height))
+                    wave.addLine(to: CGPoint(x: 0, y: size.height))
+                    wave.closeSubpath()
+                    context.fill(wave, with: .color(.white.opacity(opacity)))
+                }
+            }
         }
     }
 
