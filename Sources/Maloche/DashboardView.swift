@@ -377,6 +377,10 @@ struct DashboardList: View {
     var data: DashboardData
     var onSelect: (Int64) -> Void = { _ in }
     @State private var collapsed: Set<Int64?> = []
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// The panel height follows a fold with the same duration and curve.
+    static let foldDuration = 0.25
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -405,12 +409,12 @@ struct DashboardList: View {
                     .frame(height: 22)
                     // the whole header toggles, not only the arrow
                     .contentShape(.rect)
-                    .onTapGesture {
-                        withAnimation { expanded(total.customer?.id).wrappedValue.toggle() }
-                    }
+                    .onTapGesture { expanded(total.customer?.id).wrappedValue.toggle() }
                 }
             }
         }
+        // one animation for the arrow and the header click
+        .animation(reduceMotion ? nil : .easeInOut(duration: Self.foldDuration), value: collapsed)
         .padding(.horizontal, 4)
     }
 

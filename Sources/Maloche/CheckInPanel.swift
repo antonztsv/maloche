@@ -88,6 +88,8 @@ struct PanelView: View {
         } action: { _ in
             onResize()
         }
+        // top aligned, content that changes height before the panel follows never shifts within the old frame
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     private func dashboard(_ day: DashboardDay) -> DashboardView {
@@ -205,7 +207,15 @@ final class CheckInPanelController: PanelPresenter {
     }
 
     private func contentResized() {
-        if panel.isVisible { position() }
+        guard panel.isVisible else { return }
+        guard case .dashboard = model.panel, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            return position()
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = DashboardList.foldDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            position(animated: true)
+        }
     }
 
     private func logState(_ action: String) {
@@ -227,7 +237,7 @@ final class CheckInPanelController: PanelPresenter {
         }
     }
 
-    private func position() {
+    private func position(animated: Bool = false) {
         let size = hosting?.fittingSize ?? panel.frame.size
         guard size.height > 0, let screen = NSScreen.active else { return }
         var anchorOffset: CGFloat = 200
@@ -237,6 +247,6 @@ final class CheckInPanelController: PanelPresenter {
         let frame = PanelPlacement.panelFrame(
             size: size, anchorOffsetFromRight: anchorOffset, screenFrame: screen.frame,
             visibleFrame: screen.visibleFrame, margin: 6)
-        panel.setFrame(frame, display: true)
+        if animated { panel.animator().setFrame(frame, display: true) } else { panel.setFrame(frame, display: true) }
     }
 }
