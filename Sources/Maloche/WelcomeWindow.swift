@@ -111,11 +111,8 @@ struct WelcomeView: View {
                         .accessibilityElement(children: .contain)
                         .accessibilityLabel(Text("Work days"))
                         HStack(spacing: 8) {
-                            Text("From")
-                                .foregroundStyle(.secondary)
                             PlanFields(
-                                plan: $welcome.plan, startLabel: String(localized: "Start of work day"),
-                                endLabel: String(localized: "End of work day"), calendar: calendar)
+                                plan: $welcome.plan, endLabel: String(localized: "End of work day"), calendar: calendar)
                         }
                         .datePickerStyle(.field)
                         .labelsHidden()

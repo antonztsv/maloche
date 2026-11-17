@@ -71,7 +71,7 @@ struct GeneralSettingsView: View {
     }
 }
 
-/// Per weekday on or off, from and to; a day switched on takes the times of the first planned day.
+/// Per weekday on or off and until when; a day switched on takes the end of the first planned day.
 struct ScheduleSettingsView: View {
     let model: AppModel
 
@@ -80,9 +80,11 @@ struct ScheduleSettingsView: View {
             Section {
                 ForEach(model.calendar.orderedWeekdays, id: \.self, content: row)
             } footer: {
-                Text("maloche only checks in during these hours. You can always start tracking from the menu bar.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "On these days maloche starts with your first use of the Mac and checks in until the end time. You can always start tracking from the menu bar."
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             }
         }
         .settingsPane()
@@ -104,8 +106,7 @@ struct ScheduleSettingsView: View {
                 } set: {
                     if plan != nil { set(weekday, $0) }
                 },
-                startLabel: String(localized: "Start on \(name)"), endLabel: String(localized: "End on \(name)"),
-                calendar: model.calendar
+                endLabel: String(localized: "End on \(name)"), calendar: model.calendar
             )
             .disabled(plan == nil)
             Spacer()
@@ -123,32 +124,24 @@ struct ScheduleSettingsView: View {
     }
 }
 
-/// Start and end of a plan as two time fields with "to" between, the end stays after the start.
+/// "Until" and the end of a plan as a time field; the day starts with the first use, so there is no start.
 struct PlanFields: View {
     @Binding var plan: WorkSchedule.Plan
-    let startLabel: String
     let endLabel: String
     let calendar: Calendar
 
     var body: some View {
-        DatePicker(
-            startLabel, selection: time(\.start), in: date(0)...date(max(plan.end - 1, 0)),
-            displayedComponents: .hourAndMinute)
-        Text("to")
+        Text("Until")
             .foregroundStyle(.secondary)
-        DatePicker(
-            endLabel, selection: time(\.end), in: date(min(plan.start + 1, Self.lastMinute))...date(Self.lastMinute),
-            displayedComponents: .hourAndMinute)
+        DatePicker(endLabel, selection: until, in: date(1)...date(24 * 60 - 1), displayedComponents: .hourAndMinute)
     }
 
-    private static let lastMinute = 24 * 60 - 1
-
-    private func time(_ keyPath: WritableKeyPath<WorkSchedule.Plan, Int>) -> Binding<Date> {
+    private var until: Binding<Date> {
         Binding {
-            date(plan[keyPath: keyPath])
+            date(plan.until)
         } set: { value in
             let parts = calendar.dateComponents([.hour, .minute], from: value)
-            plan[keyPath: keyPath] = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
+            plan.until = max((parts.hour ?? 0) * 60 + (parts.minute ?? 0), 1)
         }
     }
 

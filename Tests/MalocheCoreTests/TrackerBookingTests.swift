@@ -33,17 +33,17 @@ import Testing
         #expect(h.takePrompts() == [checkIn("08:00", "08:15")])
     }
 
-    @Test func aDismissedFirstCheckInBooksNothingAndTheNextNamesTheSpanSinceTheDayStarted() {
+    @Test func aDismissedFirstCheckInBooksNothingAndTheDayStartsAgainAtTheDismissal() {
         var h = Harness(answered: false)
         h.tick()
         h.pass(to: "08:16")
         h.send(.checkInDismissed)
         _ = h.takePrompts()
-        h.pass(to: "08:30")
+        h.pass(to: "08:31")
         #expect(h.timeline.isEmpty)
-        #expect(h.takePrompts() == [checkIn("08:00", "08:30", canSplit: true)])
+        #expect(h.takePrompts() == [checkIn("08:16", "08:31")])
         h.send(.checkInAnswered(Fixture.reading))
-        #expect(h.timeline == ["Reading 08:00-08:30"])
+        #expect(h.timeline == ["Reading 08:16-08:31"])
     }
 
     @Test func aDayWithoutAnAnswerBooksNothing() {
@@ -122,8 +122,6 @@ import Testing
     @Test func noSplitBeforeTheFirstAnswerWhileAnAbsenceLiesInTheUnbookedTime() {
         var h = backBeforeTheFirstAnswer()
         h.send(.awayDismissed)
-        h.pass(to: "08:45")
-        h.send(.checkInDismissed)
         h.pass(to: "09:00")
         #expect(h.takePrompts().last == checkIn("08:00", "09:00", minutes: 40))
         h.send(.checkInSplit(dividers: [Fixture.at("08:40")], activities: [Fixture.reading, Fixture.meeting]))
