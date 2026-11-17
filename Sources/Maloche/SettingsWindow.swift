@@ -61,6 +61,7 @@ final class SettingsWindowController {
         window.toolbarStyle = .preference
         window.isReleasedWhenClosed = false
         tabs.fit(window)
+        window.collectionBehavior.insert(.moveToActiveSpace)
         window.centerOnActiveScreen()
         return window
     }

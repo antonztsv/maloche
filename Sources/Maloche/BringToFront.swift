@@ -3,6 +3,7 @@ import AppKit
 extension NSWindow {
     /// A window the user opened comes to the front and takes the keyboard; the app shows in the Dock while it is open.
     func bringToFront() {
+        placeOnActiveScreen()
         NSApp.setActivationPolicy(.regular)
         // without a Dock icon a plain activate() is often declined
         NSApp.activate(ignoringOtherApps: true)

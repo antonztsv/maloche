@@ -58,6 +58,7 @@ final class WelcomeWindowController: NSObject, NSWindowDelegate {
         window.delegate = self
         // the hosting controller sizes the window only on its first layout, which would grow it off center
         window.setContentSize(hosting.view.fittingSize)
+        window.collectionBehavior.insert(.moveToActiveSpace)
         window.centerOnActiveScreen()
         return window
     }
