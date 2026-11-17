@@ -403,6 +403,11 @@ struct DashboardList: View {
                             .fontWeight(.semibold)
                     }
                     .frame(height: 22)
+                    // the whole header toggles, not only the arrow
+                    .contentShape(.rect)
+                    .onTapGesture {
+                        withAnimation { expanded(total.customer?.id).wrappedValue.toggle() }
+                    }
                 }
             }
         }
