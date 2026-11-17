@@ -1130,16 +1130,6 @@
         }
       }
     },
-    "From" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Von"
-          }
-        }
-      }
-    },
     "General" : {
       "localizations" : {
         "de" : {
@@ -1684,6 +1674,16 @@
         }
       }
     },
+    "On these days maloche starts with your first use of the Mac and checks in until the end time. You can always start tracking from the menu bar." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An diesen Tagen beginnt maloche mit der ersten Nutzung deines Macs und fragt bis zur Endzeit nach. Tracking kannst du jederzeit über die Menüleiste starten."
+          }
+        }
+      }
+    },
     "Open at login" : {
       "localizations" : {
         "de" : {
@@ -2178,26 +2178,6 @@
         }
       }
     },
-    "Start of work day" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Beginn des Arbeitstags"
-          }
-        }
-      }
-    },
-    "Start on %@" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Beginn am %@"
-          }
-        }
-      }
-    },
     "Start or end break" : {
       "localizations" : {
         "de" : {
@@ -2424,6 +2404,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Widerrufen"
+          }
+        }
+      }
+    },
+    "Until" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bis"
           }
         }
       }
@@ -2708,16 +2698,6 @@
         }
       }
     },
-    "maloche only checks in during these hours. You can always start tracking from the menu bar." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "maloche fragt nur in diesen Zeiten nach. Tracking kannst du jederzeit über die Menüleiste starten."
-          }
-        }
-      }
-    },
     "maloche, logging without asking" : {
       "localizations" : {
         "de" : {
@@ -2764,16 +2744,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Teil %lld"
-          }
-        }
-      }
-    },
-    "to" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "bis"
           }
         }
       }

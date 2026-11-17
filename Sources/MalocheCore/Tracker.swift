@@ -246,6 +246,11 @@ public struct Tracker: Sendable {
             answer(id)
         case (.checkInDismissed, .tracking):
             state.checkInShown = false
+            // before the first answer the day starts over, earlier use stays private
+            if currentActivity == nil {
+                state.unassigned = []
+                resume(at: now)
+            }
         case (.checkInSplit(let dividers, let activities), .tracking):
             let spans = checkInSpans
             guard spans.count == 1, let span = spans.first,
@@ -317,12 +322,6 @@ public struct Tracker: Sendable {
 
     private mutating func step() {
         let present = now.timeIntervalSince(state.lastInput) < settings.awayThreshold
-        if state.override, isRunning, insidePlan(now) {
-            state.override = false
-            let day = calendar.startOfDay(for: now)
-            if currentActivity != nil { state.answeredDay = day }
-            state.day = day
-        }
         if isRunning, dayOver {
             endDay()
             return
@@ -330,7 +329,7 @@ public struct Tracker: Sendable {
         switch state.phase {
         case .waiting:
             guard present, state.doneDay != calendar.startOfDay(for: now),
-                let plan = settings.schedule.interval(on: now, calendar: calendar),
+                let plan = settings.schedule.workday(on: now, calendar: calendar),
                 state.lastInput >= plan.start, now < plan.end
             else { break }
             resume(at: state.lastInput)
@@ -540,7 +539,7 @@ public struct Tracker: Sendable {
     }
 
     private var planEnd: Date? {
-        state.day.flatMap { settings.schedule.interval(on: $0, calendar: calendar)?.end }
+        state.day.flatMap { settings.schedule.workday(on: $0, calendar: calendar)?.end }
     }
 
     private var dayOver: Bool {
@@ -548,7 +547,7 @@ public struct Tracker: Sendable {
     }
 
     private func insidePlan(_ date: Date) -> Bool {
-        settings.schedule.interval(on: date, calendar: calendar).map { $0.start <= date && date < $0.end } ?? false
+        settings.schedule.workday(on: date, calendar: calendar).map { $0.start <= date && date < $0.end } ?? false
     }
 
     // MARK: Answers

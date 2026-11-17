@@ -230,8 +230,9 @@ private final class SimulatedUse {
         answer("Break")
         work(until: at("17:40"), on: "Writing")
         lockScreen()
-        tracked(at("08:02"), at("17:40"))
-        try dayEnds(booking: ["Writing": "6:48:00", "Reading": "0:15:00", "Review": "1:27:00", "Break": "1:08:00"])
+        // the day starts with the first use at 07:50, the split span ends with the 09:35 check-in
+        tracked(at("07:50"), at("17:40"))
+        try dayEnds(booking: ["Writing": "7:00:00", "Reading": "0:14:00", "Review": "1:28:00", "Break": "1:08:00"])
     }
 
     /// The Mac stayed awake overnight with the screen locked; after lunch the ticks no longer fall on the plan end.
@@ -411,7 +412,7 @@ private final class SimulatedUse {
         }
         for (window, offPlan) in windows {
             #expect(blocks.reduce(0) { $0 + overlap($1.interval, window) } == window.duration, "gap in \(window)")
-            let plan = model.schedule.interval(on: window.start, calendar: Fixture.berlin)
+            let plan = model.schedule.workday(on: window.start, calendar: Fixture.berlin)
             #expect(offPlan || plan.map { $0.start <= window.start && window.end <= $0.end } == true)
         }
         for day in days {

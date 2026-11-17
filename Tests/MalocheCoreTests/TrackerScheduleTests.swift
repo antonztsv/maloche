@@ -28,29 +28,81 @@ import Testing
         #expect(interval == DateInterval(start: utc("\(day)T\(startUTC):00Z"), end: utc("\(day)T\(endUTC):00Z")))
     }
 
+    @Test(arguments: [("2026-03-29", "2026-03-28T23:00", "16:00"), ("2026-10-25", "2026-10-24T22:00", "17:00")])
+    func aWorkDayRunsFromMidnightToThePlanEndOnDaylightSavingDays(day: String, midnightUTC: String, endUTC: String) {
+        let workday = sundayPlan.schedule.workday(on: Fixture.at("\(day) 12:00"), calendar: Fixture.berlin)
+        #expect(workday == DateInterval(start: utc("\(midnightUTC):00Z"), end: utc("\(day)T\(endUTC):00Z")))
+    }
+
     @Test(arguments: ["2026-03-29", "2026-10-25"])
-    func trackingFollowsThePlanOnDaylightSavingDays(day: String) {
+    func trackingStartsWithTheFirstUseAndEndsWithThePlanOnDaylightSavingDays(day: String) {
         let date = String(day.suffix(5))
-        var h = Harness(at: "\(day) 07:58", settings: sundayPlan)
+        var h = Harness(at: "\(day) 01:30", settings: sundayPlan)
         h.tick()
-        h.pass(to: "\(day) 08:02")
-        #expect(h.timeline == ["Writing \(date) 08:00-\(date) 08:02"])
+        h.pass(to: "\(day) 03:10")
+        #expect(h.timeline == ["Writing \(date) 01:30-\(date) 03:10"])
         var evening = Harness(at: "\(day) 17:55", settings: sundayPlan)
         evening.tick()
         evening.pass(to: "\(day) 18:05")
         #expect(evening.timeline == ["Writing \(date) 17:55-\(date) 18:00"])
     }
 
-    @Test func dayStartsWithTheFirstInputInsideThePlan() {
-        var h = Harness(at: "07:30", settings: Fixture.noCheckIns)
+    @Test func aWorkDayStartsWithTheFirstUseHoweverEarly() {
+        var h = Harness(at: "07:00", answered: false, settings: TrackerSettings(checkInInterval: 15 * 60))
         h.tick()
-        h.pass(to: "07:55")
-        h.pass(to: "08:05", idle: true)
-        #expect(h.tracker.mode == .off)
-        h.pass(to: "08:06")
-        h.pass(to: "08:10")
-        #expect(h.timeline == ["Writing 08:06-08:10"])
+        h.pass(to: "07:15")
+        #expect(h.takePrompts().count == 1)
+        h.send(.checkInAnswered(Fixture.writing))
+        #expect(h.timeline == ["Writing 07:00-07:15"])
         #expect(h.tracker.mode == .tracking)
+    }
+
+    @Test func theStoredStartTimeIsNotUsed() {
+        let late = TrackerSettings(
+            checkInInterval: Fixture.noCheckIns.checkInInterval,
+            schedule: WorkSchedule(plans: [2: .init(start: 11 * 60, end: 18 * 60)]))
+        var h = Harness(at: "06:10", settings: late)
+        h.tick()
+        h.pass(to: "06:20")
+        #expect(h.timeline == ["Writing 06:10-06:20"])
+    }
+
+    @Test func dismissingACheckInBeforeTheFirstAnswerStartsTheDayOver() {
+        var h = Harness(at: "06:30", answered: false, settings: TrackerSettings(checkInInterval: 15 * 60))
+        h.tick()
+        h.pass(to: "06:45")
+        h.send(.checkInDismissed)
+        h.pass(to: "07:00")
+        #expect(h.takePrompts().count == 2)
+        h.send(.checkInAnswered(Fixture.writing))
+        #expect(h.timeline == ["Writing 06:45-07:00"])
+    }
+
+    @Test func dismissingACheckInAfterTheFirstAnswerKeepsTheDay() {
+        var h = Harness(at: "06:30", settings: TrackerSettings(checkInInterval: 15 * 60))
+        h.tick()
+        h.pass(to: "06:45")
+        h.send(.checkInDismissed)
+        h.pass(to: "07:00")
+        h.send(.checkInAnswered(Fixture.writing))
+        #expect(h.timeline == ["Writing 06:30-07:00"])
+    }
+
+    @Test func aDayOffDoesNotAsk() {
+        var h = Harness(at: "2026-11-14 07:00", answered: false, settings: TrackerSettings(checkInInterval: 15 * 60))
+        h.tick()
+        h.pass(to: "2026-11-14 10:00")
+        #expect(h.prompts.isEmpty)
+        #expect(h.blocks.isEmpty)
+        #expect(h.tracker.mode == .off)
+    }
+
+    @Test func settingTheEndKeepsTheStoredStartBeforeIt() {
+        var plan = WorkSchedule.Plan(start: 8 * 60, end: 18 * 60)
+        plan.until = 7 * 60
+        #expect(plan == .init(start: 7 * 60 - 1, end: 7 * 60))
+        plan.until = 17 * 60
+        #expect(plan == .init(start: 7 * 60 - 1, end: 17 * 60))
     }
 
     @Test func planEndBooksUpToTheEndAndStops() {
