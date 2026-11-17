@@ -1,52 +1,53 @@
-# maloche
-
-A native macOS menu bar time tracker. At an interval it asks "What are you working on?" and books the time since the last answer to what you type. Everything stays on your Mac: no server, no account, no telemetry. The only network access is the update check, and it is off until you turn it on. MIT licensed.
-
-<p>
-  <img src="docs/images/checkin.png" alt="The check-in panel" width="260">
-  <img src="docs/images/dashboard-day.png" alt="The day view" width="260">
-  <img src="docs/images/dashboard-week.png" alt="The week view" width="260">
+<p align="center">
+  <img src="docs/images/icon.png" alt="" width="128" height="128">
 </p>
+
+<h1 align="center">maloche</h1>
+
+<p align="center">A calm menu bar time tracker for macOS. Every now and then it asks what you are working on, and your day fills itself.</p>
+
+<p align="center">
+  <a href="https://github.com/antonztsv/maloche/releases/latest"><strong>Download the latest release</strong></a><br>
+  macOS 26 or later, free and open source
+</p>
+
+<p align="center">
+  <img src="docs/images/hero.png" alt="The check-in panel next to the day view, in dark mode" width="900">
+</p>
+
+## How it works
+
+- At an interval you choose, maloche asks "What are you working on?" in a small panel below its menu bar icon.
+- One answer books the time since the last one: type a few letters, press Return.
+- The dashboard shows your day, week and month by customer, project and activity.
+
+<p align="center">
+  <img src="docs/images/periods.png" alt="The week and the month view, in dark mode" width="640">
+</p>
+
+## Private by design
+
+Everything stays on your Mac: no server, no account, no telemetry, and the update check only runs once you turn it on.
 
 ## Install
 
-1. Download `maloche-<version>.dmg` from the Releases page and open it.
-2. Drag `maloche.app` onto the Applications folder in the window that opens.
-3. Open maloche from Applications. macOS blocks the first launch because the app is signed with a self-signed certificate (see below).
-4. Open System Settings > Privacy & Security, scroll to the Security section, click "Open Anyway" next to the message about maloche and confirm. On macOS 15 and later this button only appears after you have tried to open the app once.
-5. Open maloche again.
+1. Download `maloche-<version>.dmg` from the [latest release](https://github.com/antonztsv/maloche/releases/latest) and open it.
+2. Drag maloche onto the Applications folder.
+3. Open maloche from Applications. macOS blocks this first launch because the app is not notarized.
+4. Open System Settings > Privacy & Security, click "Open Anyway" next to the message about maloche and confirm.
 
-Requires macOS 26 or later.
+<details>
+<summary>Why it is not notarized</summary>
 
-## Why it is not notarized
+Notarization needs an Apple Developer ID, and maloche is signed with a self-signed certificate instead. That is why macOS asks you to confirm the first launch. On macOS 15 and later the "Open Anyway" button only appears after you have tried to open the app once.
 
-Notarization needs an Apple Developer ID, and maloche is signed with a self-signed certificate instead. That is why macOS asks you to confirm the first launch.
+Without a Developer ID there is no Team ID. With the hardened runtime on, macOS would then refuse to load the bundled Sparkle framework (used for the update check), because library validation requires the app and its libraries to share a Team ID. So the app has the `com.apple.security.cs.disable-library-validation` entitlement. Only library validation is turned off, the other hardened runtime protections stay on.
 
-Without a Developer ID there is no Team ID. With the hardened runtime on, macOS would then refuse to load the bundled Sparkle framework (used for the update check), because library validation requires the app and its libraries to share a Team ID. So the app has the `com.apple.security.cs.disable-library-validation` entitlement. Only library validation is turned off, the other hardened runtime protections stay on. With a Developer ID this entitlement would not be needed.
+</details>
 
-## Build from source
+## Development
 
-You need macOS 26 or later and Xcode with the Swift 6 toolchain.
-
-```bash
-swift build
-swift test
-scripts/build-app.sh
-```
-
-`scripts/build-app.sh` signs the app, so it needs a local signing identity. `scripts/make-signing-cert.sh` creates a self-signed one in your login keychain (read the script first). The dev build lands in `build/maloche Dev.app` and uses its own bundle ID with a `.dev` suffix, so it never touches your real data.
-
-For a release build run `scripts/build-app.sh --release`. `scripts/release.sh` builds from a clean commit, signs and verifies the app, then puts the three release files into `build/upload/`: the signed disk image, the zip (the Sparkle update format) and `appcast.xml`, signed with the Sparkle key from your keychain. The disk image is built by [dmgbuild](https://github.com/dmgbuild/dmgbuild), which `scripts/release.sh` runs through `uvx` from [uv](https://docs.astral.sh/uv/); its layout lives in `scripts/dmg-settings.py`.
-
-`scripts/release.sh` needs the signing identity whose SHA-256 is in `scripts/signing-fingerprint.txt` and uses the GitHub appcast as the update feed.
-
-`scripts/test-update.sh` runs a local update test and uses the Sparkle private key from your keychain.
-
-## Data
-
-maloche keeps one SQLite database in the Application Support folder under its bundle ID: `~/Library/Application Support/io.github.antonztsv.maloche/`. Nothing leaves your Mac.
-
-maloche backs up the database once a day (the last 30 are kept), by default into a `Backups` folder next to it; Settings > Backup lets you pick another folder, back up now or restore a backup. If you used Daily before, the same pane has "Import from Daily", which reads its JSON export of activities and timesheet.
+Building from source, releases and where maloche keeps its data: [docs/development.md](docs/development.md).
 
 ## License
 

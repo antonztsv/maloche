@@ -3,7 +3,8 @@
     import SwiftUI
     import MalocheCore
 
-    /// Renders every screen with sample data in light and dark: `Maloche --screenshots <dir>`.
+    /// Renders every screen with sample data in light and dark, and the README images into `readme/`:
+    /// `Maloche --screenshots <dir>`.
     @MainActor
     enum Screenshots {
         static var outputDirectory: URL? {
@@ -21,13 +22,56 @@
                 path: "maloche-screenshots-\(UUID().uuidString)", directoryHint: .isDirectory)
             defer { try? FileManager.default.removeItem(at: backupRoot) }
             try MenuBarIcon.writePreviews(to: directory)
-            for screen in try screens(backupRoot: backupRoot) {
+            let screens = try screens(backupRoot: backupRoot)
+            for screen in screens {
                 for (mode, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
                     let url = directory.appending(path: "\(screen.name)-\(mode).png")
                     try render(screen.view, appearance: NSAppearance(named: appearance)!, to: url)
-                    print(url.path(percentEncoded: false))
                 }
             }
+            try renderReadme(from: screens, to: directory.appending(path: "readme", directoryHint: .isDirectory))
+        }
+
+        /// The app icon at 128 pt, the check-in beside the day and the week beside the month, dark, as panels with a
+        /// shadow on a transparent background.
+        static func renderReadme(from screens: [(name: String, view: AnyView)], to directory: URL) throws {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let dark = NSAppearance(named: .darkAqua)!
+            func showcase(_ names: [String]) -> AnyView {
+                let panels = names.compactMap { name in screens.first { $0.name == name }?.view }
+                return AnyView(
+                    HStack(alignment: .top, spacing: 40) {
+                        ForEach(panels.indices, id: \.self) { index in
+                            panels[index].panel().shadow(color: .black.opacity(0.35), radius: 24, y: 12)
+                        }
+                    }
+                    .padding(56))
+            }
+            for (name, panels) in [
+                ("hero", ["checkin", "dashboard-day"]), ("periods", ["dashboard-week", "dashboard-month"]),
+            ] {
+                try write(
+                    image(of: showcase(panels), appearance: dark, panel: false),
+                    to: directory.appending(path: "\(name).png"))
+            }
+            let icon = try bitmap(pixels: 256)
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: icon)
+            NSApp.applicationIconImage.draw(in: NSRect(origin: .zero, size: icon.size))
+            NSGraphicsContext.restoreGraphicsState()
+            try write(icon, to: directory.appending(path: "icon.png"))
+        }
+
+        /// A transparent @2x bitmap of `pixels` square.
+        private static func bitmap(pixels: Int) throws -> NSBitmapImageRep {
+            guard
+                let rep = NSBitmapImageRep(
+                    bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels, bitsPerSample: 8,
+                    samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0,
+                    bitsPerPixel: 0)
+            else { throw CocoaError(.fileWriteUnknown) }
+            rep.size = NSSize(width: pixels / 2, height: pixels / 2)
+            return rep
         }
 
         /// Every screen with sample data; the backup settings write into `backupRoot`.
@@ -331,9 +375,14 @@
         }
 
         private static func render(_ view: AnyView, appearance: NSAppearance, to url: URL) throws {
-            guard let png = try image(of: view, appearance: appearance).representation(using: .png, properties: [:])
+            try write(image(of: view, appearance: appearance), to: url)
+        }
+
+        private static func write(_ image: NSBitmapImageRep, to url: URL) throws {
+            guard let png = image.representation(using: .png, properties: [:])
             else { throw CocoaError(.fileWriteUnknown, userInfo: [NSFilePathErrorKey: url.path]) }
             try png.write(to: url)
+            print(url.path(percentEncoded: false))
             precondition(
                 NSApp.keyWindow == nil && !NSApp.isActive && NSApp.windows.allSatisfy { !$0.isVisible },
                 "screenshots must never take the keyboard or show a window")
@@ -352,10 +401,11 @@
             override var isMainWindow: Bool { true }
         }
 
-        /// The view in a window that is never shown; glass needs the window server, the panel background stands in.
-        static func image(of view: AnyView, appearance: NSAppearance) throws -> NSBitmapImageRep {
+        /// The view in a window that is never shown, as a panel unless the view draws its own panels on a transparent
+        /// background.
+        static func image(of view: AnyView, appearance: NSAppearance, panel: Bool = true) throws -> NSBitmapImageRep {
             let hosting = NSHostingView(
-                rootView: view.background(Color(nsColor: .windowBackgroundColor)).clipShape(.rect(cornerRadius: 16))
+                rootView: (panel ? AnyView(view.panel()) : view)
                     // the active look of a key panel, without the window ever becoming key
                     .environment(\.appearsActive, true))
             hosting.appearance = appearance
@@ -373,6 +423,13 @@
             }
             hosting.cacheDisplay(in: hosting.bounds, to: rep)
             return rep
+        }
+    }
+
+    extension View {
+        /// Glass needs the window server, the panel background stands in.
+        fileprivate func panel() -> some View {
+            background(Color(nsColor: .windowBackgroundColor)).clipShape(.rect(cornerRadius: 16))
         }
     }
 #endif
