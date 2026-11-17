@@ -473,22 +473,22 @@
                 context.fill(
                     Path(full),
                     with: .linearGradient(
-                        Gradient(colors: [
-                            Color(red: 0.05, green: 0.07, blue: 0.20), Color(red: 0.16, green: 0.08, blue: 0.30),
-                        ]),
+                        Gradient(colors: [Color(nsColor: .systemIndigo), Color(nsColor: .systemPurple)]),
                         startPoint: .zero, endPoint: CGPoint(x: size.width, y: size.height)))
+                // system colors darkened to night tones, the app defines no colors of its own
+                context.fill(Path(full), with: .color(.black.opacity(0.72)))
                 for (x, y, radius, color) in [
-                    (0.15, 0.85, 0.75, Color(red: 0.45, green: 0.20, blue: 0.75)),
-                    (0.85, 0.20, 0.65, Color(red: 0.15, green: 0.35, blue: 0.85)),
-                    (0.70, 1.00, 0.55, Color(red: 0.95, green: 0.45, blue: 0.20)),
+                    (0.15, 0.85, 0.75, NSColor.systemPurple),
+                    (0.85, 0.20, 0.65, .systemBlue),
+                    (0.70, 1.00, 0.55, .systemOrange),
                 ] {
                     let center = CGPoint(x: size.width * x, y: size.height * y)
                     let reach = max(size.width, size.height) * radius
                     context.fill(
                         Path(full),
                         with: .radialGradient(
-                            Gradient(colors: [color.opacity(0.55), color.opacity(0)]), center: center, startRadius: 0,
-                            endRadius: reach))
+                            Gradient(colors: [Color(nsColor: color).opacity(0.45), Color(nsColor: color).opacity(0)]),
+                            center: center, startRadius: 0, endRadius: reach))
                 }
                 for (index, opacity) in [0.10, 0.07, 0.05].enumerated() {
                     let base = size.height * (0.45 + 0.15 * Double(index))
