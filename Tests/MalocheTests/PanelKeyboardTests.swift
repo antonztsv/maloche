@@ -124,6 +124,22 @@ import Testing
         #expect(calls.periods == [period.switched(to: kind, now: now, calendar: calendar)])
     }
 
+    /// The dashboard opens with the panel itself as first responder, no row shows a focus ring until Tab.
+    @Test func theDashboardStartsWithoutAFocusedElementAndTabFocusesTheFirst() throws {
+        let model = try AppModel(database: .inMemory(), stateURL: nil)
+        let (window, hosting) = host(dashboard(model: model))
+        window.makeFirstResponder(window.contentView?.nextValidKeyView)
+        settle(hosting)
+        #expect(window.firstResponder !== hosting)
+
+        #expect(CheckInPanelController.startWithoutFocus(in: window, hosting: hosting))
+        #expect(window.firstResponder === hosting)
+
+        window.selectNextKeyView(nil)
+        settle(hosting)
+        #expect(window.firstResponder !== hosting)
+    }
+
     /// Walks back from the end, the Now row and the rows come before anything above them.
     @Test func rowsAndTheNowRowAreInTheTabLoopAndReturnOpensThem() throws {
         let model = try AppModel(database: .inMemory(), stateURL: nil)
