@@ -46,6 +46,31 @@ import Testing
         #expect(h.timeline == ["Reading 08:00-08:30"])
     }
 
+    @Test func deletingTheActivityThatContinuesWithoutAskingEndsItWithoutBooking() {
+        var h = Harness(at: "10:00", settings: Fixture.noCheckIns)
+        h.tick()
+        h.pass(to: "10:15")
+        h.send(.continueWithoutAsking(Fixture.meeting, for: 60 * 60))
+        h.pass(to: "10:30")
+        h.tracker.deleted(activities: [Fixture.meeting], at: h.now)
+        #expect(h.tracker.mode == .tracking)
+        #expect(h.tracker.prefill == nil)
+        h.pass(to: "10:45")
+        h.send(.checkInAnswered(Fixture.reading))
+        #expect(h.timeline.filter { !$0.hasPrefix("Meeting") } == ["Writing 10:00-10:15", "Reading 10:30-10:45"])
+        #expect(h.blocks.filter { $0.activityId == Fixture.meeting }.allSatisfy { $0.endedAt <= Fixture.at("10:30") })
+    }
+
+    @Test func deletingThePrefillLeavesTheCheckInEmpty() {
+        var h = Harness(answered: false)
+        h.tick()
+        h.tracker.deleted(activities: [Fixture.writing, Fixture.meeting], at: h.now)
+        #expect(h.tracker.prefill == nil)
+        h.pass(to: "08:15")
+        let prompt = CheckInPrompt(span: Fixture.span("08:00", "08:15"), prefill: nil, canSplit: false)
+        #expect(h.takePrompts() == [.showCheckIn(prompt)])
+    }
+
     @Test func aDayWithoutAnAnswerBooksNothing() {
         var h = Harness(at: "16:00", answered: false)
         h.tick()

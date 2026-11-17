@@ -68,6 +68,8 @@ struct ManageActivitiesView: View {
     @State private var query = ""
     @State private var overview = ActivityOverview(catalog: Catalog(), thisMonth: [])
     @State private var sheet: Sheet?
+    /// The activities the delete confirmation asks about.
+    @State private var deleting: Set<Int64> = []
     /// Selected once the table shows the rows of the new filter, it drops a selection it cannot show.
     @State private var revealing: Int64?
     @FocusState private var searching: Bool
@@ -115,6 +117,32 @@ struct ManageActivitiesView: View {
             case .merge(let ids): mergeSheet(ids)
             }
         }
+        .confirmationDialog(
+            deleteTitle,
+            isPresented: Binding {
+                !deleting.isEmpty
+            } set: {
+                if !$0 { deleting = [] }
+            },
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) { delete(deleting) }
+                .keyboardShortcut(.defaultAction)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(
+                "This also deletes \(DurationFormat.hoursMinutes(deletingTime)) of logged time and cannot be undone. To keep the time, use Merge Into… instead."
+            )
+        }
+    }
+
+    private var deleteTitle: Text {
+        let names = deleting.compactMap { model.catalog.activity($0)?.name }
+        return names.count == 1 ? Text("Delete “\(names[0])”?") : Text("Delete \(names.count) Activities?")
+    }
+
+    private var deletingTime: TimeInterval {
+        ((try? model.database.blocks(ofActivities: Array(deleting))) ?? []).reduce(0) { $0 + $1.interval.duration }
     }
 
     private func reload() {
@@ -317,6 +345,7 @@ struct ManageActivitiesView: View {
             .alignment(.trailing)
         }
         .tableStyle(.inset(alternatesRowBackgrounds: true))
+        .onDeleteCommand { deleting = selection }
         .contextMenu(forSelectionType: Int64.self) { ids in
             if ids.count == 1, let id = ids.first {
                 Button("Rename…") { sheet = .name(.activity(id)) }
@@ -360,6 +389,8 @@ struct ManageActivitiesView: View {
             }
         }
         .fixedSize()
+        Button("Delete…") { deleting = ids }
+            .fixedSize()
     }
 
     /// Every customer with its projects; No project under a customer assigns the customer directly.
@@ -397,6 +428,11 @@ struct ManageActivitiesView: View {
 
     private func move(_ ids: Set<Int64>, projectId: Int64?, customerId: Int64?) {
         attempt { try model.manage { try $0.moveActivities(Array(ids), projectId: projectId, customerId: customerId) } }
+    }
+
+    private func delete(_ ids: Set<Int64>) {
+        attempt { try model.delete(Array(ids)) }
+        selection.subtract(ids)
     }
 
     private func archive(_ ids: Set<Int64>, _ archived: Bool) {

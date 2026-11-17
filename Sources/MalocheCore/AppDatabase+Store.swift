@@ -133,6 +133,15 @@ extension AppDatabase {
         }
     }
 
+    /// Deletes the activities with all their blocks; Break and Private stay.
+    public func deleteActivities(_ ids: [Int64]) throws {
+        try dbQueue.write { db in
+            for id in ids { _ = try Self.regularActivity(db, id: id) }
+            _ = try Block.filter(ids.contains(Column("activityId"))).deleteAll(db)
+            _ = try Activity.deleteAll(db, ids: ids)
+        }
+    }
+
     public func hasBlocks() throws -> Bool {
         try dbQueue.read { try !Block.all().isEmpty($0) }
     }

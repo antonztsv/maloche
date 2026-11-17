@@ -199,6 +199,30 @@ import Testing
         #expect(remaining.first?.lastUsedAt == Fixture.at("12:00"))
     }
 
+    @Test func deletingRemovesTheActivitiesWithTheirTimeAndLeavesTheRest() throws {
+        try book(writing, "09:00", "10:00")
+        try book(weekly, "10:00", "10:30")
+        try book(review, "10:30", "11:00")
+        try book(writing, "11:00", "12:00")
+
+        try database.deleteActivities([writing, weekly])
+
+        let blocks = try database.blocks(in: Fixture.span("00:00", "23:59"))
+        #expect(blocks.map(\.activityId) == [review])
+        #expect(blocks.map(\.startedAt) == [Fixture.at("10:30")])
+        #expect(try database.activities().filter { $0.kind == .regular }.map(\.id) == [review])
+        #expect(try database.projects().contains { $0.id == relaunch.id })
+    }
+
+    @Test func aFailedDeleteChangesNothing() throws {
+        try book(writing, "09:00", "10:00")
+        let breakId = try database.builtIn(.break).id!
+        #expect(throws: MalocheError.builtInActivity) { try database.deleteActivities([writing, breakId]) }
+        #expect(throws: MalocheError.activityNotFound) { try database.deleteActivities([writing, 999]) }
+        #expect(try database.blocks(in: Fixture.span("00:00", "23:59")).map(\.activityId) == [writing])
+        #expect(try activity(writing) != nil)
+    }
+
     @Test func blocksOfActivitiesFeedTheMergeConfirmation() throws {
         try book(writing, "09:00", "10:00")
         try book(weekly, "10:00", "10:30")
@@ -228,6 +252,7 @@ import Testing
             }
             #expect(throws: MalocheError.builtInActivity) { try database.mergeActivities([id], into: writing) }
             #expect(throws: MalocheError.builtInActivity) { try database.mergeActivities([writing], into: id) }
+            #expect(throws: MalocheError.builtInActivity) { try database.deleteActivities([id]) }
         }
         #expect(try activity(writing)?.archived == false)
     }
