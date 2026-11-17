@@ -97,6 +97,28 @@ import Testing
         #expect(list.choice == .create(name: "Kickoff", projectId: 10))
     }
 
+    @Test func aCustomerWithoutProjectTakesThePlaceOfTheProject() {
+        var list = CheckInList(catalog: catalog, prefill: 1)
+        list.setText("Support")
+        list.projectId = 10
+        list.customerId = 2
+        #expect(list.projectId == nil)
+        #expect(list.choice == .create(name: "Support", projectId: nil, customerId: 2))
+        list.projectId = 10
+        #expect(list.customerId == nil)
+        #expect(list.choice == .create(name: "Support", projectId: 10))
+    }
+
+    /// Projects without customer on top, then every customer with its projects, also one without projects.
+    @Test func theProjectMenuListsEveryCustomer() {
+        var catalog = catalog
+        catalog.projects.append(Project(id: 11, name: "Internal Tools", customerId: nil))
+        catalog.customers.append(Customer(id: 3, name: "Hafenwerk", colorIndex: 2))
+        let menu = catalog.projectMenu.map { ($0.customer?.name, $0.projects.map(\.name)) }
+        #expect(menu.map(\.0) == [nil, "Acme", "Northwind", "Hafenwerk"])
+        #expect(menu.map(\.1) == [["Internal Tools"], ["Relaunch"], [], []])
+    }
+
     @Test func anExactNameIgnoringCaseSelectsThatActivityOnTopAndOffersCreateLast() {
         var list = CheckInList(catalog: catalog, prefill: 1)
         list.setText("planning")

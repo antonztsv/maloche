@@ -471,18 +471,22 @@ public final class AppModel {
         return ActivityOverview(catalog: catalog, thisMonth: summary.activities)
     }
 
+    /// Uses the customer of that name or creates it.
+    public func createCustomer(name: String) throws -> Customer {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { throw MalocheError.emptyName }
+        let existing = try database.customers().first { $0.name.caseInsensitiveCompare(name) == .orderedSame }
+        let customer = try existing ?? database.createCustomer(name: name)
+        reloadCatalog()
+        return customer
+    }
+
     /// Uses the customer of that name or creates it, an empty customer name means none; the same for its project.
     public func createProject(name: String, customerName: String) throws -> Project {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { throw MalocheError.emptyName }
         let customerName = customerName.trimmingCharacters(in: .whitespacesAndNewlines)
-        var customerId: Int64?
-        if !customerName.isEmpty {
-            let existing = try database.customers().first {
-                $0.name.caseInsensitiveCompare(customerName) == .orderedSame
-            }
-            customerId = try (existing ?? database.createCustomer(name: customerName)).id
-        }
+        let customerId = customerName.isEmpty ? nil : try createCustomer(name: customerName).id
         let existing = try database.projects().first {
             $0.customerId == customerId && $0.name.caseInsensitiveCompare(name) == .orderedSame
         }
@@ -491,7 +495,7 @@ public final class AppModel {
         return project
     }
 
-    /// A new name creates the activity in its project or at the top level unless one there has it, e.g. after an earlier
+    /// A new name creates the activity in its project, with its customer or at the top level unless one there has it, e.g. after an earlier
     /// part of a split; an archived activity comes back, one merged away since the prompt showed is refused.
     private func resolve(_ choice: CheckInList.Choice) -> Int64? {
         do {
@@ -499,10 +503,10 @@ public final class AppModel {
             let activity =
                 switch choice {
                 case .existing(let id): activities.first { $0.id == id }
-                case .create(let name, let projectId):
+                case .create(let name, let projectId, let customerId):
                     try Suggestions.exactMatch(
-                        for: name, in: activities.filter { ($0.projectId, $0.customerId) == (projectId, nil) })
-                        ?? database.createActivity(name: name, projectId: projectId)
+                        for: name, in: activities.filter { ($0.projectId, $0.customerId) == (projectId, customerId) })
+                        ?? database.createActivity(name: name, projectId: projectId, customerId: customerId)
                 }
             guard let activity, let id = activity.id else {
                 presenter?.signalFailure()

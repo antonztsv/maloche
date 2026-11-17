@@ -5,9 +5,11 @@ import SwiftUI
 struct ProjectDraft: Equatable {
     var name = ""
     var customer = ""
+    /// A new customer without project, only the name is asked.
+    var forCustomer = false
 }
 
-/// Name and customer of a new project, shown in place of the check-in field.
+/// Name and customer of a new project, or the name of a new customer, shown in place of the check-in field.
 struct NewProjectForm: View {
     @Binding var draft: ProjectDraft
     let customers: [Customer]
@@ -19,7 +21,7 @@ struct NewProjectForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("New project").font(.body.weight(.semibold))
+            (draft.forCustomer ? Text("New customer") : Text("New project")).font(.body.weight(.semibold))
             VStack(alignment: .leading, spacing: 4) {
                 Text("Name").font(.subheadline).foregroundStyle(.secondary)
                 TextField("Name", text: $draft.name, prompt: Text(verbatim: ""))
@@ -33,27 +35,7 @@ struct NewProjectForm: View {
                     .padding(.horizontal, 8)
                     .fieldBackground(focused: focus == .name)
             }
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Customer").font(.subheadline).foregroundStyle(.secondary)
-                // at the name's text, or after the color square and its 6 pt spacing
-                CustomerField(
-                    text: $draft.customer, customers: customers, textStart: match == nil ? 8 : 22, onSubmit: submit,
-                    onCancel: onCancel
-                )
-                .focused($focus, equals: .customer)
-                .padding(.leading, CustomerField.listOutset.leading)
-                .padding(.trailing, CustomerField.listOutset.trailing)
-                .overlay(alignment: .leading) {
-                    if let match {
-                        CustomerSwatch(customer: match)
-                            .padding(.leading, 8)
-                    }
-                }
-                .fieldBackground(focused: focus == .customer)
-                Text("Pick one or type a new customer name.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+            if !draft.forCustomer { customerField }
         }
         .padding(.horizontal, 4)
         .padding(.top, 4)
@@ -68,6 +50,30 @@ struct NewProjectForm: View {
                 .disabled(!canCreate)
         }
         .controlSize(.large)
+    }
+
+    private var customerField: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Customer").font(.subheadline).foregroundStyle(.secondary)
+            // at the name's text, or after the color square and its 6 pt spacing
+            CustomerField(
+                text: $draft.customer, customers: customers, textStart: match == nil ? 8 : 22, onSubmit: submit,
+                onCancel: onCancel
+            )
+            .focused($focus, equals: .customer)
+            .padding(.leading, CustomerField.listOutset.leading)
+            .padding(.trailing, CustomerField.listOutset.trailing)
+            .overlay(alignment: .leading) {
+                if let match {
+                    CustomerSwatch(customer: match)
+                        .padding(.leading, 8)
+                }
+            }
+            .fieldBackground(focused: focus == .customer)
+            Text("Pick one or type a new customer name.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
     }
 
     private var canCreate: Bool {

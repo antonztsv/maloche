@@ -8,7 +8,7 @@ struct SplitView: View {
     @Binding var split: SplitDraft
     let onLog: () -> Void
     let onBack: () -> Void
-    let onNewProject: (Int) -> Void
+    let onNewProject: (Int, ProjectDraft) -> Void
     @FocusState private var focusedPart: Int?
 
     var body: some View {
@@ -58,7 +58,7 @@ struct SplitView: View {
             ActivityField(
                 catalog: catalog, list: $split.parts[part], focus: $focusedPart, id: part,
                 label: String(localized: "Activity for \(span)"), onSubmit: onLog, onEscape: onBack,
-                onNewProject: { onNewProject(part) })
+                onNewProject: { onNewProject(part, $0) })
             Text(DurationText.span(interval.duration) ?? "")
                 .accessibilityLabel(DurationText.spokenSpan(interval.duration) ?? "")
                 .monospacedDigit()
@@ -87,8 +87,8 @@ struct SplitView: View {
             case .private: return Color(nsColor: .quaternaryLabelColor)
             case .regular: return DashboardData.color(of: catalog.customer(of: activity))
             }
-        case .create(_, let projectId):
-            return DashboardData.color(of: catalog.customer(catalog.project(projectId)?.customerId))
+        case .create(_, let projectId, let customerId):
+            return DashboardData.color(of: catalog.customer(catalog.project(projectId)?.customerId ?? customerId))
         case nil:
             return Color(nsColor: .quaternaryLabelColor)
         }
@@ -97,7 +97,7 @@ struct SplitView: View {
     private func name(_ list: CheckInList) -> String {
         switch list.choice {
         case .existing(let id): catalog.activity(id)?.name ?? list.text
-        case .create(let name, _): name
+        case .create(let name, _, _): name
         case nil: list.text
         }
     }
