@@ -45,9 +45,9 @@ struct CheckInView: View {
                     catalog: model.catalog,
                     split: Binding(get: { split ?? current }, set: { if split != nil { split = $0 } }),
                     onLog: logSplit, onBack: { split = nil },
-                    onNewProject: { part in
+                    onNewProject: { part, new in
                         draftPart = part
-                        draft = ProjectDraft()
+                        draft = new
                     })
             } else {
                 VStack(alignment: .leading, spacing: 6) {
@@ -57,9 +57,9 @@ struct CheckInView: View {
                     ActivityField(
                         catalog: model.catalog, list: $list, focus: $focusedField, id: 0, onSubmit: log,
                         onEscape: model.close,
-                        onNewProject: {
+                        onNewProject: { new in
                             draftPart = nil
-                            draft = ProjectDraft()
+                            draft = new
                         }
                     )
                     // focus per appearance, a panel opened without key status still types into the field after a click
@@ -162,7 +162,7 @@ struct CheckInView: View {
     }
 
     private var hint: String? {
-        guard list.isCreating else { return nil }
+        guard list.isCreating, list.customerId == nil else { return nil }
         guard let project = model.catalog.project(list.projectId) else {
             return String(localized: "Tab picks a project")
         }
@@ -192,8 +192,13 @@ struct CheckInView: View {
     private func createProject() {
         guard let draft else { return }
         do {
-            let id = try model.createProject(name: draft.name, customerName: draft.customer).id
-            if let draftPart { split?.parts[draftPart].projectId = id } else { list.projectId = id }
+            if draft.forCustomer {
+                let id = try model.createCustomer(name: draft.name).id
+                if let draftPart { split?.parts[draftPart].customerId = id } else { list.customerId = id }
+            } else {
+                let id = try model.createProject(name: draft.name, customerName: draft.customer).id
+                if let draftPart { split?.parts[draftPart].projectId = id } else { list.projectId = id }
+            }
             self.draft = nil
         } catch {
             NSSound.beep()
@@ -257,7 +262,7 @@ struct ActivityField: View {
     var label: String?
     let onSubmit: () -> Void
     let onEscape: () -> Void
-    let onNewProject: () -> Void
+    let onNewProject: (ProjectDraft) -> Void
     @State private var projectMenuRequest = 0
 
     var body: some View {
@@ -286,8 +291,8 @@ struct ActivityField: View {
                 }
             if list.isCreating {
                 ProjectChip(
-                    catalog: catalog, projectId: $list.projectId, menuRequest: $projectMenuRequest,
-                    onNewProject: onNewProject)
+                    catalog: catalog, projectId: $list.projectId, customerId: $list.customerId,
+                    menuRequest: $projectMenuRequest, onNew: onNewProject)
             } else if let match = list.fieldMatch {
                 Text(CheckInView.meta(project: match.projectName, customer: match.customerName))
                     .font(.subheadline)
@@ -320,11 +325,14 @@ struct SuggestionList: View {
                         .padding(.bottom, 2)
                         .accessibilityAddTraits(.isHeader)
                 }
-                SuggestionRow(row: row, selected: index == list.selection, catalog: catalog, projectId: list.projectId)
-                    .onTapGesture {
-                        list.select(index)
-                        onPick()
-                    }
+                SuggestionRow(
+                    row: row, selected: index == list.selection, catalog: catalog, projectId: list.projectId,
+                    customerId: list.customerId
+                )
+                .onTapGesture {
+                    list.select(index)
+                    onPick()
+                }
             }
         }
         .accessibilityElement(children: .contain)
@@ -343,6 +351,7 @@ private struct SuggestionRow: View {
     let selected: Bool
     let catalog: Catalog
     let projectId: Int64?
+    let customerId: Int64?
 
     private static let selectedText = Color(nsColor: .alternateSelectedControlTextColor)
 
@@ -405,7 +414,8 @@ private struct SuggestionRow: View {
         switch row {
         case .create:
             let project = catalog.project(projectId)
-            return CheckInView.meta(project: project?.name, customer: catalog.customer(project?.customerId)?.name)
+            return CheckInView.meta(
+                project: project?.name, customer: catalog.customer(project?.customerId ?? customerId)?.name)
         case .activity(let suggestion, _):
             switch suggestion.activity.kind {
             case .break: return String(localized: "Not work time")

@@ -981,6 +981,29 @@ final class TestClock: WallClock, @unchecked Sendable {
         #expect(model.catalog.projects.map(\.name) == ["Relaunch"])
     }
 
+    @Test func aNewNameWithACustomerAndNoProjectBelongsToTheCustomer() throws {
+        let model = try makeModel()
+        let acme = try model.createCustomer(name: " Acme ")
+        #expect(try model.createCustomer(name: "acme") == acme)
+        #expect(throws: MalocheError.emptyName) { try model.createCustomer(name: "  ") }
+        #expect(model.catalog.customers == [acme])
+        let topSupport = try model.database.createActivity(name: "Support").id!
+        tick(model, at: "09:00")
+        model.shortcut(.openCheckIn)
+
+        model.log(.create(name: "Support", projectId: nil, customerId: acme.id))
+
+        let support = try #require(model.catalog.activities.first { $0.customerId == acme.id })
+        #expect(support.name == "Support" && support.projectId == nil)
+        #expect(model.currentActivity == support.id)
+        tick(model, at: "09:10")
+        model.shortcut(.openCheckIn)
+        model.log(.create(name: "support", projectId: nil, customerId: acme.id))
+        #expect(model.currentActivity == support.id)
+        #expect(model.catalog.activities.count { $0.name == "Support" } == 2)
+        #expect(topSupport != support.id)
+    }
+
     @Test func createReusesTheNameInTheChosenProjectOrAtTheTopLevelOnly() throws {
         let model = try makeModel()
         let relaunch = try model.createProject(name: "Relaunch", customerName: "Acme")

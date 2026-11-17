@@ -2,26 +2,24 @@ import AppKit
 import MalocheCore
 import SwiftUI
 
-/// The project of a new activity; a click or a changed `menuRequest` opens the project menu.
+/// The project of a new activity, or its customer without project; a click or a changed `menuRequest` opens the menu.
 struct ProjectChip: View {
     let catalog: Catalog
     @Binding var projectId: Int64?
+    @Binding var customerId: Int64?
     @Binding var menuRequest: Int
-    let onNewProject: () -> Void
+    let onNew: (ProjectDraft) -> Void
 
     var body: some View {
         let project = catalog.project(projectId)
-        let name = project?.name ?? String(localized: "No project")
+        let customer = catalog.customer(project?.customerId ?? customerId)
+        let name = project?.name ?? customer?.name ?? String(localized: "No project")
         Button {
             menuRequest += 1
         } label: {
             HStack(spacing: 5) {
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(
-                        Color(
-                            nsColor: project.map { CustomerColor.nsColor(for: catalog.customer($0.customerId)) }
-                                ?? .tertiaryLabelColor)
-                    )
+                    .fill(Color(nsColor: customer.map { CustomerColor.nsColor(for: $0) } ?? .tertiaryLabelColor))
                     .frame(width: 8, height: 8)
                 Text(name).lineLimit(1)
                 Image(systemName: "chevron.up.chevron.down").imageScale(.small)
@@ -30,7 +28,8 @@ struct ProjectChip: View {
         .controlSize(.small)
         .fixedSize()
         .background(
-            ProjectMenu(catalog: catalog, projectId: $projectId, request: menuRequest, onNewProject: onNewProject)
+            ProjectMenu(
+                catalog: catalog, projectId: $projectId, customerId: $customerId, request: menuRequest, onNew: onNew)
         )
         .accessibilityLabel(String(localized: "Project"))
         .accessibilityValue(name)
@@ -41,11 +40,14 @@ struct ProjectChip: View {
 private struct ProjectMenu: NSViewRepresentable {
     let catalog: Catalog
     @Binding var projectId: Int64?
+    @Binding var customerId: Int64?
     let request: Int
-    let onNewProject: () -> Void
+    let onNew: (ProjectDraft) -> Void
 
-    private static let noProject = 0
-    private static let newProject = -1
+    enum Pick: Equatable {
+        case placement(projectId: Int64?, customerId: Int64?)
+        case newProject, newCustomer
+    }
 
     func makeCoordinator() -> Coordinator { Coordinator(request: request) }
 
@@ -62,30 +64,31 @@ private struct ProjectMenu: NSViewRepresentable {
         coordinator.perform(#selector(Coordinator.popUp), with: nil, afterDelay: 0)
     }
 
+    /// Projects without customer under No project, then per customer No project, which picks the customer, and its
+    /// projects.
     private func makeMenu(target: Coordinator) -> NSMenu {
         let menu = NSMenu()
-        let selected = projectId.map { Int($0) } ?? Self.noProject
-        func add(_ title: String, tag: Int, color: NSColor?) {
+        let selected = Pick.placement(projectId: projectId, customerId: customerId)
+        func add(_ title: String, _ pick: Pick, color: NSColor?) {
             let item = menu.addItem(withTitle: title, action: #selector(Coordinator.picked(_:)), keyEquivalent: "")
             item.target = target
-            item.tag = tag
-            item.state = tag == selected ? .on : .off
+            item.representedObject = pick
+            item.state = pick == selected ? .on : .off
             item.image = color.flatMap(NSImage.swatch)
         }
-        add(String(localized: "No project"), tag: Self.noProject, color: .tertiaryLabelColor)
-        let byCustomer = Dictionary(grouping: catalog.projects, by: \.customerId)
-        for project in byCustomer[nil] ?? [] {
-            add(project.name, tag: Int(project.id ?? 0), color: .systemGray)
-        }
-        for customer in catalog.customers {
-            guard let projects = byCustomer[customer.id] else { continue }
-            menu.addItem(.sectionHeader(title: customer.name))
+        for (customer, projects) in catalog.projectMenu {
+            let color = customer.map { CustomerColor.nsColor(for: $0) }
+            if let customer { menu.addItem(.sectionHeader(title: customer.name)) }
+            add(
+                String(localized: "No project"), .placement(projectId: nil, customerId: customer?.id),
+                color: color ?? .tertiaryLabelColor)
             for project in projects {
-                add(project.name, tag: Int(project.id ?? 0), color: CustomerColor.nsColor(for: customer))
+                add(project.name, .placement(projectId: project.id, customerId: nil), color: color ?? .systemGray)
             }
         }
         menu.addItem(.separator())
-        add(String(localized: "New project…"), tag: Self.newProject, color: nil)
+        add(String(localized: "New project…"), .newProject, color: nil)
+        add(String(localized: "New customer…"), .newCustomer, color: nil)
         return menu
     }
 
@@ -104,10 +107,13 @@ private struct ProjectMenu: NSViewRepresentable {
         }
 
         @objc func picked(_ item: NSMenuItem) {
-            switch item.tag {
-            case ProjectMenu.newProject: parent?.onNewProject()
-            case ProjectMenu.noProject: parent?.projectId = nil
-            default: parent?.projectId = Int64(item.tag)
+            switch item.representedObject as? Pick {
+            case .newProject: parent?.onNew(ProjectDraft())
+            case .newCustomer: parent?.onNew(ProjectDraft(forCustomer: true))
+            case .placement(let projectId, let customerId):
+                parent?.projectId = projectId
+                parent?.customerId = customerId
+            case nil: break
             }
         }
     }

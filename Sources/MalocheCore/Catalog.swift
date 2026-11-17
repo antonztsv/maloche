@@ -22,6 +22,12 @@ public struct Catalog: Equatable, Sendable {
         return todayBlocks.sorted { $0.endedAt > $1.endedAt }.map(\.activityId).filter { seen.insert($0).inserted }
     }
 
+    /// The project menu of a new activity: projects without customer, then every customer with its projects.
+    public var projectMenu: [(customer: Customer?, projects: [Project])] {
+        [(nil, projects.filter { $0.customerId == nil })]
+            + customers.map { customer in (customer, projects.filter { $0.customerId == customer.id }) }
+    }
+
     public func activity(_ id: Int64?) -> Activity? {
         id.flatMap { id in activities.first { $0.id == id } }
     }

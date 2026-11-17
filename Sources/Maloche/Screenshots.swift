@@ -47,10 +47,11 @@
                 for (index, time) in dividers.enumerated() { draft.moveDivider(index, to: Sample.at(time.0, time.1)) }
                 return draft
             }
-            func typed(_ text: String, projectId: Int64? = nil) -> CheckInList {
+            func typed(_ text: String, projectId: Int64? = nil, customerId: Int64? = nil) -> CheckInList {
                 var list = CheckInList(catalog: model.catalog, prefill: sample.review)
                 list.setText(text)
                 list.projectId = projectId
+                list.customerId = customerId
                 return list
             }
             /// Default settings, changed by `edit`, never stored.
@@ -97,6 +98,20 @@
                         CheckInView(
                             model: model, content: .checkIn(timed),
                             list: typed("Kickoff Relaunch", projectId: sample.relaunch)))
+                ),
+                (
+                    "newactivity-customer",
+                    AnyView(
+                        CheckInView(
+                            model: model, content: .checkIn(timed),
+                            list: typed("Support Acme", customerId: model.catalog.customers.first?.id)))
+                ),
+                (
+                    "newcustomer",
+                    AnyView(
+                        CheckInView(
+                            model: model, content: .checkIn(timed), list: typed("Support Acme"),
+                            draft: ProjectDraft(name: "Hafenwerk", forCustomer: true)))
                 ),
                 (
                     "newproject",

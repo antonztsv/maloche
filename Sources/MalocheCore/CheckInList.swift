@@ -9,7 +9,7 @@ public struct CheckInList: Equatable, Sendable {
 
     public enum Choice: Equatable, Sendable {
         case existing(Int64)
-        case create(name: String, projectId: Int64?)
+        case create(name: String, projectId: Int64?, customerId: Int64? = nil)
     }
 
     public static let maxRows = 6
@@ -19,8 +19,14 @@ public struct CheckInList: Equatable, Sendable {
     public private(set) var selection: Int?
     /// Grouped into today and earlier until a query filters the rows.
     public private(set) var showsSections = true
-    /// The project of a new activity.
-    public var projectId: Int64?
+    /// The project of a new activity; setting one clears `customerId`.
+    public var projectId: Int64? {
+        didSet { if projectId != nil { customerId = nil } }
+    }
+    /// The customer of a new activity without project; setting one clears `projectId`.
+    public var customerId: Int64? {
+        didSet { if customerId != nil { projectId = nil } }
+    }
     private let catalog: Catalog
     /// Break and Private are suggested too, below the other activities.
     private let includingBuiltIns: Bool
@@ -54,7 +60,7 @@ public struct CheckInList: Equatable, Sendable {
 
     public var choice: Choice? {
         switch selection.map({ rows[$0] }) {
-        case .create(let name): .create(name: name, projectId: projectId)
+        case .create(let name): .create(name: name, projectId: projectId, customerId: customerId)
         case .activity(let suggestion, _): suggestion.activity.id.map(Choice.existing)
         case nil: nil
         }

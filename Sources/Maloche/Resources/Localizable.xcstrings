@@ -1504,6 +1504,26 @@
         }
       }
     },
+    "New customer" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neuer Kunde"
+          }
+        }
+      }
+    },
+    "New customer…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neuer Kunde …"
+          }
+        }
+      }
+    },
     "New project" : {
       "localizations" : {
         "de" : {
