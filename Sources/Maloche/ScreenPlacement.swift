@@ -29,4 +29,14 @@ extension NSWindow {
         guard let visible = NSScreen.active?.visibleFrame else { return }
         setFrameOrigin(PanelPlacement.centeredOrigin(size: frame.size, visibleFrame: visible))
     }
+
+    /// Before it comes to the front, a window on another space or screen moves to the middle of the active screen.
+    func placeOnActiveScreen() {
+        guard let screen = NSScreen.active,
+            let origin = PanelPlacement.reopenedOrigin(
+                frame: frame, onActiveSpace: isOnActiveSpace, screens: NSScreen.screens.map(\.frame),
+                activeScreen: screen.frame, activeVisibleFrame: screen.visibleFrame)
+        else { return }
+        setFrameOrigin(origin)
+    }
 }

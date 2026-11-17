@@ -70,4 +70,30 @@ import Testing
         let origin = PanelPlacement.centeredOrigin(size: CGSize(width: 640, height: 1000), visibleFrame: visible)
         #expect(origin == CGPoint(x: 400, y: -130))
     }
+
+    private let primaryVisible = CGRect(x: 0, y: 0, width: 1728, height: 1080)
+
+    private func reopened(_ frame: CGRect, onActiveSpace: Bool = true) -> CGPoint? {
+        PanelPlacement.reopenedOrigin(
+            frame: frame, onActiveSpace: onActiveSpace, screens: [primary, left], activeScreen: primary,
+            activeVisibleFrame: primaryVisible)
+    }
+
+    @Test func aWindowOnTheActiveSpaceAndScreenStaysWhereTheUserPutIt() {
+        #expect(reopened(CGRect(x: 100, y: 200, width: 640, height: 400)) == nil)
+        #expect(reopened(CGRect(x: -200, y: 200, width: 640, height: 400)) == nil)
+    }
+
+    @Test func aWindowOnAnotherScreenMovesToTheMiddleOfTheActiveOne() {
+        #expect(reopened(CGRect(x: -1500, y: 200, width: 640, height: 400)) == CGPoint(x: 544, y: 340))
+    }
+
+    @Test func aWindowOnAnotherSpaceMovesToTheMiddleOfTheActiveScreen() {
+        let frame = CGRect(x: 100, y: 200, width: 640, height: 400)
+        #expect(reopened(frame, onActiveSpace: false) == CGPoint(x: 544, y: 340))
+    }
+
+    @Test func aWindowOutsideEveryScreenMovesToTheActiveOne() {
+        #expect(reopened(CGRect(x: 5000, y: 5000, width: 640, height: 400)) == CGPoint(x: 544, y: 340))
+    }
 }

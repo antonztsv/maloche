@@ -32,4 +32,15 @@ public enum PanelPlacement {
         return CGPoint(
             x: (visibleFrame.midX - size.width / 2).rounded(.down), y: min(y, visibleFrame.maxY - size.height))
     }
+
+    /// Nil keeps a window that is on the active space and mostly on the active screen where the user put it; any
+    /// other window moves to the middle of the active screen.
+    public static func reopenedOrigin(
+        frame: CGRect, onActiveSpace: Bool, screens: [CGRect], activeScreen: CGRect, activeVisibleFrame: CGRect
+    ) -> CGPoint? {
+        if onActiveSpace, let index = screenIndex(containing: frame, screens: screens), screens[index] == activeScreen {
+            return nil
+        }
+        return centeredOrigin(size: frame.size, visibleFrame: activeVisibleFrame)
+    }
 }
