@@ -3,7 +3,8 @@
     import SwiftUI
     import MalocheCore
 
-    /// Renders every screen with sample data in light and dark: `Maloche --screenshots <dir>`.
+    /// Renders every screen with sample data in light and dark, and the README images into `readme/`:
+    /// `Maloche --screenshots <dir>`.
     @MainActor
     enum Screenshots {
         static var outputDirectory: URL? {
@@ -21,13 +22,42 @@
                 path: "maloche-screenshots-\(UUID().uuidString)", directoryHint: .isDirectory)
             defer { try? FileManager.default.removeItem(at: backupRoot) }
             try MenuBarIcon.writePreviews(to: directory)
-            for screen in try screens(backupRoot: backupRoot) {
+            let screens = try screens(backupRoot: backupRoot)
+            for screen in screens {
                 for (mode, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
                     let url = directory.appending(path: "\(screen.name)-\(mode).png")
                     try render(screen.view, appearance: NSAppearance(named: appearance)!, to: url)
-                    print(url.path(percentEncoded: false))
                 }
             }
+            try renderReadme(from: screens, to: directory.appending(path: "readme", directoryHint: .isDirectory))
+        }
+
+        /// The app icon at 128 pt and the check-in beside the day, dark, on a desktop with an empty menu bar.
+        static func renderReadme(from screens: [(name: String, view: AnyView)], to directory: URL) throws {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let dark = NSAppearance(named: .darkAqua)!
+            let panels = ["checkin", "dashboard-day"].compactMap { name in screens.first { $0.name == name }?.view }
+            try write(
+                image(of: AnyView(Desktop(panels: panels)), appearance: dark, panel: false),
+                to: directory.appending(path: "hero.png"))
+            let icon = try bitmap(pixels: 256)
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: icon)
+            NSApp.applicationIconImage.draw(in: NSRect(origin: .zero, size: icon.size))
+            NSGraphicsContext.restoreGraphicsState()
+            try write(icon, to: directory.appending(path: "icon.png"))
+        }
+
+        /// A transparent @2x bitmap of `pixels` square.
+        private static func bitmap(pixels: Int) throws -> NSBitmapImageRep {
+            guard
+                let rep = NSBitmapImageRep(
+                    bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels, bitsPerSample: 8,
+                    samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0,
+                    bitsPerPixel: 0)
+            else { throw CocoaError(.fileWriteUnknown) }
+            rep.size = NSSize(width: pixels / 2, height: pixels / 2)
+            return rep
         }
 
         /// Every screen with sample data; the backup settings write into `backupRoot`.
@@ -346,9 +376,14 @@
         }
 
         private static func render(_ view: AnyView, appearance: NSAppearance, to url: URL) throws {
-            guard let png = try image(of: view, appearance: appearance).representation(using: .png, properties: [:])
+            try write(image(of: view, appearance: appearance), to: url)
+        }
+
+        private static func write(_ image: NSBitmapImageRep, to url: URL) throws {
+            guard let png = image.representation(using: .png, properties: [:])
             else { throw CocoaError(.fileWriteUnknown, userInfo: [NSFilePathErrorKey: url.path]) }
             try png.write(to: url)
+            print(url.path(percentEncoded: false))
             precondition(
                 NSApp.keyWindow == nil && !NSApp.isActive && NSApp.windows.allSatisfy { !$0.isVisible },
                 "screenshots must never take the keyboard or show a window")
@@ -367,10 +402,11 @@
             override var isMainWindow: Bool { true }
         }
 
-        /// The view in a window that is never shown; glass needs the window server, the panel background stands in.
-        static func image(of view: AnyView, appearance: NSAppearance) throws -> NSBitmapImageRep {
+        /// The view in a window that is never shown, as a panel unless the view draws its own panels on a transparent
+        /// background.
+        static func image(of view: AnyView, appearance: NSAppearance, panel: Bool = true) throws -> NSBitmapImageRep {
             let hosting = NSHostingView(
-                rootView: view.background(Color(nsColor: .windowBackgroundColor)).clipShape(.rect(cornerRadius: 16))
+                rootView: (panel ? AnyView(view.panel()) : view)
                     // the active look of a key panel, without the window ever becoming key
                     .environment(\.appearsActive, true))
             hosting.appearance = appearance
@@ -388,6 +424,78 @@
             }
             hosting.cacheDisplay(in: hosting.bounds, to: rep)
             return rep
+        }
+    }
+
+    /// A desktop cut-out for the README: a drawn wallpaper below an empty menu bar, the panels side by side.
+    private struct Desktop: View {
+        let panels: [AnyView]
+
+        private static let menuBarHeight: CGFloat = 24
+
+        var body: some View {
+            HStack(alignment: .top, spacing: 40) {
+                ForEach(panels.indices, id: \.self) { index in
+                    panels[index].panel().shadow(color: .black.opacity(0.4), radius: 24, y: 12)
+                }
+            }
+            .padding(.top, Self.menuBarHeight + 6)
+            .padding([.horizontal, .bottom], 56)
+            .background(alignment: .top) {
+                Rectangle().fill(.black.opacity(0.3)).frame(height: Self.menuBarHeight)
+            }
+            .background { Wallpaper() }
+            .clipShape(.rect(cornerRadius: 16))
+            .environment(\.colorScheme, .dark)
+        }
+    }
+
+    /// Soft night-blue, violet and orange light in the manner of a macOS wallpaper, drawn rather than loaded.
+    private struct Wallpaper: View {
+        var body: some View {
+            Canvas { context, size in
+                let full = CGRect(origin: .zero, size: size)
+                context.fill(
+                    Path(full),
+                    with: .linearGradient(
+                        Gradient(colors: [Color(nsColor: .systemIndigo), Color(nsColor: .systemPurple)]),
+                        startPoint: .zero, endPoint: CGPoint(x: size.width, y: size.height)))
+                // system colors darkened to night tones, the app defines no colors of its own
+                context.fill(Path(full), with: .color(.black.opacity(0.72)))
+                for (x, y, radius, color) in [
+                    (0.15, 0.85, 0.75, NSColor.systemPurple),
+                    (0.85, 0.20, 0.65, .systemBlue),
+                    (0.70, 1.00, 0.55, .systemOrange),
+                ] {
+                    let center = CGPoint(x: size.width * x, y: size.height * y)
+                    let reach = max(size.width, size.height) * radius
+                    context.fill(
+                        Path(full),
+                        with: .radialGradient(
+                            Gradient(colors: [Color(nsColor: color).opacity(0.45), Color(nsColor: color).opacity(0)]),
+                            center: center, startRadius: 0, endRadius: reach))
+                }
+                for (index, opacity) in [0.10, 0.07, 0.05].enumerated() {
+                    let base = size.height * (0.45 + 0.15 * Double(index))
+                    var wave = Path()
+                    wave.move(to: CGPoint(x: 0, y: base))
+                    wave.addCurve(
+                        to: CGPoint(x: size.width, y: base - size.height * 0.2),
+                        control1: CGPoint(x: size.width * 0.35, y: base - size.height * 0.35),
+                        control2: CGPoint(x: size.width * 0.65, y: base + size.height * 0.25))
+                    wave.addLine(to: CGPoint(x: size.width, y: size.height))
+                    wave.addLine(to: CGPoint(x: 0, y: size.height))
+                    wave.closeSubpath()
+                    context.fill(wave, with: .color(.white.opacity(opacity)))
+                }
+            }
+        }
+    }
+
+    extension View {
+        /// Glass needs the window server, the panel background stands in.
+        fileprivate func panel() -> some View {
+            background(Color(nsColor: .windowBackgroundColor)).clipShape(.rect(cornerRadius: 16))
         }
     }
 #endif
