@@ -32,19 +32,14 @@
             try renderReadme(from: screens, to: directory.appending(path: "readme", directoryHint: .isDirectory))
         }
 
-        /// The app icon at 128 pt, the check-in beside the day and the week beside the month, dark, on a desktop with
-        /// an empty menu bar.
+        /// The app icon at 128 pt and the check-in beside the day, dark, on a desktop with an empty menu bar.
         static func renderReadme(from screens: [(name: String, view: AnyView)], to directory: URL) throws {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             let dark = NSAppearance(named: .darkAqua)!
-            for (name, panels) in [
-                ("hero", ["checkin", "dashboard-day"]), ("periods", ["dashboard-week", "dashboard-month"]),
-            ] {
-                let views = panels.compactMap { name in screens.first { $0.name == name }?.view }
-                try write(
-                    image(of: AnyView(Desktop(panels: views)), appearance: dark, panel: false),
-                    to: directory.appending(path: "\(name).png"))
-            }
+            let panels = ["checkin", "dashboard-day"].compactMap { name in screens.first { $0.name == name }?.view }
+            try write(
+                image(of: AnyView(Desktop(panels: panels)), appearance: dark, panel: false),
+                to: directory.appending(path: "hero.png"))
             let icon = try bitmap(pixels: 256)
             NSGraphicsContext.saveGraphicsState()
             NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: icon)

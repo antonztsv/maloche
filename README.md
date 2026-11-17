@@ -21,10 +21,6 @@
 - One answer books the time since the last one: type a few letters, press Return.
 - The dashboard shows your day, week and month by customer, project and activity.
 
-<p align="center">
-  <img src="docs/images/periods.png" alt="The week and the month view, in dark mode" width="640">
-</p>
-
 ## Private by design
 
 Everything stays on your Mac: no server, no account, no telemetry, and the update check only runs once you turn it on.
