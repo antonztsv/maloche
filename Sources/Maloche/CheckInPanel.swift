@@ -154,13 +154,21 @@ final class CheckInPanelController: PanelPresenter {
         }
     }
 
+    /// Only the controller sizes the panel, with the content's fitting size; the default options let AppKit resize
+    /// it at once while SwiftUI still animates, which made a fold jump before it moved.
+    static func hostingView<Content: View>(_ rootView: Content) -> NSHostingView<Content> {
+        let view = NSHostingView(rootView: rootView)
+        view.sizingOptions = [.intrinsicContentSize]
+        return view
+    }
+
     var isVisible: Bool { panel.isVisible }
     var isKey: Bool { panel.isKeyWindow }
 
     func show(focus: Bool) {
         // a fresh hosting view per opening resets the field and its focus
-        let view = NSHostingView(
-            rootView: PanelView(
+        let view = Self.hostingView(
+            PanelView(
                 model: model,
                 onResize: { [weak self] in
                     DispatchQueue.main.async { self?.contentResized() }

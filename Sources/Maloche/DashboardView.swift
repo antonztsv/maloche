@@ -413,16 +413,17 @@ struct DashboardList: View {
                 }
             }
         }
-        // one animation for the arrow and the header click
-        .animation(reduceMotion ? nil : .easeInOut(duration: Self.foldDuration), value: collapsed)
         .padding(.horizontal, 4)
     }
 
+    /// The arrow and the header click both fold here, with one animation for the whole panel.
     private func expanded(_ id: Int64?) -> Binding<Bool> {
         Binding(
             get: { !collapsed.contains(id) },
             set: { isExpanded in
-                if isExpanded { collapsed.remove(id) } else { collapsed.insert(id) }
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: Self.foldDuration)) {
+                    if isExpanded { collapsed.remove(id) } else { collapsed.insert(id) }
+                }
             })
     }
 
