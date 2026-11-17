@@ -746,6 +746,46 @@
         }
       }
     },
+    "Delete" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Löschen"
+          }
+        }
+      }
+    },
+    "Delete %lld Activities?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Aktivitäten löschen?"
+          }
+        }
+      }
+    },
+    "Delete “%@”?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ löschen?"
+          }
+        }
+      }
+    },
+    "Delete…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Löschen …"
+          }
+        }
+      }
+    },
     "Divider between %@ and %@" : {
       "localizations" : {
         "de" : {
@@ -2254,6 +2294,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Die Wiederherstellung hat nicht geklappt, deine Daten bleiben, wie sie sind."
+          }
+        }
+      }
+    },
+    "This also deletes %@ of logged time and cannot be undone. To keep the time, use Merge Into… instead." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Damit wird auch %@ gebuchte Zeit gelöscht, das lässt sich nicht rückgängig machen. Willst du die Zeit behalten, nimm stattdessen „Zusammenführen …“."
           }
         }
       }

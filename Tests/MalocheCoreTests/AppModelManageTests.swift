@@ -121,6 +121,24 @@ import Testing
         #expect(presenter.failures == 0)
     }
 
+    @Test func deletingTheRunningActivityEndsItsSpanWithoutBookingAndTheNextAnswerCountsFromThere() throws {
+        let model = try makeModel()
+        let writing = try writingFrom0900(model)
+        let reading = try model.database.createActivity(name: "Reading").id!
+        tick(model, at: "09:10")
+
+        try model.delete([writing])
+        #expect(model.currentActivity == nil)
+        #expect(model.catalog.activity(writing) == nil)
+        tick(model, at: "09:20")
+        #expect(try booked(model).isEmpty)
+
+        model.shortcut(.openCheckIn)
+        model.log(.existing(reading))
+        #expect(try booked(model) == ["Reading 09:10-09:20"])
+        #expect(presenter.failures == 0)
+    }
+
     @Test func aMergedActivityStillShownInAPromptIsNotBooked() throws {
         let model = try makeModel()
         let writing = try model.database.createActivity(name: "Writing").id!

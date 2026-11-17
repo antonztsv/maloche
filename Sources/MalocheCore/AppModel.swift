@@ -454,6 +454,14 @@ public final class AppModel {
         saveState()
     }
 
+    /// Deletes the activities with all their time; a deleted running activity ends without booking.
+    public func delete(_ ids: [Int64]) throws {
+        try manage { try $0.deleteActivities(ids) }
+        tracker.deleted(activities: Set(ids), at: now)
+        publish()
+        saveState()
+    }
+
     /// The window's sidebar and table, with the work of the current calendar month.
     public func activityOverview() throws -> ActivityOverview {
         let month = Period(.month, containing: now, calendar: calendar)

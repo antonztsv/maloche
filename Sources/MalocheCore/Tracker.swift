@@ -174,6 +174,18 @@ public struct Tracker: Sendable {
         if let current = state.current, ids.contains(current) { state.current = target }
     }
 
+    /// After a delete the prefill goes; a deleted running activity ends without booking and the time from `date` waits
+    /// for the next answer, also while it continued without asking.
+    public mutating func deleted(activities ids: Set<Int64>, at date: Date) {
+        guard let current = state.current, ids.contains(current) else { return }
+        let wasRunning = running == current
+        state.current = nil
+        guard wasRunning else { return }
+        if case .continuing = state.phase { state.phase = .tracking }
+        state.runStart = Self.whole(date)
+        state.spanStart = state.runStart
+    }
+
     /// After a restore: the running span, its unbooked time and a pending prompt are dropped; Done for today, Off and
     /// the override stay, the current activity too while the restored data has it.
     public mutating func restored(activities: Set<Int64>) {
