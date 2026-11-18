@@ -41,6 +41,35 @@ final class CheckInPanel: NSPanel {
         reshapeShadow()
     }
 
+    private var resizeTimer: Timer?
+
+    /// Steps the frame on SwiftUI's ease in out curve with plain frame changes, so the content is laid out for every
+    /// step. A zero duration resizes at once.
+    func setFrame(_ frame: NSRect, duration: TimeInterval) {
+        resizeTimer?.invalidate()
+        guard duration > 0 else { return setFrame(frame, display: true) }
+        let from = self.frame
+        let start = CACurrentMediaTime()
+        let timer = Timer(timeInterval: 1 / 120, repeats: true) { [weak self] timer in
+            let progress = min((CACurrentMediaTime() - start) / duration, 1)
+            if progress == 1 { timer.invalidate() }
+            MainActor.assumeIsolated { self?.step(from: from, to: frame, progress: progress) }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        resizeTimer = timer
+    }
+
+    private func step(from: NSRect, to frame: NSRect, progress: Double) {
+        guard progress < 1 else { return setFrame(frame, display: true) }
+        let t = UnitCurve.easeInOut.value(at: progress)
+        // a whole point height under a fixed top, so rounding never nudges the top edge
+        let height = (from.height + (frame.height - from.height) * t).rounded()
+        let top = from.maxY + (frame.maxY - from.maxY) * t
+        let x = from.minX + (frame.minX - from.minX) * t
+        let width = from.width + (frame.width - from.width) * t
+        setFrame(NSRect(x: x, y: top - height, width: width, height: height), display: true)
+    }
+
     override func becomeKey() {
         super.becomeKey()
         reshapeShadow()
@@ -88,8 +117,8 @@ struct PanelView: View {
         } action: { _ in
             onResize()
         }
-        // top aligned, content that changes height before the panel follows never shifts within the old frame
-        .frame(maxHeight: .infinity, alignment: .top)
+        // top aligned while the panel follows a new height, without minHeight a taller content is centered instead
+        .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
     }
 
     private func dashboard(_ day: DashboardDay) -> DashboardView {
@@ -219,11 +248,7 @@ final class CheckInPanelController: PanelPresenter {
         guard case .dashboard = model.panel, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
             return position()
         }
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = DashboardList.foldDuration
-            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            position(animated: true)
-        }
+        position(duration: DashboardList.foldDuration)
     }
 
     private func logState(_ action: String) {
@@ -245,7 +270,7 @@ final class CheckInPanelController: PanelPresenter {
         }
     }
 
-    private func position(animated: Bool = false) {
+    private func position(duration: TimeInterval = 0) {
         let size = hosting?.fittingSize ?? panel.frame.size
         guard size.height > 0, let screen = NSScreen.active else { return }
         var anchorOffset: CGFloat = 200
@@ -255,6 +280,6 @@ final class CheckInPanelController: PanelPresenter {
         let frame = PanelPlacement.panelFrame(
             size: size, anchorOffsetFromRight: anchorOffset, screenFrame: screen.frame,
             visibleFrame: screen.visibleFrame, margin: 6)
-        if animated { panel.animator().setFrame(frame, display: true) } else { panel.setFrame(frame, display: true) }
+        panel.setFrame(frame, duration: duration)
     }
 }
