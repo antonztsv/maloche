@@ -92,7 +92,7 @@ struct NewProjectForm: View {
 }
 
 /// A combo box whose list shows the customers matching the typed words, free text names a new customer.
-private struct CustomerField: NSViewRepresentable {
+struct CustomerField: NSViewRepresentable {
     @Binding var text: String
     let customers: [Customer]
     /// Where the text starts, from the leading edge of the field.
@@ -116,7 +116,6 @@ private struct CustomerField: NSViewRepresentable {
         field.setContentHuggingPriority(.defaultLow, for: .vertical)
         field.font = .preferredFont(forTextStyle: .body)
         field.usesDataSource = true
-        // longer lists scroll
         field.numberOfVisibleItems = 8
         field.dataSource = context.coordinator
         field.delegate = context.coordinator
@@ -141,7 +140,7 @@ private struct CustomerField: NSViewRepresentable {
         }
     }
 
-    private final class ComboBox: NSComboBox {
+    final class ComboBox: NSComboBox {
         override class var cellClass: AnyClass? {
             get { Cell.self }
             set {}
@@ -149,19 +148,28 @@ private struct CustomerField: NSViewRepresentable {
 
         private var clickMonitor: Any?
 
+        var isWatchingClicks: Bool { clickMonitor != nil }
+
+        static func shouldOpenList(listOpenAtMouseDown: Bool, insideField: Bool, control: Bool) -> Bool {
+            !listOpenAtMouseDown && insideField && !control
+        }
+
+        isolated deinit { stopWatchingClicks() }
+
         /// A click or Tab into the field shows the list before anything is typed.
         override func becomeFirstResponder() -> Bool {
             guard super.becomeFirstResponder() else { return false }
             openList()
-            // while editing, clicks reach the field editor and not this field, a closed list opens again on each one
+            // clicks while editing reach the field editor, not this field
             clickMonitor =
                 clickMonitor
                 ?? NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
-                    if let self, event.window == self.window,
-                        self.bounds.contains(self.convert(event.locationInWindow, from: nil))
-                    {
-                        self.openList()
-                    }
+                    guard let self, event.window == self.window else { return event }
+                    let open = Self.shouldOpenList(
+                        listOpenAtMouseDown: self.cell?.isAccessibilityExpanded() ?? false,
+                        insideField: self.bounds.contains(self.convert(event.locationInWindow, from: nil)),
+                        control: event.modifierFlags.contains(.control))
+                    if open { self.openList() }
                     return event
                 }
             return true
@@ -172,7 +180,6 @@ private struct CustomerField: NSViewRepresentable {
             stopWatchingClicks()
         }
 
-        /// The panel can close while the field is still being edited.
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             if window == nil { stopWatchingClicks() }
@@ -183,12 +190,10 @@ private struct CustomerField: NSViewRepresentable {
             clickMonitor = nil
         }
 
-        /// After the field editor took over; the accessibility setter is the only public way to open the list.
+        /// Runs after the field editor took over; the accessibility setter is the only public way to open the list.
         private func openList() {
             DispatchQueue.main.async { [weak self] in
-                guard let self, self.currentEditor() != nil, self.numberOfItems > 0,
-                    self.cell?.isAccessibilityExpanded() == false
-                else { return }
+                guard let self, self.currentEditor() != nil, self.numberOfItems > 0 else { return }
                 self.cell?.setAccessibilityExpanded(true)
             }
         }

@@ -199,6 +199,60 @@ import Testing
         #expect(NSApplication.shared.windows.allSatisfy { !$0.isVisible })
     }
 
+    @Test func aClickOpensTheListOnlyWhenItWasClosedInsideTheFieldWithoutControl() {
+        typealias Box = CustomerField.ComboBox
+        #expect(Box.shouldOpenList(listOpenAtMouseDown: false, insideField: true, control: false))
+        #expect(!Box.shouldOpenList(listOpenAtMouseDown: true, insideField: true, control: false))
+        #expect(!Box.shouldOpenList(listOpenAtMouseDown: false, insideField: false, control: false))
+        #expect(!Box.shouldOpenList(listOpenAtMouseDown: false, insideField: true, control: true))
+    }
+
+    private func customerBox(draft: Binding<ProjectDraft>? = nil) throws -> (NSWindow, NSView, CustomerField.ComboBox) {
+        let form = NewProjectForm(
+            draft: draft ?? .constant(ProjectDraft(name: "Relaunch")), customers: Self.customers, onCancel: {},
+            onCreate: {})
+        let (window, hosting) = host(form)
+        settle(hosting)
+        let box = try #require(comboBox(in: hosting) as? CustomerField.ComboBox)
+        return (window, hosting, box)
+    }
+
+    @Test func theClickMonitorLivesWhileTheCustomerFieldIsEdited() throws {
+        let (window, hosting, box) = try customerBox()
+        #expect(!box.isWatchingClicks)
+
+        window.makeFirstResponder(box)
+        settle(hosting)
+        #expect(box.isWatchingClicks)
+
+        window.makeFirstResponder(nil)
+        settle(hosting)
+        #expect(!box.isWatchingClicks)
+    }
+
+    @Test func theClickMonitorIsGoneWhenTheFieldLeavesTheWindow() throws {
+        let (window, hosting, box) = try customerBox()
+        window.makeFirstResponder(box)
+        settle(hosting)
+
+        box.removeFromSuperview()
+
+        #expect(!box.isWatchingClicks)
+    }
+
+    @Test func theClickMonitorSurvivesPickingACustomer() throws {
+        var draft = ProjectDraft(name: "Relaunch")
+        let (window, hosting, box) = try customerBox(draft: Binding(get: { draft }, set: { draft = $0 }))
+        window.makeFirstResponder(box)
+        settle(hosting)
+
+        box.selectItem(at: 1)
+        settle(hosting)
+
+        #expect(box.currentEditor() != nil)
+        #expect(box.isWatchingClicks)
+    }
+
     @Test func pickingACustomerSetsTheDraft() throws {
         var draft = ProjectDraft(name: "Relaunch")
         let form = NewProjectForm(
