@@ -80,3 +80,52 @@ import Testing
         #expect(!panel.isVisible)
     }
 }
+
+/// When the panel height follows its content with a motion, and how the step timer ends.
+@MainActor @Suite struct PanelResizeMotionTests {
+    private let fold = DashboardList.foldDuration
+
+    @Test func onlyAFoldJustMadeAnimatesTheHeight() {
+        #expect(CheckInPanelController.resizeDuration(foldedAt: 10, now: 10.02, reduceMotion: false) == fold)
+        #expect(CheckInPanelController.resizeDuration(foldedAt: nil, now: 10, reduceMotion: false) == 0)
+        #expect(CheckInPanelController.resizeDuration(foldedAt: 10, now: 10.02, reduceMotion: true) == 0)
+        #expect(CheckInPanelController.resizeDuration(foldedAt: 10, now: 12, reduceMotion: false) == 0)
+    }
+
+    private let start = NSRect(x: 100, y: 500, width: 380, height: 200)
+    private let target = NSRect(x: 100, y: 400, width: 380, height: 300)
+
+    private func wait(_ seconds: TimeInterval) {
+        RunLoop.current.run(until: Date().addingTimeInterval(seconds))
+    }
+
+    @Test func aFrameAlreadyReachedStartsNoSteps() {
+        let panel = CheckInPanel()
+        panel.setFrame(start, display: true)
+        panel.setFrame(start, duration: fold)
+        panel.setFrame(target, display: true)
+        wait(0.4)
+        #expect(panel.frame == target)
+    }
+
+    @Test func theSameTargetKeepsARunningMotion() {
+        let panel = CheckInPanel()
+        panel.setFrame(start, display: true)
+        panel.setFrame(target, duration: fold)
+        wait(0.05)
+        panel.setFrame(target, duration: 0)
+        #expect(panel.frame != target)
+        wait(0.4)
+        #expect(panel.frame == target)
+    }
+
+    @Test func hidingStopsTheSteps() {
+        let panel = CheckInPanel()
+        panel.setFrame(start, display: true)
+        panel.setFrame(target, duration: fold)
+        panel.orderOut(nil)
+        wait(0.4)
+        #expect(panel.frame == start)
+        #expect(!panel.isVisible)
+    }
+}

@@ -372,12 +372,22 @@ struct DashboardView: View {
     }
 }
 
+/// When a customer group last folded, so the panel height follows it with the same motion.
+@MainActor final class FoldSignal {
+    var foldedAt: TimeInterval?
+}
+
+extension EnvironmentValues {
+    @Entry var foldSignal: FoldSignal?
+}
+
 /// Work by customer, then project, each activity with its share of the day as a bar.
 struct DashboardList: View {
     var data: DashboardData
     var onSelect: (Int64) -> Void = { _ in }
     @State private var collapsed: Set<Int64?> = []
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.foldSignal) private var foldSignal
 
     /// The panel height follows a fold with the same duration and curve.
     static let foldDuration = 0.25
@@ -421,7 +431,8 @@ struct DashboardList: View {
         Binding(
             get: { !collapsed.contains(id) },
             set: { isExpanded in
-                withAnimation(reduceMotion ? nil : .easeInOut(duration: Self.foldDuration)) {
+                foldSignal?.foldedAt = CACurrentMediaTime()
+                _ = withAnimation(reduceMotion ? nil : .easeInOut(duration: Self.foldDuration)) {
                     if isExpanded { collapsed.remove(id) } else { collapsed.insert(id) }
                 }
             })
