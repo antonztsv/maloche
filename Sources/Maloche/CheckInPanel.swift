@@ -183,8 +183,17 @@ final class CheckInPanelController: PanelPresenter {
     }
 
     private func makeKey() {
+        guard case .dashboard = model.panel, let hosting else { return panel.makeKeyAndOrderFront(nil) }
+        // AppKit picks this when the panel first becomes visible after launch
+        panel.initialFirstResponder = hosting
         panel.makeKeyAndOrderFront(nil)
-        if case .dashboard = model.panel, let hosting { Self.startWithoutFocus(in: panel, hosting: hosting) }
+        Self.startWithoutFocus(in: panel, hosting: hosting)
+        // the fresh hosting view builds its rows in the next layout pass, which hands the focus out again
+        DispatchQueue.main.async { [panel] in
+            if panel.isKeyWindow, panel.firstResponder !== hosting {
+                Self.startWithoutFocus(in: panel, hosting: hosting)
+            }
+        }
     }
 
     /// Becoming key, AppKit focuses the first view of the key view loop, an always focusable row that then shows a
