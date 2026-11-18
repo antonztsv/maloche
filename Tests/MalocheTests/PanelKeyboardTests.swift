@@ -124,20 +124,25 @@ import Testing
         #expect(calls.periods == [period.switched(to: kind, now: now, calendar: calendar)])
     }
 
-    /// The dashboard opens with the panel itself as first responder, no row shows a focus ring until Tab.
-    @Test func theDashboardStartsWithoutAFocusedElementAndTabFocusesTheFirst() throws {
+    /// The step the panel takes after becoming key, in a window never shown; the real key panel is checked by hand.
+    @Test func startingWithoutFocusTakesItFromARowAndTabGivesItToARowAgain() throws {
         let model = try AppModel(database: .inMemory(), stateURL: nil)
         let (window, hosting) = host(dashboard(model: model))
-        window.makeFirstResponder(window.contentView?.nextValidKeyView)
+        func focusedInside() -> Bool {
+            guard let responder = window.firstResponder as? NSView, responder !== hosting else { return false }
+            return responder.isDescendant(of: hosting)
+        }
+        window.makeFirstResponder(hosting)
+        window.selectNextKeyView(nil)
         settle(hosting)
-        #expect(window.firstResponder !== hosting)
+        #expect(focusedInside())
 
         #expect(CheckInPanelController.startWithoutFocus(in: window, hosting: hosting))
         #expect(window.firstResponder === hosting)
 
         window.selectNextKeyView(nil)
         settle(hosting)
-        #expect(window.firstResponder !== hosting)
+        #expect(focusedInside())
     }
 
     /// Walks back from the end, the Now row and the rows come before anything above them.

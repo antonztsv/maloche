@@ -189,15 +189,16 @@ final class CheckInPanelController: PanelPresenter {
         panel.makeKeyAndOrderFront(nil)
         Self.startWithoutFocus(in: panel, hosting: hosting)
         // the fresh hosting view builds its rows in the next layout pass, which hands the focus out again
-        DispatchQueue.main.async { [panel] in
-            if panel.isKeyWindow, panel.firstResponder !== hosting {
-                Self.startWithoutFocus(in: panel, hosting: hosting)
-            }
+        DispatchQueue.main.async { [weak self] in
+            // only while the same dashboard shows, a prompt that appeared meanwhile keeps its focus
+            guard let self, case .dashboard = self.model.panel, self.hosting === hosting, self.panel.isKeyWindow,
+                self.panel.firstResponder !== hosting
+            else { return }
+            Self.startWithoutFocus(in: self.panel, hosting: hosting)
         }
     }
 
-    /// Becoming key, AppKit focuses the first view of the key view loop, an always focusable row that then shows a
-    /// focus ring; with the hosting view as first responder nothing shows one, Tab moves to the first element.
+    /// With the hosting view as first responder no row shows a focus ring, Tab moves to the first element.
     @discardableResult
     static func startWithoutFocus(in window: NSWindow, hosting: NSView) -> Bool {
         window.makeFirstResponder(hosting)
