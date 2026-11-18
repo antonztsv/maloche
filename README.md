@@ -4,7 +4,7 @@
 
 <h1 align="center">maloche</h1>
 
-<p align="center">A calm menu bar time tracker for macOS. Every now and then it asks what you are working on, and your day fills itself.</p>
+<p align="center">Native macOS menu bar time tracker. No timers to start, no lists to manage. Just log what you are working on.</p>
 
 <p align="center">
   <a href="https://github.com/antonztsv/maloche/releases/latest"><strong>Download the latest release</strong></a><br>
