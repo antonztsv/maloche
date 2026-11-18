@@ -372,11 +372,25 @@ struct DashboardView: View {
     }
 }
 
+/// When a customer group last folded, so the panel height follows it with the same motion.
+@MainActor final class FoldSignal {
+    var foldedAt: TimeInterval?
+}
+
+extension EnvironmentValues {
+    @Entry var foldSignal: FoldSignal?
+}
+
 /// Work by customer, then project, each activity with its share of the day as a bar.
 struct DashboardList: View {
     var data: DashboardData
     var onSelect: (Int64) -> Void = { _ in }
     @State private var collapsed: Set<Int64?> = []
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.foldSignal) private var foldSignal
+
+    /// The panel height follows a fold with the same duration and curve.
+    static let foldDuration = 0.25
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -405,20 +419,22 @@ struct DashboardList: View {
                     .frame(height: 22)
                     // the whole header toggles, not only the arrow
                     .contentShape(.rect)
-                    .onTapGesture {
-                        withAnimation { expanded(total.customer?.id).wrappedValue.toggle() }
-                    }
+                    .onTapGesture { expanded(total.customer?.id).wrappedValue.toggle() }
                 }
             }
         }
         .padding(.horizontal, 4)
     }
 
+    /// The arrow and the header click both fold here, with one animation for the whole panel.
     private func expanded(_ id: Int64?) -> Binding<Bool> {
         Binding(
             get: { !collapsed.contains(id) },
             set: { isExpanded in
-                if isExpanded { collapsed.remove(id) } else { collapsed.insert(id) }
+                foldSignal?.foldedAt = CACurrentMediaTime()
+                _ = withAnimation(reduceMotion ? nil : .easeInOut(duration: Self.foldDuration)) {
+                    if isExpanded { collapsed.remove(id) } else { collapsed.insert(id) }
+                }
             })
     }
 

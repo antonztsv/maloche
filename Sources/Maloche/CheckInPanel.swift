@@ -41,6 +41,44 @@ final class CheckInPanel: NSPanel {
         reshapeShadow()
     }
 
+    private var resizeTimer: Timer?
+    private var resizeTarget: NSRect?
+
+    /// Steps the frame on SwiftUI's ease in out curve with plain frame changes, so the content is laid out for every
+    /// step. A zero duration resizes at once, a running step toward the same frame keeps going.
+    func setFrame(_ frame: NSRect, duration: TimeInterval) {
+        if resizeTimer?.isValid == true, frame == resizeTarget { return }
+        resizeTimer?.invalidate()
+        guard frame != self.frame else { return }
+        guard duration > 0 else { return setFrame(frame, display: true) }
+        let from = self.frame
+        let start = CACurrentMediaTime()
+        let timer = Timer(timeInterval: 1 / 120, repeats: true) { [weak self] timer in
+            let progress = min((CACurrentMediaTime() - start) / duration, 1)
+            if progress == 1 { timer.invalidate() }
+            MainActor.assumeIsolated { self?.step(from: from, to: frame, progress: progress) }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        resizeTimer = timer
+        resizeTarget = frame
+    }
+
+    override func orderOut(_ sender: Any?) {
+        resizeTimer?.invalidate()
+        super.orderOut(sender)
+    }
+
+    private func step(from: NSRect, to frame: NSRect, progress: Double) {
+        guard progress < 1 else { return setFrame(frame, display: true) }
+        let t = UnitCurve.easeInOut.value(at: progress)
+        // a whole point height under a fixed top, so rounding never nudges the top edge
+        let height = (from.height + (frame.height - from.height) * t).rounded()
+        let top = from.maxY + (frame.maxY - from.maxY) * t
+        let x = from.minX + (frame.minX - from.minX) * t
+        let width = from.width + (frame.width - from.width) * t
+        setFrame(NSRect(x: x, y: top - height, width: width, height: height), display: true)
+    }
+
     override func becomeKey() {
         super.becomeKey()
         reshapeShadow()
@@ -83,11 +121,15 @@ struct PanelView: View {
             case nil: EmptyView()
             }
         }
+        // its own height, so a taller panel during a resize cannot stretch it and measure again
+        .fixedSize(horizontal: false, vertical: true)
         .onGeometryChange(for: CGFloat.self) {
             $0.size.height
         } action: { _ in
             onResize()
         }
+        // top aligned while the panel follows a new height, without minHeight a taller content is centered instead
+        .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
     }
 
     private func dashboard(_ day: DashboardDay) -> DashboardView {
@@ -112,6 +154,7 @@ final class CheckInPanelController: PanelPresenter {
     let panel = CheckInPanel()
     private let model: AppModel
     private var hosting: NSView?
+    private let fold = FoldSignal()
     private var activationObserver: NSObjectProtocol?
     private var resignKeyObserver: NSObjectProtocol?
 
@@ -152,17 +195,26 @@ final class CheckInPanelController: PanelPresenter {
         }
     }
 
+    /// Only the controller sizes the panel, with the content's fitting size; the default options let AppKit resize
+    /// it at once while SwiftUI still animates, which made a fold jump before it moved.
+    static func hostingView<Content: View>(_ rootView: Content) -> NSHostingView<Content> {
+        let view = NSHostingView(rootView: rootView)
+        view.sizingOptions = [.intrinsicContentSize]
+        return view
+    }
+
     var isVisible: Bool { panel.isVisible }
     var isKey: Bool { panel.isKeyWindow }
 
     func show(focus: Bool) {
         // a fresh hosting view per opening resets the field and its focus
-        let view = NSHostingView(
-            rootView: PanelView(
+        let view = Self.hostingView(
+            PanelView(
                 model: model,
                 onResize: { [weak self] in
                     DispatchQueue.main.async { self?.contentResized() }
-                }))
+                }
+            ).environment(\.foldSignal, fold))
         panel.glass.contentView = view
         hosting = view
         position()
@@ -226,8 +278,18 @@ final class CheckInPanelController: PanelPresenter {
         panelVisible && window != nil && window === button
     }
 
+    /// Only a fold made just before the resize animates the height, any other change resizes at once.
+    static func resizeDuration(foldedAt: TimeInterval?, now: TimeInterval, reduceMotion: Bool) -> TimeInterval {
+        guard let foldedAt, !reduceMotion, now - foldedAt < DashboardList.foldDuration else { return 0 }
+        return DashboardList.foldDuration
+    }
+
     private func contentResized() {
-        if panel.isVisible { position() }
+        let duration = Self.resizeDuration(
+            foldedAt: fold.foldedAt, now: CACurrentMediaTime(),
+            reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
+        fold.foldedAt = nil
+        if panel.isVisible { position(duration: duration) }
     }
 
     private func logState(_ action: String) {
@@ -249,7 +311,7 @@ final class CheckInPanelController: PanelPresenter {
         }
     }
 
-    private func position() {
+    private func position(duration: TimeInterval = 0) {
         let size = hosting?.fittingSize ?? panel.frame.size
         guard size.height > 0, let screen = NSScreen.active else { return }
         var anchorOffset: CGFloat = 200
@@ -259,6 +321,6 @@ final class CheckInPanelController: PanelPresenter {
         let frame = PanelPlacement.panelFrame(
             size: size, anchorOffsetFromRight: anchorOffset, screenFrame: screen.frame,
             visibleFrame: screen.visibleFrame, margin: 6)
-        panel.setFrame(frame, display: true)
+        panel.setFrame(frame, duration: duration)
     }
 }
