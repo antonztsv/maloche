@@ -92,7 +92,7 @@ struct NewProjectForm: View {
 }
 
 /// A combo box whose list shows the customers matching the typed words, free text names a new customer.
-private struct CustomerField: NSViewRepresentable {
+struct CustomerField: NSViewRepresentable {
     @Binding var text: String
     let customers: [Customer]
     /// Where the text starts, from the leading edge of the field.
@@ -116,6 +116,7 @@ private struct CustomerField: NSViewRepresentable {
         field.setContentHuggingPriority(.defaultLow, for: .vertical)
         field.font = .preferredFont(forTextStyle: .body)
         field.usesDataSource = true
+        field.numberOfVisibleItems = 8
         field.dataSource = context.coordinator
         field.delegate = context.coordinator
         field.stringValue = text
@@ -139,10 +140,62 @@ private struct CustomerField: NSViewRepresentable {
         }
     }
 
-    private final class ComboBox: NSComboBox {
+    final class ComboBox: NSComboBox {
         override class var cellClass: AnyClass? {
             get { Cell.self }
             set {}
+        }
+
+        private var clickMonitor: Any?
+
+        var isWatchingClicks: Bool { clickMonitor != nil }
+
+        static func shouldOpenList(listOpenAtMouseDown: Bool, insideField: Bool, control: Bool) -> Bool {
+            !listOpenAtMouseDown && insideField && !control
+        }
+
+        isolated deinit { stopWatchingClicks() }
+
+        /// A click or Tab into the field shows the list before anything is typed.
+        override func becomeFirstResponder() -> Bool {
+            guard super.becomeFirstResponder() else { return false }
+            openList()
+            // clicks while editing reach the field editor, not this field
+            clickMonitor =
+                clickMonitor
+                ?? NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+                    guard let self, event.window == self.window else { return event }
+                    let open = Self.shouldOpenList(
+                        listOpenAtMouseDown: self.cell?.isAccessibilityExpanded() ?? false,
+                        insideField: self.bounds.contains(self.convert(event.locationInWindow, from: nil)),
+                        control: event.modifierFlags.contains(.control))
+                    if open { self.openList() }
+                    return event
+                }
+            return true
+        }
+
+        override func textDidEndEditing(_ notification: Notification) {
+            super.textDidEndEditing(notification)
+            stopWatchingClicks()
+        }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window == nil { stopWatchingClicks() }
+        }
+
+        private func stopWatchingClicks() {
+            if let clickMonitor { NSEvent.removeMonitor(clickMonitor) }
+            clickMonitor = nil
+        }
+
+        /// Runs after the field editor took over; the accessibility setter is the only public way to open the list.
+        private func openList() {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.currentEditor() != nil, self.numberOfItems > 0 else { return }
+                self.cell?.setAccessibilityExpanded(true)
+            }
         }
 
         // zero horizontally, so the padding around the field places the frame and with it the list
