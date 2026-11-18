@@ -1,0 +1,32 @@
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    # the app uses the macOS 27 SDK, which needs Xcode 27
+    runs-on: xcode-27
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .build
+          key: build-${{ runner.os }}-xcode-27.2-${{ hashFiles('Package.resolved') }}
+          restore-keys: build-${{ runner.os }}-xcode-27.2-
+      - run: swift --version
+      - run: swift build
+      - run: swift test
+      - run: xcrun swift-format lint --strict --recursive Sources Tests
