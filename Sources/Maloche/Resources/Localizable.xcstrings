@@ -102,6 +102,26 @@
         }
       }
     },
+    "%@. This removes %@ from this day. You can’t undo this." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@. Das entfernt %2$@ aus diesem Tag. Das lässt sich nicht rückgängig machen."
+          }
+        }
+      }
+    },
+    "%@. This removes %@ from today. You can’t undo this." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@. Das entfernt %2$@ aus dem heutigen Tag. Das lässt sich nicht rückgängig machen."
+          }
+        }
+      }
+    },
     "%lld selected." : {
       "localizations" : {
         "de" : {
@@ -756,12 +776,32 @@
         }
       }
     },
+    "Delete %@…" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ löschen …"
+          }
+        }
+      }
+    },
     "Delete %lld Activities?" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld Aktivitäten löschen?"
+          }
+        }
+      }
+    },
+    "Delete this entry?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diesen Eintrag löschen?"
           }
         }
       }

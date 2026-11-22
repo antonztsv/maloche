@@ -67,6 +67,14 @@ public struct DayTimeline: Equatable, Sendable {
         return ticks
     }
 
+    /// The span under `x` or the one with the nearest edge within `radius`, so thin blocks stay easy to hit.
+    public static func nearest(to x: Double, in spans: [ClosedRange<Double>], radius: Double) -> Int? {
+        let distances = spans.map { max($0.lowerBound - x, x - $0.upperBound, 0) }
+        guard let best = distances.indices.min(by: { distances[$0] < distances[$1] }), distances[best] <= radius
+        else { return nil }
+        return best
+    }
+
     /// Every full local hour on the axis, ends included.
     public func fullHours(calendar: Calendar) -> [Date] {
         guard let hour = calendar.dateInterval(of: .hour, for: range.start) else { return [] }

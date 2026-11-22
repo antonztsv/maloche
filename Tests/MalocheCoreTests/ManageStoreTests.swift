@@ -40,6 +40,65 @@ import Testing
             block: Block(activityId: id, startedAt: Fixture.at(from), endedAt: Fixture.at(to), source: .checkIn))
     }
 
+    private func day() throws -> [String] {
+        try database.blocks(in: Fixture.span("2026-11-08 00:00", "2026-11-11 00:00")).map {
+            "\($0.activityId) \(Fixture.clock($0.startedAt))-\(Fixture.clock($0.endedAt))"
+        }
+    }
+
+    /// A drawn entry is the activity's blocks within its span; deleting it leaves every other block and the span empty.
+    @Test func deletingAnEntryRemovesItsBlocksOnly() throws {
+        let breakId = try database.builtIn(.break).id!
+        try book(writing, "00:10", "00:15")
+        try book(review, "09:00", "10:00")
+        try book(writing, "10:00", "10:30")
+        try book(writing, "10:30", "11:00")
+        try book(breakId, "11:00", "11:30")
+        try book(review, "11:30", "12:00")
+
+        try database.deleteEntry(activityId: writing, in: Fixture.span("00:10", "00:15"))
+        #expect(
+            try day() == [
+                "\(review) 09:00-10:00", "\(writing) 10:00-10:30", "\(writing) 10:30-11:00", "\(breakId) 11:00-11:30",
+                "\(review) 11:30-12:00",
+            ])
+
+        try database.deleteEntry(activityId: writing, in: Fixture.span("10:00", "11:00"))
+        try database.deleteEntry(activityId: breakId, in: Fixture.span("11:00", "11:30"))
+        #expect(try day() == ["\(review) 09:00-10:00", "\(review) 11:30-12:00"])
+    }
+
+    /// The entry of one day ends at midnight; the part of its block on the day before or after stays.
+    @Test func deletingAnEntryKeepsThePartsOfItsBlocksOutsideItsSpan() throws {
+        try database.insert(
+            block: Block(
+                activityId: writing, startedAt: Fixture.at("2026-11-08 23:00"), endedAt: Fixture.at("01:00"),
+                source: .imported))
+        try book(review, "01:00", "02:00")
+        try book(writing, "23:30", "2026-11-10 00:30")
+
+        try database.deleteEntry(activityId: writing, in: Fixture.span("00:00", "01:00"))
+        try database.deleteEntry(activityId: writing, in: Fixture.span("23:30", "2026-11-10 00:00"))
+
+        #expect(
+            try day() == [
+                "\(writing) 11-08 23:00-00:00", "\(review) 01:00-02:00", "\(writing) 11-10 00:00-11-10 00:30",
+            ])
+        let kept = try database.blocks(in: Fixture.span("2026-11-08 00:00", "2026-11-10 00:00"))
+        #expect(kept.first?.source == .imported)
+    }
+
+    @Test func deletingWhatIsNotThereChangesNothing() throws {
+        try book(writing, "09:00", "10:00")
+        #expect(throws: MalocheError.blockNotFound) {
+            try database.deleteEntry(activityId: review, in: Fixture.span("09:00", "10:00"))
+        }
+        #expect(throws: MalocheError.blockNotFound) {
+            try database.deleteEntry(activityId: writing, in: Fixture.span("10:00", "11:00"))
+        }
+        #expect(try day() == ["\(writing) 09:00-10:00"])
+    }
+
     @Test func activityNamesAreUniqueWithinTheirParentIgnoringCaseIncludingArchived() throws {
         try database.setArchived(true, activities: [writing, review])
         #expect(throws: MalocheError.duplicateName) { try database.createActivity(name: " WRITING ") }

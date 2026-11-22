@@ -13,6 +13,10 @@ struct DashboardView: View {
     var onKeepTracking: () -> Void
     /// The activity of the clicked row or block, opened in Manage Activities.
     var onSelect: (Int64) -> Void = { _ in }
+    /// A confirmed entry of the day timeline, its activity and span.
+    var onDeleteEntry: (Int64, DateInterval) -> Void = { _, _ in }
+    /// The bar or row the pointer points at, shared by the timeline and the list.
+    @State var highlight: DashboardHighlight?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -20,12 +24,15 @@ struct DashboardView: View {
             periodPicker
             if data.period.kind == .day, let timeline = data.timeline, let day = data.day {
                 totals(day)
-                TimelineChart(data: data, timeline: timeline, onSelect: onSelect)
-                    .padding(.horizontal, 4)
+                TimelineChart(
+                    data: data, timeline: timeline, onSelect: onSelect,
+                    onDelete: { onDeleteEntry($0.key, $0.interval) }, highlight: $highlight
+                )
+                .padding(.horizontal, 4)
                 legend
                 Divider()
                     .padding(.horizontal, 4)
-                DashboardList(data: data, onSelect: onSelect)
+                DashboardList(data: data, onSelect: onSelect, highlight: $highlight)
             } else if data.period.kind != .day, data.summary.work > 0 || data.summary.breaks > 0 {
                 periodTotals
                 if data.period.kind == .week { WeekChart(data: data) } else { MonthGrid(data: data) }
@@ -381,16 +388,45 @@ extension EnvironmentValues {
     @Entry var foldSignal: FoldSignal?
 }
 
+/// What the pointer points at in the day view: a timeline bar or an activity row.
+enum DashboardHighlight: Equatable {
+    case bar(Int)
+    case row(Int64)
+}
+
 /// Work by customer, then project, each activity with its share of the day as a bar.
 struct DashboardList: View {
     var data: DashboardData
     var onSelect: (Int64) -> Void = { _ in }
+    @Binding var highlight: DashboardHighlight?
     @State private var collapsed: Set<Int64?> = []
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.foldSignal) private var foldSignal
 
     /// The panel height follows a fold with the same duration and curve.
     static let foldDuration = 0.25
+
+    enum Mark: Equatable {
+        case row(Int64)
+        case header(Int64?)
+    }
+
+    static func mark(
+        for activity: Int64?, in groups: [(customer: Int64?, activities: [Int64])], collapsed: Set<Int64?>
+    ) -> Mark? {
+        guard let activity, let group = groups.first(where: { $0.activities.contains(activity) }) else { return nil }
+        return collapsed.contains(group.customer) ? .header(group.customer) : .row(activity)
+    }
+
+    private var mark: Mark? {
+        let groups = data.summary.customers.map { total in
+            (
+                customer: total.customer?.id,
+                activities: total.projects.flatMap { $0.activities.compactMap(\.activity.id) }
+            )
+        }
+        return Self.mark(for: data.activity(of: highlight), in: groups, collapsed: collapsed)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -417,6 +453,7 @@ struct DashboardList: View {
                             .fontWeight(.semibold)
                     }
                     .frame(height: 22)
+                    .hoverBackground(mark == .header(total.customer?.id))
                     // the whole header toggles, not only the arrow
                     .contentShape(.rect)
                     .onTapGesture { expanded(total.customer?.id).wrappedValue.toggle() }
@@ -480,6 +517,24 @@ struct DashboardList: View {
                 .frame(minWidth: 36, alignment: .trailing)
         }
         .frame(height: 28)
+        .hoverBackground(total.activity.id.map { mark == .row($0) } ?? false)
+        .onHover { inside in
+            guard let id = total.activity.id else { return }
+            if inside {
+                highlight = .row(id)
+            } else if highlight == .row(id) {
+                highlight = nil
+            }
+        }
         .accessibilityElement(children: .combine)
+    }
+}
+
+extension View {
+    /// The hover look of a list row, slightly wider than its content so the text keeps its place.
+    fileprivate func hoverBackground(_ on: Bool) -> some View {
+        padding(.horizontal, 6)
+            .background(on ? Color(nsColor: .quaternarySystemFill) : .clear, in: .rect(cornerRadius: 6))
+            .padding(.horizontal, -6)
     }
 }

@@ -139,10 +139,18 @@ struct PanelView: View {
             customers: catalog.customers, current: model.nowRow,
             now: model.now, calendar: model.calendar, rounding: model.settings.rounding)
         data.manageable = Set(day.blocks.map(\.activityId)).filter { catalog.activity($0)?.kind == .regular }
+        data.runningEntry = model.tracker.runningEntry
         return DashboardView(
             data: data, moreActions: MoreActionsMenu(model: model), onShowPeriod: model.showDashboard,
             onCheckIn: model.checkIn, onKeepTracking: model.keepTracking,
-            onSelect: { model.openManageActivities(selecting: $0) })
+            onSelect: { model.openManageActivities(selecting: $0) },
+            onDeleteEntry: { id, interval in
+                do {
+                    try model.deleteEntry(activityId: id, in: interval)
+                } catch {
+                    NSSound.beep()
+                }
+            })
     }
 }
 
@@ -163,9 +171,10 @@ final class CheckInPanelController: PanelPresenter {
         panel.onCancel = { [weak model] in model?.close() }
         resignKeyObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
-        ) { [weak model] _ in
+        ) { [weak self, weak model] _ in
             // a click outside closes the dashboard
             MainActor.assumeIsolated {
+                guard Self.closesOnResignKey(sheetAttached: self?.panel.attachedSheet != nil) else { return }
                 model?.panelLostFocus()
             }
         }
@@ -194,6 +203,9 @@ final class CheckInPanelController: PanelPresenter {
             }
         }
     }
+
+    /// A sheet such as the delete confirmation takes the key status from the panel, that is no click outside.
+    static func closesOnResignKey(sheetAttached: Bool) -> Bool { !sheetAttached }
 
     /// Only the controller sizes the panel, with the content's fitting size; the default options let AppKit resize
     /// it at once while SwiftUI still animates, which made a fold jump before it moved.

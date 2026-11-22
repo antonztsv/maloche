@@ -29,6 +29,8 @@ struct DashboardData {
     var customers: [Int64: Customer]
     /// Activities whose rows and blocks open Manage Activities.
     var manageable: Set<Int64> = []
+    /// The block being booked right now, its entry has no Delete.
+    var runningEntry: RunningEntry?
 
     init(
         period: Period, blocks: [Block], activities: [Activity], projects: [Project], customers: [Customer],
@@ -87,9 +89,48 @@ struct DashboardData {
             ? [String(localized: "Break")]
             : [activity?.name, activity?.projectId.flatMap { projects[$0]?.name }, customer(of: bar.key)?.name]
                 .compactMap { $0 }
-        let span = String(
-            localized: "\(bar.interval.start, format: Self.time) to \(bar.interval.end, format: Self.time)")
-        return names.joined(separator: ", ") + "\n" + DurationFormat.hoursMinutes(bar.interval.duration) + ", " + span
+        let duration = bar.interval.duration
+        // h:mm would read 0:00 under a minute
+        let length = duration < 60 ? DurationFormat.spoken(duration) : DurationFormat.hoursMinutes(duration)
+        return names.joined(separator: ", ") + "\n" + length + ", " + Self.span(bar.interval)
+    }
+
+    /// "Code Review, 0:10 to 0:15", the entry as the context menu names it.
+    func entryName(_ bar: DayTimeline.Segment<Int64>) -> String {
+        "\(activityName(bar.key)), \(Self.span(bar.interval))"
+    }
+
+    /// "Code Review, Nordlicht GmbH, 0:10 to 0:15. This removes 5 minutes from today. You can’t undo this."
+    func deleteMessage(_ bar: DayTimeline.Segment<Int64>) -> String {
+        let entry =
+            ([activityName(bar.key)] + (isBreak(bar.key) ? [] : [customer(of: bar.key)?.name].compactMap { $0 })
+            + [Self.span(bar.interval)]).joined(separator: ", ")
+        let duration = DurationFormat.spoken(bar.interval.duration)
+        return isCurrent
+            ? String(localized: "\(entry). This removes \(duration) from today. You can’t undo this.")
+            : String(localized: "\(entry). This removes \(duration) from this day. You can’t undo this.")
+    }
+
+    func activity(of highlight: DashboardHighlight?) -> Int64? {
+        switch highlight {
+        case .bar(let index): bars.indices.contains(index) ? bars[index].key : nil
+        case .row(let id): id
+        case nil: nil
+        }
+    }
+
+    func isDeletable(_ bar: DayTimeline.Segment<Int64>) -> Bool {
+        runningEntry?.contains(activityId: bar.key, interval: bar.interval) != true
+    }
+
+    private func activityName(_ id: Int64) -> String {
+        isBreak(id) ? String(localized: "Break") : activities[id]?.name ?? ""
+    }
+
+    /// "10:00 to 12:15", with seconds when the span is shorter than a minute.
+    static func span(_ interval: DateInterval) -> String {
+        let format = interval.duration < 60 ? timeWithSeconds : time
+        return String(localized: "\(interval.start, format: format) to \(interval.end, format: format)")
     }
 
     static func name(of customer: Customer?) -> String {
@@ -102,13 +143,13 @@ struct DashboardData {
 
     /// "8:30 to 10:00 Internal", for VoiceOver.
     static func spanLabel(_ interval: DateInterval, _ name: String) -> String {
-        let span = String(
-            localized: "\(interval.start, format: time) to \(interval.end, format: time)")
-        return String(localized: "\(span) \(name)", comment: "A time span and what it was spent on, for VoiceOver")
+        String(localized: "\(span(interval)) \(name)", comment: "A time span and what it was spent on, for VoiceOver")
     }
 
     /// Clock time in the system 12 or 24 hour format, without a leading zero.
     static let time = Date.FormatStyle().hour(.defaultDigits(amPM: .abbreviated)).minute(.twoDigits)
+
+    static let timeWithSeconds = time.second(.twoDigits)
 
     private static func byId<T: Identifiable>(_ items: [T]) -> [Int64: T] where T.ID == Int64? {
         Dictionary(items.compactMap { item in item.id.map { ($0, item) } }) { first, _ in first }

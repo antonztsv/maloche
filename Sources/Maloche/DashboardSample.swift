@@ -22,7 +22,8 @@
         ]
 
         static func sample(
-            _ current: NowRow, empty: Bool = false, few: Bool = false, model: AppModel
+            _ current: NowRow, empty: Bool = false, few: Bool = false, highlight: DashboardHighlight? = nil,
+            model: AppModel
         ) -> DashboardView {
             let calendar = Calendar.current
             let day = calendar.date(from: DateComponents(year: 2026, month: 11, day: 9))!
@@ -47,7 +48,7 @@
             data.manageable = Set(blocks.map(\.activityId))
             return DashboardView(
                 data: data, moreActions: MoreActionsMenu(model: model), onShowPeriod: { _ in },
-                onCheckIn: {}, onKeepTracking: {})
+                onCheckIn: {}, onKeepTracking: {}, highlight: highlight)
         }
 
         /// Last week or October 2026 seen on November 10, each weekday Acme, a break, Northwind and Internal.
