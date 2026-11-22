@@ -190,12 +190,15 @@
                 (
                     "dashboard-day-hover",
                     AnyView(
-                        {
-                            var view = DashboardView.sample(
-                                .activity(id: DashboardView.sampleCodeReviewId), model: model)
-                            view.hoveredEntry = 0
-                            return view
-                        }())
+                        DashboardView.sample(
+                            .activity(id: DashboardView.sampleCodeReviewId), highlight: .bar(0), model: model))
+                ),
+                (
+                    "dashboard-day-row-hover",
+                    AnyView(
+                        DashboardView.sample(
+                            .activity(id: DashboardView.sampleCodeReviewId),
+                            highlight: .row(DashboardView.sampleCodeReviewId), model: model))
                 ),
                 (
                     "dashboard-few",

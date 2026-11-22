@@ -109,6 +109,14 @@ struct DashboardData {
             : String(localized: "\(entry). This removes \(duration) from this day. You can’t undo this.")
     }
 
+    func activity(of highlight: DashboardHighlight?) -> Int64? {
+        switch highlight {
+        case .bar(let index): bars.indices.contains(index) ? bars[index].key : nil
+        case .row(let id): id
+        case nil: nil
+        }
+    }
+
     func isDeletable(_ bar: DayTimeline.Segment<Int64>) -> Bool {
         runningEntry?.contains(activityId: bar.key, interval: bar.interval) != true
     }

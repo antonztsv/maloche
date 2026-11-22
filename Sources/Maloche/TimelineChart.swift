@@ -11,8 +11,8 @@ struct TimelineChart: View {
     var onSelect: (Int64) -> Void = { _ in }
     /// The confirmed deletion of an entry.
     var onDelete: (DayTimeline.Segment<Int64>) -> Void = { _ in }
-    /// The bar the pointer snaps to.
-    @State var hovered: Int?
+    /// The bar the pointer snaps to, or a row whose bars all show the ring.
+    @Binding var highlight: DashboardHighlight?
     @State private var deleting: DayTimeline.Segment<Int64>?
     @State private var width: CGFloat = 0
 
@@ -52,16 +52,19 @@ struct TimelineChart: View {
         }
         .frame(height: Self.axisTop + 14)
         .overlay(alignment: .topLeading) {
-            if let hovered, data.bars.indices.contains(hovered) {
-                let bar = data.bars[hovered]
-                let minX = bar.start * width + 1
-                // 2 pt apart from the block, 2 pt wide
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(Color.accentColor, lineWidth: 2)
-                    .frame(width: max(bar.end * width - 1 - minX, 1) + 8, height: Self.barHeight + 8)
-                    .offset(x: minX - 4, y: -4)
-                    .allowsHitTesting(false)
+            // the rings align to the leading edge, an implicit stack would center them on each other
+            ZStack(alignment: .topLeading) {
+                ForEach(ringed, id: \.self) { index in
+                    let bar = data.bars[index]
+                    let minX = bar.start * width + 1
+                    // 2 pt apart from the block, 2 pt wide
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                        .frame(width: max(bar.end * width - 1 - minX, 1) + 8, height: Self.barHeight + 8)
+                        .offset(x: minX - 4, y: -4)
+                }
             }
+            .allowsHitTesting(false)
         }
         .contentShape(.rect)
         .help(hovered.flatMap { data.bars.indices.contains($0) ? data.tooltip(of: data.bars[$0]) : nil } ?? "")
@@ -72,8 +75,14 @@ struct TimelineChart: View {
         }
         .onContinuousHover { phase in
             switch phase {
-            case .active(let location): hovered = bar(at: location)
-            case .ended: hovered = nil
+            case .active(let location):
+                if let index = bar(at: location) {
+                    highlight = .bar(index)
+                } else if hovered != nil {
+                    highlight = nil
+                }
+            case .ended:
+                if hovered != nil { highlight = nil }
             }
         }
         .onTapGesture { location in
@@ -119,6 +128,21 @@ struct TimelineChart: View {
             if data.isDeletable(bar) {
                 Button("Delete…") { deleting = bar }
             }
+        }
+    }
+
+    /// The bar the pointer snapped to, the one with the tooltip and the context menu.
+    private var hovered: Int? {
+        guard case .bar(let index) = highlight, data.bars.indices.contains(index) else { return nil }
+        return index
+    }
+
+    /// The snapped bar, or every bar of the hovered row's activity.
+    private var ringed: [Int] {
+        switch highlight {
+        case .bar: hovered.map { [$0] } ?? []
+        case .row(let id): data.bars.indices.filter { data.bars[$0].key == id }
+        case nil: []
         }
     }
 
