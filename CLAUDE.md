@@ -32,7 +32,7 @@ Native macOS menu bar time tracker. At an interval it asks "What are you working
 ```bash
 swift build
 swift test
-xcrun swift-format lint --recursive Sources Tests
+xcrun swift-format lint --strict --recursive Sources Tests
 scripts/build-app.sh
 scripts/screenshots.sh
 ```
