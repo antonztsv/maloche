@@ -98,15 +98,15 @@ struct DashboardData {
         "\(activityName(bar.key)), \(Self.span(bar.interval))"
     }
 
-    /// "Code Review, Nordlicht GmbH, 0:10 to 0:15. The 5 minutes are removed from today. You can’t undo this."
+    /// "Code Review, Nordlicht GmbH, 0:10 to 0:15. This removes 5 minutes from today. You can’t undo this."
     func deleteMessage(_ bar: DayTimeline.Segment<Int64>) -> String {
         let entry =
             ([activityName(bar.key)] + (isBreak(bar.key) ? [] : [customer(of: bar.key)?.name].compactMap { $0 })
             + [Self.span(bar.interval)]).joined(separator: ", ")
         let duration = DurationFormat.spoken(bar.interval.duration)
         return isCurrent
-            ? String(localized: "\(entry). The \(duration) are removed from today. You can’t undo this.")
-            : String(localized: "\(entry). The \(duration) are removed from this day. You can’t undo this.")
+            ? String(localized: "\(entry). This removes \(duration) from today. You can’t undo this.")
+            : String(localized: "\(entry). This removes \(duration) from this day. You can’t undo this.")
     }
 
     func isDeletable(_ bar: DayTimeline.Segment<Int64>) -> Bool {

@@ -41,7 +41,7 @@ import Testing
     }
 
     private func day() throws -> [String] {
-        try database.blocks(in: Fixture.span("2026-11-08 00:00", "2026-11-10 00:00")).map {
+        try database.blocks(in: Fixture.span("2026-11-08 00:00", "2026-11-11 00:00")).map {
             "\($0.activityId) \(Fixture.clock($0.startedAt))-\(Fixture.clock($0.endedAt))"
         }
     }
@@ -68,16 +68,24 @@ import Testing
         #expect(try day() == ["\(review) 09:00-10:00", "\(review) 11:30-12:00"])
     }
 
-    @Test func anImportedEntryAndOneAcrossMidnightGoWhole() throws {
+    /// The entry of one day ends at midnight; the part of its block on the day before or after stays.
+    @Test func deletingAnEntryKeepsThePartsOfItsBlocksOutsideItsSpan() throws {
         try database.insert(
             block: Block(
                 activityId: writing, startedAt: Fixture.at("2026-11-08 23:00"), endedAt: Fixture.at("01:00"),
                 source: .imported))
         try book(review, "01:00", "02:00")
+        try book(writing, "23:30", "2026-11-10 00:30")
 
         try database.deleteEntry(activityId: writing, in: Fixture.span("00:00", "01:00"))
+        try database.deleteEntry(activityId: writing, in: Fixture.span("23:30", "2026-11-10 00:00"))
 
-        #expect(try day() == ["\(review) 01:00-02:00"])
+        #expect(
+            try day() == [
+                "\(writing) 11-08 23:00-00:00", "\(review) 01:00-02:00", "\(writing) 11-10 00:00-11-10 00:30",
+            ])
+        let kept = try database.blocks(in: Fixture.span("2026-11-08 00:00", "2026-11-10 00:00"))
+        #expect(kept.first?.source == .imported)
     }
 
     @Test func deletingWhatIsNotThereChangesNothing() throws {

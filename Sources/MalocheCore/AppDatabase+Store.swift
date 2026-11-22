@@ -143,12 +143,18 @@ extension AppDatabase {
         }
     }
 
-    /// Deletes the activity's blocks that overlap the span of a drawn entry, whole, also beyond the span.
+    /// Deletes exactly the span of a drawn entry from the activity's blocks, parts outside it stay as shorter blocks.
     public func deleteEntry(activityId: Int64, in interval: DateInterval) throws {
         try dbQueue.write { db in
-            let deleted = try Self.overlapping(interval.start, interval.end)
-                .filter(Column("activityId") == activityId).deleteAll(db)
-            guard deleted > 0 else { throw MalocheError.blockNotFound }
+            let blocks = try Self.overlapping(interval.start, interval.end)
+                .filter(Column("activityId") == activityId).fetchAll(db)
+            guard !blocks.isEmpty else { throw MalocheError.blockNotFound }
+            let span = Block(activityId: activityId, startedAt: interval.start, endedAt: interval.end, source: .manual)
+            let changes = Timeline.changes(inserting: span, into: blocks)
+            _ = try Block.deleteAll(db, ids: changes.deletedIds)
+            for updated in changes.updated { try updated.update(db) }
+            // the first inserted block is the span itself
+            for var tail in changes.inserted.dropFirst() { try tail.insert(db) }
         }
     }
 
