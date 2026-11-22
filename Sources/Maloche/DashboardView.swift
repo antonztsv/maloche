@@ -388,13 +388,13 @@ extension EnvironmentValues {
     @Entry var foldSignal: FoldSignal?
 }
 
-/// Work by customer, then project, each activity with its share of the day as a bar.
 /// What the pointer points at in the day view: a timeline bar or an activity row.
 enum DashboardHighlight: Equatable {
     case bar(Int)
     case row(Int64)
 }
 
+/// Work by customer, then project, each activity with its share of the day as a bar.
 struct DashboardList: View {
     var data: DashboardData
     var onSelect: (Int64) -> Void = { _ in }
