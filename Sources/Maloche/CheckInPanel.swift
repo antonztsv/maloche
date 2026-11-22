@@ -139,10 +139,18 @@ struct PanelView: View {
             customers: catalog.customers, current: model.nowRow,
             now: model.now, calendar: model.calendar, rounding: model.settings.rounding)
         data.manageable = Set(day.blocks.map(\.activityId)).filter { catalog.activity($0)?.kind == .regular }
+        data.runningEntry = model.tracker.runningEntry
         return DashboardView(
             data: data, moreActions: MoreActionsMenu(model: model), onShowPeriod: model.showDashboard,
             onCheckIn: model.checkIn, onKeepTracking: model.keepTracking,
-            onSelect: { model.openManageActivities(selecting: $0) })
+            onSelect: { model.openManageActivities(selecting: $0) },
+            onDeleteEntry: { id, interval in
+                do {
+                    try model.deleteEntry(activityId: id, in: interval)
+                } catch {
+                    NSSound.beep()
+                }
+            })
     }
 }
 

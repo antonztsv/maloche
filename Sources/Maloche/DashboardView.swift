@@ -13,6 +13,10 @@ struct DashboardView: View {
     var onKeepTracking: () -> Void
     /// The activity of the clicked row or block, opened in Manage Activities.
     var onSelect: (Int64) -> Void = { _ in }
+    /// A confirmed entry of the day timeline, its activity and span.
+    var onDeleteEntry: (Int64, DateInterval) -> Void = { _, _ in }
+    /// The timeline bar shown as hovered, for screenshots.
+    var hoveredEntry: Int?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -20,8 +24,11 @@ struct DashboardView: View {
             periodPicker
             if data.period.kind == .day, let timeline = data.timeline, let day = data.day {
                 totals(day)
-                TimelineChart(data: data, timeline: timeline, onSelect: onSelect)
-                    .padding(.horizontal, 4)
+                TimelineChart(
+                    data: data, timeline: timeline, onSelect: onSelect,
+                    onDelete: { onDeleteEntry($0.key, $0.interval) }, hovered: hoveredEntry
+                )
+                .padding(.horizontal, 4)
                 legend
                 Divider()
                     .padding(.horizontal, 4)

@@ -71,6 +71,26 @@ import Testing
         #expect(DayTimeline(day: dayInterval(9), blocks: blocks, now: local(9, 12), calendar: calendar) == nil)
     }
 
+    /// Spans in points: 0 to 2, 100 to 300, 304 to 306.
+    private let spans: [ClosedRange<Double>] = [0...2, 100...300, 304...306]
+
+    @Test func thePointerSnapsToTheNearestBlockWithinEightPoints() {
+        #expect(DayTimeline.nearest(to: 1, in: spans, radius: 8) == 0)
+        #expect(DayTimeline.nearest(to: 9, in: spans, radius: 8) == 0)
+        #expect(DayTimeline.nearest(to: 10.5, in: spans, radius: 8) == nil)
+        #expect(DayTimeline.nearest(to: 93, in: spans, radius: 8) == 1)
+        #expect(DayTimeline.nearest(to: 200, in: spans, radius: 8) == 1)
+        #expect(DayTimeline.nearest(to: 309, in: spans, radius: 8) == 2)
+        #expect(DayTimeline.nearest(to: 320, in: spans, radius: 8) == nil)
+        #expect(DayTimeline.nearest(to: 5, in: [], radius: 8) == nil)
+    }
+
+    @Test func betweenTwoBlocksTheNearerEdgeWins() {
+        #expect(DayTimeline.nearest(to: 301, in: spans, radius: 8) == 1)
+        #expect(DayTimeline.nearest(to: 303, in: spans, radius: 8) == 2)
+        #expect(DayTimeline.nearest(to: 55, in: [0...50, 58...60], radius: 8) == 1)
+    }
+
     @Test func touchingBlocksWithTheSameKeyMerge() throws {
         let blocks = [
             block(1, local(9, 9), local(9, 9, 15)), block(1, local(9, 9, 15), local(9, 10)),

@@ -188,6 +188,16 @@
                     AnyView(DashboardView.sample(.activity(id: DashboardView.sampleCodeReviewId), model: model))
                 ),
                 (
+                    "dashboard-day-hover",
+                    AnyView(
+                        {
+                            var view = DashboardView.sample(
+                                .activity(id: DashboardView.sampleCodeReviewId), model: model)
+                            view.hoveredEntry = 0
+                            return view
+                        }())
+                ),
+                (
                     "dashboard-few",
                     AnyView(DashboardView.sample(.activity(id: 5), few: true, model: model))
                 ),

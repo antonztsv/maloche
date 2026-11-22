@@ -198,6 +198,12 @@ public struct Tracker: Sendable {
         if let current = state.current, !activities.contains(current) { state.current = nil }
     }
 
+    /// The block being booked right now, nil while off, away or before the first answer.
+    public var runningEntry: RunningEntry? {
+        guard isRunning, let running else { return nil }
+        return RunningEntry(activityId: running, since: state.runStart)
+    }
+
     /// Since when the current activity or the break runs, nil while off or away.
     public var runningSince: Date? { isRunning ? state.runStart : nil }
 

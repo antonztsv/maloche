@@ -29,6 +29,8 @@ struct DashboardData {
     var customers: [Int64: Customer]
     /// Activities whose rows and blocks open Manage Activities.
     var manageable: Set<Int64> = []
+    /// The block being booked right now, its entry has no Delete.
+    var runningEntry: RunningEntry?
 
     init(
         period: Period, blocks: [Block], activities: [Activity], projects: [Project], customers: [Customer],
@@ -87,9 +89,36 @@ struct DashboardData {
             ? [String(localized: "Break")]
             : [activity?.name, activity?.projectId.flatMap { projects[$0]?.name }, customer(of: bar.key)?.name]
                 .compactMap { $0 }
-        let span = String(
-            localized: "\(bar.interval.start, format: Self.time) to \(bar.interval.end, format: Self.time)")
-        return names.joined(separator: ", ") + "\n" + DurationFormat.hoursMinutes(bar.interval.duration) + ", " + span
+        return names.joined(separator: ", ") + "\n" + DurationFormat.hoursMinutes(bar.interval.duration) + ", "
+            + Self.span(bar.interval)
+    }
+
+    /// "Code Review, 0:10 to 0:15", the entry as the context menu names it.
+    func entryName(_ bar: DayTimeline.Segment<Int64>) -> String {
+        "\(activityName(bar.key)), \(Self.span(bar.interval))"
+    }
+
+    /// "Code Review, Nordlicht GmbH, 0:10 to 0:15. The 5 minutes are removed from today. You can’t undo this."
+    func deleteMessage(_ bar: DayTimeline.Segment<Int64>) -> String {
+        let entry =
+            ([activityName(bar.key)] + (isBreak(bar.key) ? [] : [customer(of: bar.key)?.name].compactMap { $0 })
+            + [Self.span(bar.interval)]).joined(separator: ", ")
+        let duration = DurationFormat.spoken(bar.interval.duration)
+        return isCurrent
+            ? String(localized: "\(entry). The \(duration) are removed from today. You can’t undo this.")
+            : String(localized: "\(entry). The \(duration) are removed from this day. You can’t undo this.")
+    }
+
+    func isDeletable(_ bar: DayTimeline.Segment<Int64>) -> Bool {
+        runningEntry?.contains(activityId: bar.key, interval: bar.interval) != true
+    }
+
+    private func activityName(_ id: Int64) -> String {
+        isBreak(id) ? String(localized: "Break") : activities[id]?.name ?? ""
+    }
+
+    static func span(_ interval: DateInterval) -> String {
+        String(localized: "\(interval.start, format: time) to \(interval.end, format: time)")
     }
 
     static func name(of customer: Customer?) -> String {
@@ -102,9 +131,7 @@ struct DashboardData {
 
     /// "8:30 to 10:00 Internal", for VoiceOver.
     static func spanLabel(_ interval: DateInterval, _ name: String) -> String {
-        let span = String(
-            localized: "\(interval.start, format: time) to \(interval.end, format: time)")
-        return String(localized: "\(span) \(name)", comment: "A time span and what it was spent on, for VoiceOver")
+        String(localized: "\(span(interval)) \(name)", comment: "A time span and what it was spent on, for VoiceOver")
     }
 
     /// Clock time in the system 12 or 24 hour format, without a leading zero.

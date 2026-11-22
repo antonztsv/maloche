@@ -36,6 +36,41 @@ import Testing
         }
     }
 
+    @Test func deletingAnEntryLeavesItsSpanEmptyAndTheDayStartsWithTheNext() throws {
+        let model = try makeModel()
+        let review = try model.database.createActivity(name: "Review").id!
+        try model.database.insert(
+            block: Block(
+                activityId: review, startedAt: Fixture.at("00:10"), endedAt: Fixture.at("00:15"), source: .checkIn))
+        let writing = try writingFrom0900(model)
+        tick(model, at: "09:10")
+        model.statusItemClicked()
+
+        try model.deleteEntry(activityId: review, in: Fixture.span("00:10", "00:15"))
+
+        #expect(try booked(model) == ["Writing 09:00-09:10"])
+        guard case .dashboard(let day) = model.panel else {
+            Issue.record("the dashboard stays")
+            return
+        }
+        #expect(day.blocks.map(\.activityId) == [writing])
+        #expect(model.currentActivity == writing)
+    }
+
+    @Test func theRunningEntryCannotBeDeleted() throws {
+        let model = try makeModel()
+        let writing = try writingFrom0900(model)
+        tick(model, at: "09:10")
+        let running = try #require(model.tracker.runningEntry)
+        #expect(running.contains(activityId: writing, interval: Fixture.span("09:00", "09:10")))
+        #expect(!running.contains(activityId: writing, interval: Fixture.span("08:00", "08:30")))
+
+        #expect(throws: MalocheError.runningEntry) {
+            try model.deleteEntry(activityId: writing, in: Fixture.span("09:00", "09:10"))
+        }
+        #expect(try booked(model) == ["Writing 09:00-09:10"])
+    }
+
     @Test func manageActivitiesFromTheMoreMenuClosesThePanelFirst() throws {
         let model = try makeModel()
         model.statusItemClicked()

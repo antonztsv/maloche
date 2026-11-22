@@ -462,6 +462,14 @@ public final class AppModel {
         saveState()
     }
 
+    /// One entry of the day timeline; the span stays empty, the running entry is refused.
+    public func deleteEntry(activityId: Int64, in interval: DateInterval) throws {
+        if tracker.runningEntry?.contains(activityId: activityId, interval: interval) == true {
+            throw MalocheError.runningEntry
+        }
+        try manage { try $0.deleteEntry(activityId: activityId, in: interval) }
+    }
+
     /// The window's sidebar and table, with the work of the current calendar month.
     public func activityOverview() throws -> ActivityOverview {
         let month = Period(.month, containing: now, calendar: calendar)

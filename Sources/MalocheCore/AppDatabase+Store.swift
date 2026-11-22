@@ -9,6 +9,7 @@ public enum MalocheError: Error, Equatable {
     case blockNotFound
     case duplicateName
     case notABackup
+    case runningEntry
 }
 
 extension AppDatabase {
@@ -139,6 +140,15 @@ extension AppDatabase {
             for id in ids { _ = try Self.regularActivity(db, id: id) }
             _ = try Block.filter(ids.contains(Column("activityId"))).deleteAll(db)
             _ = try Activity.deleteAll(db, ids: ids)
+        }
+    }
+
+    /// Deletes the activity's blocks that overlap the span of a drawn entry, whole, also beyond the span.
+    public func deleteEntry(activityId: Int64, in interval: DateInterval) throws {
+        try dbQueue.write { db in
+            let deleted = try Self.overlapping(interval.start, interval.end)
+                .filter(Column("activityId") == activityId).deleteAll(db)
+            guard deleted > 0 else { throw MalocheError.blockNotFound }
         }
     }
 
