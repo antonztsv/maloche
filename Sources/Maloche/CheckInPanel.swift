@@ -171,9 +171,10 @@ final class CheckInPanelController: PanelPresenter {
         panel.onCancel = { [weak model] in model?.close() }
         resignKeyObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
-        ) { [weak model] _ in
+        ) { [weak self, weak model] _ in
             // a click outside closes the dashboard
             MainActor.assumeIsolated {
+                guard Self.closesOnResignKey(sheetAttached: self?.panel.attachedSheet != nil) else { return }
                 model?.panelLostFocus()
             }
         }
@@ -202,6 +203,9 @@ final class CheckInPanelController: PanelPresenter {
             }
         }
     }
+
+    /// A sheet such as the delete confirmation takes the key status from the panel, that is no click outside.
+    static func closesOnResignKey(sheetAttached: Bool) -> Bool { !sheetAttached }
 
     /// Only the controller sizes the panel, with the content's fitting size; the default options let AppKit resize
     /// it at once while SwiftUI still animates, which made a fold jump before it moved.
