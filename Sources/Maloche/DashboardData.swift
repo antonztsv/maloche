@@ -89,8 +89,10 @@ struct DashboardData {
             ? [String(localized: "Break")]
             : [activity?.name, activity?.projectId.flatMap { projects[$0]?.name }, customer(of: bar.key)?.name]
                 .compactMap { $0 }
-        return names.joined(separator: ", ") + "\n" + DurationFormat.hoursMinutes(bar.interval.duration) + ", "
-            + Self.span(bar.interval)
+        let duration = bar.interval.duration
+        // h:mm would read 0:00 under a minute
+        let length = duration < 60 ? DurationFormat.spoken(duration) : DurationFormat.hoursMinutes(duration)
+        return names.joined(separator: ", ") + "\n" + length + ", " + Self.span(bar.interval)
     }
 
     /// "Code Review, 0:10 to 0:15", the entry as the context menu names it.
@@ -125,8 +127,10 @@ struct DashboardData {
         isBreak(id) ? String(localized: "Break") : activities[id]?.name ?? ""
     }
 
+    /// "10:00 to 12:15", with seconds when the span is shorter than a minute.
     static func span(_ interval: DateInterval) -> String {
-        String(localized: "\(interval.start, format: time) to \(interval.end, format: time)")
+        let format = interval.duration < 60 ? timeWithSeconds : time
+        return String(localized: "\(interval.start, format: format) to \(interval.end, format: format)")
     }
 
     static func name(of customer: Customer?) -> String {
@@ -144,6 +148,8 @@ struct DashboardData {
 
     /// Clock time in the system 12 or 24 hour format, without a leading zero.
     static let time = Date.FormatStyle().hour(.defaultDigits(amPM: .abbreviated)).minute(.twoDigits)
+
+    static let timeWithSeconds = time.second(.twoDigits)
 
     private static func byId<T: Identifiable>(_ items: [T]) -> [Int64: T] where T.ID == Int64? {
         Dictionary(items.compactMap { item in item.id.map { ($0, item) } }) { first, _ in first }

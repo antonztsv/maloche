@@ -24,6 +24,15 @@ import Testing
         #expect(DurationFormat.spoken(0, locale: english) == "0 minutes")
     }
 
+    @Test func spokenDurationsUnderAMinuteNameSeconds() {
+        #expect(DurationFormat.spoken(6, locale: english) == "6 seconds")
+        #expect(DurationFormat.spoken(59, locale: english) == "59 seconds")
+        #expect(DurationFormat.spoken(60, locale: english) == "1 minute")
+        #expect(DurationFormat.spoken(61, locale: english) == "1 minute")
+        #expect(DurationFormat.spoken(0, locale: english) == "0 minutes")
+        #expect(DurationFormat.spoken(6, locale: Locale(identifier: "de_DE")) == "6 Sekunden")
+    }
+
     @Test func spokenDurationsRoundLikeTheShownOnes() {
         #expect(DurationFormat.spoken(7 * 3600 + 44 * 60 + 30, locale: english) == "7 hours 45 minutes")
         #expect(DurationFormat.spoken(25 * 3600 + 59 * 60 + 40, locale: english) == "26 hours")

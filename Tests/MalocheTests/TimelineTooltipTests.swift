@@ -16,6 +16,26 @@ import Testing
         "\(from.formatted(DashboardData.time)) to \(to.formatted(DashboardData.time))"
     }
 
+    /// "22:01:02 to 22:01:08" and "6 seconds" for an entry under a minute, the same in tooltip, menu and confirmation.
+    @Test func anEntryUnderAMinuteIsNamedInSeconds() throws {
+        let start = calendar.date(bySettingHour: 22, minute: 1, second: 2, of: day)!
+        let end = start + 6
+        let data = DashboardData(
+            period: Period(.day, containing: day, calendar: calendar),
+            blocks: [Block(activityId: 1, startedAt: start, endedAt: end, source: .checkIn)],
+            activities: [Activity(id: 1, name: "Test")], projects: [], customers: [], current: .none,
+            now: at(23), calendar: calendar)
+        let bar = try #require(data.bars.first)
+        let seconds =
+            "\(start.formatted(DashboardData.timeWithSeconds)) to \(end.formatted(DashboardData.timeWithSeconds))"
+        #expect(DashboardData.span(bar.interval) == seconds)
+        #expect(data.entryName(bar) == "Test, \(seconds)")
+        #expect(data.tooltip(of: bar) == "Test\n\(DurationFormat.spoken(6)), \(seconds)")
+        #expect(data.deleteMessage(bar).hasPrefix("Test, \(seconds). "))
+        #expect(data.deleteMessage(bar).contains(DurationFormat.spoken(6)))
+        #expect(DashboardData.span(DateInterval(start: start, duration: 60)) == span(start, start + 60))
+    }
+
     @Test func eachBlockNamesActivityProjectCustomerDurationAndSpan() throws {
         let blocks = [
             Block(activityId: 1, startedAt: at(10), endedAt: at(11), source: .checkIn),
